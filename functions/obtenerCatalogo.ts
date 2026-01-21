@@ -14,8 +14,8 @@ Deno.serve(async (req) => {
         }
 
         // === TRADUCTOR MARCA BLANCA ===
-        const ID_REAL_MAXI = '6967c145da288cc653cfeab2';
-        const id_comercio = (idRecibido === '000001') ? ID_REAL_MAXI : idRecibido;
+        // Usamos el ID recibido directamente como id_comercio (Soberano)
+        const id_comercio = idRecibido;
         // ==============================
 
         // 1. OBTENER PRODUCTOS (Usamos asServiceRole para que sea público y rápido)

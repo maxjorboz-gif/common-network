@@ -53,25 +53,9 @@ Deno.serve(async (req) => {
             fbp, fbc, userAgent
         } = body;
 
-        // === RESOLUCIÓN DE IDENTIDAD Y TRADUCTOR ===
-        // Usamos id_db para referirnos al ID REAL de Mongo
-        let id_db = idRecibido; // Default (si ya fuera UUID)
-
-        // 1. Intentamos buscar por campo visual (Escalable)
-        // Solo buscamos si no parece un UUID (ej: es corto) para ahorrar reads
-        if (idRecibido && idRecibido.length < 20) {
-            const comerciosVisual = await base44.asServiceRole.entities.Comercio.filter({
-                id_comercio: idRecibido
-            }, '-created_date', 1);
-
-            if (comerciosVisual.length > 0) {
-                id_db = comerciosVisual[0].id;
-            } else {
-                // Si no encontramos el ID Soberano, lanzamos error o dejamos que falle más adelante?
-                // Mejor logueamos warning y seguimos con el ID tal cual por si acaso
-                console.warn(`ID Soberano ${idRecibido} no encontrado en DB.`);
-            }
-        }
+        // === RESOLUCIÓN DE IDENTIDAD (Soberana) ===
+        // Usamos el ID recibido directamente como id_comercio (000001)
+        const id_comercio_final = idRecibido;
         // =============================================
 
         // 1. SIEMPRE NORMALIZAMOS Y HASHEAMOS PARA MARKETING/ORDEN
@@ -122,7 +106,7 @@ Deno.serve(async (req) => {
         // 4. CREACIÓN DE LA ORDEN CON TODO HASHEADO Y ID TRADUCIDO
         const orden = await base44.asServiceRole.entities.Orden.create({
             ...body,
-            id_comercio: id_db, // <--- CRÍTICO: Guardamos la orden bajo el UUID REAL
+            id_comercio: id_comercio_final, // <--- SOBERANO (000001)
 
             cliente: {
                 ...cliente,

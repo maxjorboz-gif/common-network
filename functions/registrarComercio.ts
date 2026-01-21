@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
             const idExistente = existingCommerce[0].id;
             await base44.asServiceRole.entities.Comercio.update(idExistente, {
                 id_comercio: nuevoIdSoberano,
+                id_visual: nuevoIdSoberano, // DUPLICADO PARA COMPATIBILIDAD
                 nombre_comercio: nombre_comercio, // Actualizamos nombre por si quiso cambiarlo
                 updated_at: new Date().toISOString(),
                 activo: true,
@@ -72,13 +73,14 @@ Deno.serve(async (req) => {
                     color_primario: "#ea580c"
                 }
             });
-            nuevoComercio = { ...existingCommerce[0], id_comercio: nuevoIdSoberano };
+            nuevoComercio = { ...existingCommerce[0], id_comercio: nuevoIdSoberano, id_visual: nuevoIdSoberano };
         } else {
             // Caso Nuevo: Creamos de cero
             nuevoComercio = await base44.asServiceRole.entities.Comercio.create({
                 email_admin: user.email,
                 user_id: user.id,
                 id_comercio: nuevoIdSoberano,
+                id_visual: nuevoIdSoberano, // DUPLICADO PARA COMPATIBILIDAD
                 nombre_comercio: nombre_comercio,
                 created_at: new Date().toISOString(),
                 activo: true,
@@ -92,6 +94,7 @@ Deno.serve(async (req) => {
         return Response.json({
             success: true,
             id_comercio: nuevoIdSoberano,
+            id_visual: nuevoIdSoberano,
             comercio: nuevoComercio
         });
 

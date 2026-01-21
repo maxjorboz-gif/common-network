@@ -18,19 +18,28 @@ Deno.serve(async (req) => {
         }
 
         // === RESOLUCIÓN DE IDENTIDAD ESCALABLE ===
-        let id_comercio = idRecibido; // Default UUID
+        // Buscamos por el ID Soberano (id_comercio) suministrado
+        const comerciosSoberanos = await base44.asServiceRole.entities.Comercio.filter({
+            id_comercio: idRecibido
+        }, '-created_date', 1);
 
-        const comerciosVisual = await base44.asServiceRole.entities.Comercio.filter({ id_visual: idRecibido }, '-created_date', 1);
+        let id_base44_interno;
 
-        if (comerciosVisual.length > 0) {
-            id_comercio = comerciosVisual[0].id;
-        } else if (idRecibido === '000001') {
-            id_comercio = '6967c145da288cc653cfeab2'; // Fallback Maxi
+        if (comerciosSoberanos.length > 0) {
+            // El backend usa el ID nativo de la entidad para filtrar los productos 
+            // que tienen ese 'id_comercio' vinculado. 
+            // IMPORTANTE: En el esquema de Base44, los productos guardados por crearProducto
+            // guardan el id_comercio (000001) en su campo id_comercio.
+            id_base44_interno = idRecibido;
+        } else {
+            // Fallback: si no encontramos el comercio soberano, usamos el ID recibido directamente
+            // por si ya es un ID nativo (compatibilidad)
+            id_base44_interno = idRecibido;
         }
         // ==========================================
 
         const productos = await base44.asServiceRole.entities.Producto.filter({
-            id_comercio: id_comercio
+            id_comercio: id_base44_interno
         }, '-created_date', 100);
 
         // Normalizar stock para el admin

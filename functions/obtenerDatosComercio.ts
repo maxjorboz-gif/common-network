@@ -18,16 +18,31 @@ Deno.serve(async (req) => {
         }
 
         // 1. BUSCAMOS POR EMAIL (Identidad primaria)
+        // Normalizamos el email para evitar problemas de espacios o mayúsculas
+        const normalizedEmail = user.email.toLowerCase().trim();
+
         const comercios = await base44.asServiceRole.entities.Comercio.filter({
-            email_admin: user.email
+            email_admin: normalizedEmail
         }, '-created_date', 1);
 
         let miComercio = comercios[0];
 
+        // 2. BUSQUEDA POR USER_ID (Fallback si el email fallara por alguna razón)
+        if (!miComercio) {
+            const comerciosById = await base44.asServiceRole.entities.Comercio.filter({
+                user_id: user.id
+            }, '-created_date', 1);
+            miComercio = comerciosById[0];
+        }
+
         if (!miComercio || !miComercio.id_comercio) {
             // WHITE LABEL FLOW: 
             // Si el usuario no tiene comercio, devolvemos 404 para que el frontend lo mande a registrar.
-            return Response.json({ error: 'Comercio no inicializado', code: 'COMMERCE_NOT_FOUND' }, { status: 404 });
+            return Response.json({
+                error: 'Comercio no inicializado',
+                code: 'COMMERCE_NOT_FOUND',
+                email_intent: normalizedEmail
+            }, { status: 404 });
         }
 
         const idSoberano = miComercio.id_comercio;
@@ -38,8 +53,9 @@ Deno.serve(async (req) => {
             id_comercio: idSoberano,
             comercio: {
                 ...miComercio,
-                id: idSoberano, // El ID nativo muere aquí para el frontend
-                id_comercio: idSoberano
+                id: idSoberano, // Normalizamos: para el front, el ID es el soberano
+                id_comercio: idSoberano,
+                id_visual: miComercio.id_visual || idSoberano // Backup
             }
         });
 

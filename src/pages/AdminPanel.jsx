@@ -63,9 +63,17 @@ export default function AdminPanel() {
   });
 
   useEffect(() => {
-    // Si el error es porque no tiene comercio, lo mandamos a crear uno
-    if (error && (error.message.includes('404') || error.message.includes('Comercio no inicializado'))) {
-      window.location.href = '/registro';
+    // LEY DE TORTUGA: Manejo de errores de inicialización de comercio
+    if (error) {
+      const errorMsg = error.message || '';
+      const isNotFound = errorMsg.includes('404') ||
+        errorMsg.includes('Comercio no inicializado') ||
+        errorMsg.includes('COMMERCE_NOT_FOUND');
+
+      if (isNotFound) {
+        console.warn('Comercio no encontrado, redirigiendo a registro...');
+        window.location.href = '/registro';
+      }
     }
   }, [error]);
 
