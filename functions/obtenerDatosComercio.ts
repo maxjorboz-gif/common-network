@@ -19,16 +19,20 @@ Deno.serve(async (req) => {
 
         // 1. BUSCAMOS POR EMAIL (Identidad primaria)
         // Normalizamos el email para evitar problemas de espacios o mayúsculas
-        const normalizedEmail = user.email.toLowerCase().trim();
+        const userEmail = user.email || "";
+        const normalizedEmail = userEmail.toLowerCase().trim();
 
-        const comercios = await base44.asServiceRole.entities.Comercio.filter({
-            email_admin: normalizedEmail
-        }, '-created_date', 1);
+        let miComercio = null;
 
-        let miComercio = comercios[0];
+        if (normalizedEmail) {
+            const comercios = await base44.asServiceRole.entities.Comercio.filter({
+                email_admin: normalizedEmail
+            }, '-created_date', 1);
+            miComercio = comercios[0];
+        }
 
-        // 2. BUSQUEDA POR USER_ID (Fallback si el email fallara por alguna razón)
-        if (!miComercio) {
+        // 2. BUSQUEDA POR USER_ID (Fallback si el email fallara por alguna razón o no tuviera)
+        if (!miComercio && user.id) {
             const comerciosById = await base44.asServiceRole.entities.Comercio.filter({
                 user_id: user.id
             }, '-created_date', 1);

@@ -20,9 +20,12 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Nombre de comercio requerido' }, { status: 400 });
         }
 
+        const userEmail = user.email || "";
+        const normalizedEmail = userEmail.toLowerCase().trim();
+
         // 1. Check if user already has a commerce
         const existingCommerce = await base44.asServiceRole.entities.Comercio.filter({
-            email_admin: user.email
+            email_admin: normalizedEmail
         }, '-created_date', 1);
 
         if (existingCommerce.length > 0) {
@@ -77,7 +80,7 @@ Deno.serve(async (req) => {
         } else {
             // Caso Nuevo: Creamos de cero
             nuevoComercio = await base44.asServiceRole.entities.Comercio.create({
-                email_admin: user.email,
+                email_admin: normalizedEmail,
                 user_id: user.id,
                 id_comercio: nuevoIdSoberano,
                 id_visual: nuevoIdSoberano, // DUPLICADO PARA COMPATIBILIDAD
