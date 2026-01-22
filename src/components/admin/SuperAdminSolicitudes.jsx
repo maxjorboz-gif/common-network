@@ -98,8 +98,38 @@ export default function SuperAdminSolicitudes() {
         recaudacionTotal: (solicitudes?.filter(s => s.pago_confirmado).length || 0) * 150000
     };
 
+    const handleNuclearReset = async () => {
+        if (!window.confirm("¿ESTÁS SEGURO? Esto borrará TODOS los comercios y solicitudes antiguas para empezar de cero. Esta acción no se puede deshacer.")) return;
+
+        try {
+            const { data } = await base44.functions.invoke('resetData', {});
+            if (data.success) {
+                toast({ title: "Base de Datos Limpia", description: "Se han borrado todos los registros legacy con éxito." });
+                queryClient.invalidateQueries(['solicitudes-comercio']);
+            }
+        } catch (error) {
+            toast({ title: "Error en Reset", description: error.message, variant: "destructive" });
+        }
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
+
+            {/* Header con Botón de Emergencia */}
+            <div className="flex justify-between items-end">
+                <div>
+                    <h2 className="text-2xl font-black italic uppercase text-neutral-900 tracking-tighter">Gestión de Red</h2>
+                    <p className="text-neutral-500 text-sm font-medium">Control total de solicitudes y comercios activos</p>
+                </div>
+                <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleNuclearReset}
+                    className="bg-red-600 hover:bg-red-700 text-[10px] font-black italic uppercase px-4 h-8 rounded-lg shadow-lg shadow-red-900/20"
+                >
+                    <Flame className="w-3 h-3 mr-2" /> Limpieza Nuclear
+                </Button>
+            </div>
 
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
