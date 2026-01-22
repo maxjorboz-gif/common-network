@@ -1,69 +1,48 @@
 // @ts-nocheck
 import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
-/**
- * Genera el formato 000001
- */
-function generateSovereignId(num) {
-    return num.toString().padStart(6, '0');
-}
-
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
 
-        if (!user) {
-            return Response.json({ error: 'No autorizado' }, { status: 401 });
+        // NO HACEMOS AUTH CHECK COMPLEJO AQUÍ PARA EVITAR COLLISIONES CON TABLAS DAÑADAS
+        // Solo verificamos email de usuario si es posible
+        let user;
+        try {
+            user = await base44.auth.me();
+        } catch (e) {
+            return Response.json({ error: 'Auth fail' }, { status: 401 });
         }
 
-        // 1. BUSCAMOS POR EMAIL (Identidad primaria)
-        // Normalizamos el email para evitar problemas de espacios o mayúsculas
-        const userEmail = user.email || "";
-        const normalizedEmail = userEmail.toLowerCase().trim();
+        if (!user) return Response.json({ error: 'No user' }, { status: 401 });
 
-        let miComercio = null;
+        const userEmail = (user.email || "").toLowerCase().trim();
 
-        if (normalizedEmail) {
+        // LEY DE MEMORIA: Al buscar datos de comercio, si la tabla está rota, 
+        // devolvemos 404 para que el front lo mande a /registro.
+        // NO intentamos hacer cosas raras si falla.
+        try {
             const comercios = await base44.asServiceRole.entities.Comercio.filter({
-                email_admin: normalizedEmail
+                email_admin: userEmail
             }, '-created_date', 1);
-            miComercio = comercios[0];
-        }
 
-        // 2. BUSQUEDA POR USER_ID (Fallback si el email fallara por alguna razón o no tuviera)
-        if (!miComercio && user.id) {
-            const comerciosById = await base44.asServiceRole.entities.Comercio.filter({
-                user_id: user.id
-            }, '-created_date', 1);
-            miComercio = comerciosById[0];
-        }
+            const miComercio = comercios[0];
 
-        if (!miComercio || !miComercio.id_comercio) {
-            // WHITE LABEL FLOW: 
-            // Si el usuario no tiene comercio, devolvemos 404 para que el frontend lo mande a registrar.
-            return Response.json({
-                error: 'Comercio no inicializado',
-                code: 'COMMERCE_NOT_FOUND',
-                email_intent: normalizedEmail
-            }, { status: 404 });
-        }
-
-        const idSoberano = miComercio.id_comercio;
-
-        // 3. RESPUESTA LIMPIA
-        return Response.json({
-            success: true,
-            id_comercio: idSoberano,
-            comercio: {
-                ...miComercio,
-                id: idSoberano, // Normalizamos: para el front, el ID es el soberano
-                id_comercio: idSoberano,
-                id_visual: miComercio.id_visual || idSoberano // Backup
+            if (!miComercio || !miComercio.activo) {
+                return Response.json({ error: 'No activo', code: 'COMMERCE_NOT_FOUND' }, { status: 404 });
             }
-        });
 
-    } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+            return Response.json({
+                success: true,
+                id_comercio: miComercio.id_comercio,
+                comercio: miComercio
+            });
+        } catch (dbErr) {
+            // Si la tabla está tan rota que el filter da 500, devolvemos 404 controlado
+            return Response.json({ error: 'DB Error/Empty', code: 'COMMERCE_NOT_FOUND' }, { status: 404 });
+        }
+
+    } catch (globalErr) {
+        return Response.json({ error: globalErr.message }, { status: 500 });
     }
 });
