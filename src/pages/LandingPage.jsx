@@ -3,8 +3,13 @@ import { motion } from 'framer-motion';
 import { Rocket, Shield, Zap, ArrowRight, Store, Globe, Star, Users, Banknote, CreditCard, PieChart } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/lib/AuthContext';
+
 
 export default function LandingPage() {
+    const { user } = useAuth();
+    const isSuperAdmin = user?.role === 'admin';
+
     return (
         <div className="min-h-screen bg-neutral-950 text-white overflow-hidden relative">
 
@@ -28,6 +33,14 @@ export default function LandingPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8 }}
                     >
+                        {isSuperAdmin && (
+                            <Link to="/admin">
+                                <Button size="sm" variant="ghost" className="mb-6 border border-orange-500/30 text-orange-500 font-black italic uppercase rounded-full px-6 hover:bg-orange-500/10">
+                                    <Shield className="w-4 h-4 mr-2" /> Ingresar a Panel Supremo
+                                </Button>
+                            </Link>
+                        )}
+
                         <span className="inline-block px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-black uppercase tracking-[0.3em] mb-8">
                             La Evolución del E-commerce Emprendedor
                         </span>

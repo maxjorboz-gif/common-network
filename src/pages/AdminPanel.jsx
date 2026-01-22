@@ -16,11 +16,15 @@ import AdminLeads from '@/components/admin/AdminLeads.jsx';
 import AdminEstadisticas from '@/components/admin/AdminEstadisticas.jsx';
 import AdminConfiguracion from '@/components/admin/AdminConfiguracion.jsx';
 import AdminConversaciones from '../components/admin/AdminConversaciones';
+import SuperAdminSolicitudes from '@/components/admin/SuperAdminSolicitudes';
+import { ShieldAlert } from 'lucide-react';
 
 export default function AdminPanel() {
   const [selectedTab, setSelectedTab] = useState('estadisticas');
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const isSupremo = user?.role === 'admin';
 
   // LEY DE MEMORIA: Verificación estricta de rol Admin
   useEffect(() => {
@@ -63,6 +67,7 @@ export default function AdminPanel() {
   });
 
   useEffect(() => {
+    if (isSupremo) return;
     // LEY DE TORTUGA: Manejo de errores de inicialización de comercio
     if (error) {
       const errorMsg = error.message || '';
@@ -75,10 +80,10 @@ export default function AdminPanel() {
         window.location.href = '/registro';
       }
     }
-  }, [error]);
+  }, [error, isSupremo]);
 
   // Pantalla de carga unificada
-  if (checkingAuth || (user && loadingComercio)) {
+  if (checkingAuth || (user && !isSupremo && loadingComercio)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
         <div className="animate-spin w-10 h-10 border-4 border-orange-600 border-t-transparent rounded-full mb-4" />
@@ -112,14 +117,40 @@ export default function AdminPanel() {
     );
   }
 
-  // Si no hay comercio configurado (tienda vacía)
-  if (!comercio) {
+  // Si no hay comercio configurado (tienda vacía) - Permitir al supremo entrar igual
+  if (!comercio && !isSupremo) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center">
           <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Tienda de Parrillas no configurada</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Tienda no configurada</h2>
           <p className="text-gray-600">Contactá al soporte técnico de Base 44 para activar tu comercio.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si el comercio existe pero no está activo (bloqueado o pendiente de pago)
+  if (comercio && !comercio.activo && !isSupremo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-950 p-4 text-white">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="w-20 h-20 bg-orange-500/10 rounded-[2rem] flex items-center justify-center mx-auto border border-orange-500/20">
+            <ShieldAlert className="w-10 h-10 text-orange-600 animate-pulse" />
+          </div>
+          <h2 className="text-3xl font-black italic uppercase tracking-tight">Cuenta en Revisión</h2>
+          <p className="text-neutral-400">
+            Tu tienda <span className="text-white font-bold">{comercio.nombre_comercio}</span> está esperando la aprobación del administrador supremo.
+            <br /><br />
+            Una vez validado tu pago (Operación #{comercio.numero_operacion}), recibirás acceso total a este panel.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => window.location.href = '/'}
+            className="border-neutral-800 text-neutral-400 hover:text-white"
+          >
+            Volver al Inicio
+          </Button>
         </div>
       </div>
     );
@@ -132,10 +163,10 @@ export default function AdminPanel() {
         {/* Header del Panel */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-1">Panel de Administración</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-1">{isSupremo ? "Panel Supremo" : "Panel de Administración"}</h1>
             <p className="text-orange-600 font-medium flex items-center gap-2">
               <span className="w-2 h-2 bg-orange-600 rounded-full animate-pulse"></span>
-              {comercio.nombre} | Gestión de Ventas
+              {isSupremo ? "Common Network" : (comercio?.nombre_comercio || "Mi Tienda")} | Gestión de Ventas
             </p>
           </div>
           <div className="text-sm text-gray-500 bg-white px-4 py-2 rounded-lg border shadow-sm">
@@ -145,7 +176,13 @@ export default function AdminPanel() {
 
         {/* Sistema de Navegación por Tabs */}
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid grid-cols-3 md:grid-cols-6 mb-8 bg-white border h-auto p-1 shadow-sm">
+          <TabsList className={`grid ${isSupremo ? 'grid-cols-4 md:grid-cols-7' : 'grid-cols-3 md:grid-cols-6'} mb-8 bg-white border h-auto p-1 shadow-sm`}>
+            {isSupremo && (
+              <TabsTrigger value="solicitudes" className="flex items-center gap-2 py-3">
+                <ShieldAlert className="w-4 h-4" />
+                <span className="hidden sm:inline">Solicitudes</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="estadisticas" className="flex items-center gap-2 py-3">
               <TrendingUp className="w-4 h-4" />
               <span className="hidden sm:inline">Estadísticas</span>
@@ -173,6 +210,11 @@ export default function AdminPanel() {
           </TabsList>
 
           {/* Contenidos de los Paneles */}
+          {isSupremo && (
+            <TabsContent value="solicitudes" className="mt-0 focus-visible:ring-0">
+              <SuperAdminSolicitudes />
+            </TabsContent>
+          )}
           <TabsContent value="estadisticas" className="mt-0 focus-visible:ring-0">
             <AdminEstadisticas comercio={comercio} />
           </TabsContent>
