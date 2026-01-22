@@ -6,123 +6,92 @@ function generateSovereignId(num) {
 }
 
 Deno.serve(async (req) => {
-    console.log("LOG: Iniciando registrarComercio...");
+    console.log("SOLICITUD INICIADA: registrarComercio");
+
     try {
         const base44 = createClientFromRequest(req);
-
-        // Verificación de autenticación
         const user = await base44.auth.me();
+
         if (!user) {
-            console.error("LOG: Usuario no autenticado");
-            return Response.json({ error: 'No autorizado' }, { status: 401 });
+            return Response.json({ error: 'Sesión no encontrada' }, { status: 401 });
         }
 
-        // Parseo de body
         let body;
         try {
             body = await req.json();
-            console.log("LOG: Body recibido:", JSON.stringify(body));
+            console.log("BODY_RECIBIDO:", JSON.stringify(body));
         } catch (e) {
-            return Response.json({ error: 'Body mismatch' }, { status: 400 });
+            return Response.json({ error: 'Body de solicitud vacío o mal formado' }, { status: 400 });
         }
 
         const { nombre_comercio, whatsapp, numero_operacion } = body;
-
         if (!nombre_comercio) {
-            return Response.json({ error: 'Nombre requerido' }, { status: 400 });
+            return Response.json({ error: 'El nombre del comercio es obligatorio' }, { status: 400 });
         }
 
-        const userEmail = user.email || "";
-        const normalizedEmail = userEmail.toLowerCase().trim();
+        const normalizedEmail = (user.email || "").toLowerCase().trim();
 
-        console.log("LOG: Procesando para email:", normalizedEmail);
-
-        // 1. Check existing
-        let existingCommerce = [];
+        // 1. Buscar si ya existe el registro (con seguridad)
+        let existing = [];
         try {
-            existingCommerce = await base44.asServiceRole.entities.Comercio.filter({
+            existing = await base44.asServiceRole.entities.Comercio.filter({
                 email_admin: normalizedEmail
-            }, '-created_date', 1);
-        } catch (err) {
-            console.warn("LOG: Error filtrando comercio (quizás no existe el campo email_admin):", err.message);
+            }, '-created_at', 1);
+        } catch (e) {
+            console.warn("Error filtrando Comercio, procediendo como nuevo:", e.message);
         }
 
-        // 2. ID Logic
-        let idSoberano;
-        if (existingCommerce.length > 0 && existingCommerce[0].id_comercio) {
-            idSoberano = existingCommerce[0].id_comercio;
-            console.log("LOG: Usando ID existente:", idSoberano);
+        // 2. Definir ID Visual / Interno inicial
+        let idBase;
+        if (existing.length > 0 && existing[0].id_comercio) {
+            idBase = existing[0].id_comercio;
         } else {
-            console.log("LOG: Generando nuevo ID...");
+            // Generamos uno basado en records actuales o random si falla el conteo
             try {
-                const todos = await base44.asServiceRole.entities.Comercio.list('-created_date', 100);
-                let maxActual = 0;
-                todos.forEach((c) => {
-                    if (c.id_comercio) {
-                        const num = parseInt(c.id_comercio, 10);
-                        if (!isNaN(num) && num > maxActual) maxActual = num;
-                    }
-                });
-                idSoberano = generateSovereignId(maxActual + 1);
-            } catch (err) {
-                console.error("LOG: Error listando comercios:", err.message);
-                idSoberano = generateSovereignId(Math.floor(Math.random() * 900000) + 100000); // Fallback random
+                const todos = await base44.asServiceRole.entities.Comercio.list('-created_at', 1);
+                // Si hay records, generamos el siguiente, si no, empezamos en 1
+                idBase = generateSovereignId(todos.length + 1);
+            } catch (e) {
+                idBase = generateSovereignId(Math.floor(Math.random() * 10000));
             }
         }
 
-        // 3. Save Data
+        // 3. Preparar DATA (solo campos conocidos y seguros)
         const commerceData = {
-            email_admin: normalizedEmail,
-            user_id: user.id || "",
-            id_comercio: idSoberano,
-            id_visual: idSoberano,
             nombre_comercio: nombre_comercio,
+            email_admin: normalizedEmail,
             whatsapp: whatsapp || "",
             numero_operacion: numero_operacion || "",
+            id_comercio: idBase,
+            id_visual: idBase,
             aprobacion_pendiente: true,
             activo: false,
-            updated_at: new Date().toISOString()
+            user_id: user.id
         };
 
-        let finalResult;
-        try {
-            if (existingCommerce.length > 0) {
-                console.log("LOG: Actualizando registro...");
-                finalResult = await base44.asServiceRole.entities.Comercio.update(existingCommerce[0].id, commerceData);
-            } else {
-                console.log("LOG: Creando nuevo presupuesto de comercio...");
-                finalResult = await base44.asServiceRole.entities.Comercio.create({
-                    ...commerceData,
-                    created_at: new Date().toISOString()
-                });
-            }
-        } catch (dbErr) {
-            console.error("LOG: CRASH EN DB:", dbErr.message);
-            // Si falla por campos que no existen, intentamos lo mínimo
-            const minimalData = {
-                email_admin: normalizedEmail,
-                id_comercio: idSoberano,
-                nombre_comercio: nombre_comercio,
-                numero_operacion: numero_operacion || ""
-            };
-            if (existingCommerce.length > 0) {
-                finalResult = await base44.asServiceRole.entities.Comercio.update(existingCommerce[0].id, minimalData);
-            } else {
-                finalResult = await base44.asServiceRole.entities.Comercio.create(minimalData);
-            }
+        let result;
+        if (existing.length > 0) {
+            console.log("ACTUALIZANDO_EXISTENTE:", existing[0].id);
+            result = await base44.asServiceRole.entities.Comercio.update(existing[0].id, commerceData);
+        } else {
+            console.log("CREANDO_NUEVO_REGISTRO");
+            result = await base44.asServiceRole.entities.Comercio.create(commerceData);
         }
 
         return Response.json({
             success: true,
-            id_comercio: idSoberano,
-            comercio: finalResult
+            message: 'Solicitud guardada correctamente',
+            id_comercio: idBase,
+            data: result
         });
 
     } catch (error) {
-        console.error('LOG: ERROR CRITICO:', error);
+        console.error("CRITICAL_FUNCTIONS_ERROR:", error.message);
+        // Devolvemos el error detallado para diagnosticar en el front
         return Response.json({
-            error: 'Backend Failure',
-            details: error.message
+            success: false,
+            error: error.message,
+            debug_info: "Error en registrarComercio.ts"
         }, { status: 500 });
     }
 });
