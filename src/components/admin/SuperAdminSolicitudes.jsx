@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import {
     Check, X, User, Phone, Mail, Hash, Loader2,
     TrendingUp, Store, DollarSign, Filter, Search,
-    ArrowUpRight, ArrowDownRight, Power, PowerOff
+    ArrowUpRight, ArrowDownRight, Power, PowerOff, ShieldAlert
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 
