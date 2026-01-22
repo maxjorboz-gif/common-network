@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import PoliticaDevolucion from './pages/PoliticaDevolucion';
 import Producto from './pages/Producto';
 import TerminosYCondiciones from './pages/TerminosYCondiciones';
+import LandingPage from './pages/LandingPage';
 import __Layout from './Layout.jsx';
 
 
@@ -18,10 +19,12 @@ export const PAGES = {
     "devolucion": PoliticaDevolucion,
     "producto": Producto,
     "terminos": TerminosYCondiciones,
+    "landing": LandingPage,
 }
 
 export const pagesConfig = {
-    mainPage: "home",
+    mainPage: "landing",
     Pages: PAGES,
     Layout: __Layout,
 };
+

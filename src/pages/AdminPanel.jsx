@@ -28,12 +28,12 @@ export default function AdminPanel() {
       try {
         const currentUser = await base44.auth.me();
 
-        if (!currentUser || currentUser.role !== 'admin') {
-          // Si no es admin, fuera.
-          alert('Acceso denegado: No tenés permisos de administrador para la tienda de parrillas.');
-          window.location.href = '/';
+        if (!currentUser) {
+          // Si no está logueado, al login.
+          base44.auth.redirectToLogin(window.location.href);
           return;
         }
+
 
         setUser(currentUser);
       } catch (err) {
