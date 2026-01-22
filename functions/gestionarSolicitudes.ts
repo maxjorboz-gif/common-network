@@ -13,80 +13,89 @@ function generateRandomId(length = 10) {
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-
-        // Verificación de Admin
         const user = await base44.auth.me();
+
         if (!user || user.role !== 'admin') {
-            return Response.json({ error: 'No autorizado o no es administrador' }, { status: 403 });
+            return Response.json({ error: 'No autorizado' }, { status: 403 });
         }
 
         let body;
-        try {
-            body = await req.json();
-        } catch (e) {
-            return Response.json({ error: 'Body mismatch' }, { status: 400 });
-        }
+        try { body = await req.json(); } catch (e) { body = {}; }
 
-        const { action, id_comercio } = body;
+        const { action, id_registro, id_comercio } = body;
 
+        // ACCION: LISTAR (Ahora lee de SolicitudVenta + Comercios existentes)
         if (action === 'list') {
-            const todos = await base44.asServiceRole.entities.Comercio.list('-created_date', 500);
-            return Response.json({ success: true, solicitudes: todos });
+            const pendientes = await base44.asServiceRole.entities.SolicitudVenta.list('-fecha', 100);
+            const activos = await base44.asServiceRole.entities.Comercio.list('-created_date', 100);
+
+            // Adaptamos las solicitudes pendientes al formato que espera el front
+            const solicitudesNormalizadas = [
+                ...pendientes.map(p => ({
+                    id: p.id,
+                    id_registro: p.id,
+                    nombre_comercio: p.nombre,
+                    email_admin: p.email,
+                    whatsapp: p.whatsapp,
+                    numero_operacion: p.comprobante,
+                    aprobacion_pendiente: true,
+                    activo: false,
+                    id_comercio: "PENDIENTE"
+                })),
+                ...activos.map(c => ({
+                    ...c,
+                    aprobacion_pendiente: false
+                }))
+            ];
+
+            return Response.json({ success: true, solicitudes: solicitudesNormalizadas });
         }
 
+        // ACCION: APROBAR (Crea el comercio real a partir de la solicitud)
         if (action === 'approve') {
-            if (!id_comercio) return Response.json({ error: 'ID requerido' }, { status: 400 });
+            if (!id_registro) return Response.json({ error: 'Falta ID de registro' }, { status: 400 });
 
-            // Buscar registro
-            const query = await base44.asServiceRole.entities.Comercio.filter({
-                id_comercio: id_comercio
-            }, '-created_date', 1);
+            const solicitud = await base44.asServiceRole.entities.SolicitudVenta.get(id_registro);
+            if (!solicitud) return Response.json({ error: 'Solicitud no encontrada' }, { status: 404 });
 
-            if (query.length === 0) return Response.json({ error: 'Comercio no encontrado' }, { status: 404 });
-
-            const target = query[0];
             const finalId = generateRandomId(10);
 
-            await base44.asServiceRole.entities.Comercio.update(target.id, {
+            // Creamos el comercio REAL en la tabla final
+            await base44.asServiceRole.entities.Comercio.create({
                 id_comercio: finalId,
                 id_visual: finalId,
+                nombre_comercio: solicitud.nombre,
+                email_admin: solicitud.email,
+                whatsapp: solicitud.whatsapp,
+                numero_operacion: solicitud.comprobante,
+                user_id: solicitud.user_id,
                 activo: true,
-                aprobacion_pendiente: false,
                 pago_confirmado: true,
-                updated_at: new Date().toISOString()
+                created_date: new Date().toISOString()
             });
 
-            return Response.json({
-                success: true,
-                message: 'Comercio Activado',
-                new_id: finalId
-            });
+            // Borramos la solicitud para limpiar la "sala de espera"
+            await base44.asServiceRole.entities.SolicitudVenta.delete(id_registro);
+
+            return Response.json({ success: true, new_id: finalId });
         }
 
+        // ACCION: HABILITAR / DESHABILITAR (Para comercios ya existentes)
         if (action === 'toggle_active') {
             if (!id_comercio) return Response.json({ error: 'ID requerido' }, { status: 400 });
             const { active } = body;
 
-            const query = await base44.asServiceRole.entities.Comercio.filter({
-                id_comercio: id_comercio
-            }, '-created_date', 1);
+            const query = await base44.asServiceRole.entities.Comercio.filter({ id_comercio }, '-created_date', 1);
             if (query.length === 0) return Response.json({ error: 'Not found' }, { status: 404 });
 
-            await base44.asServiceRole.entities.Comercio.update(query[0].id, {
-                activo: active,
-                updated_at: new Date().toISOString()
-            });
+            await base44.asServiceRole.entities.Comercio.update(query[0].id, { activo: active });
             return Response.json({ success: true });
         }
 
-        return Response.json({ error: 'Action not supported' }, { status: 400 });
+        return Response.json({ error: 'Acción inválida' }, { status: 400 });
 
     } catch (error) {
-        console.error('GESTIONAR_SOLICITUDES_ERROR:', error);
-        return Response.json({
-            error: 'Backend Failure',
-            details: error.message,
-            stack: error.stack
-        }, { status: 500 });
+        console.error("ERROR GESTION:", error.message);
+        return Response.json({ error: error.message }, { status: 500 });
     }
 });

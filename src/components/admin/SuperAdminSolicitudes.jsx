@@ -59,11 +59,12 @@ export default function SuperAdminSolicitudes() {
         return list;
     }, [solicitudesConMetricas, searchTerm, filterBy]);
 
-    const handleHabilitar = async (idComercio) => {
+    const handleHabilitar = async (sol) => {
         try {
             const { data } = await base44.functions.invoke('gestionarSolicitudes', {
                 action: 'approve',
-                id_comercio: idComercio
+                id_registro: sol.id_registro,
+                id_comercio: sol.id_comercio
             });
             if (data.success) {
                 toast({ title: "Comercio Activado", description: "Se ha asignado un ID definitivo de 10 caracteres." });
@@ -177,7 +178,7 @@ export default function SuperAdminSolicitudes() {
                             <div className="bg-neutral-50/50 p-6 flex flex-row lg:flex-col items-center gap-3 border-l border-neutral-100 lg:w-56 justify-center">
                                 {sol.aprobacion_pendiente ? (
                                     <Button
-                                        onClick={() => handleHabilitar(sol.id_comercio)}
+                                        onClick={() => handleHabilitar(sol)}
                                         className="bg-orange-600 hover:bg-orange-700 text-white w-full font-black italic uppercase text-xs h-12 rounded-xl"
                                     >
                                         <Check className="w-4 h-4 mr-2" /> Activar Comercio
