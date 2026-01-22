@@ -1,12 +1,19 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Rocket, Shield, Zap, ArrowRight, Store, Globe, Star, Users } from 'lucide-react';
+import { Rocket, Shield, Zap, ArrowRight, Store, Globe, Star, Users, Banknote, CreditCard, PieChart } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
 
 export default function LandingPage() {
     return (
-        <div className="min-h-screen bg-neutral-950 text-white overflow-hidden">
+        <div className="min-h-screen bg-neutral-950 text-white overflow-hidden relative">
+
+            {/* Background Texture & Image Overlay */}
+            <div className="fixed inset-0 z-0">
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-[0.07] grayscale"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-neutral-950 via-transparent to-neutral-950"></div>
+            </div>
+
             {/* Background Glows */}
             <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-600/20 rounded-full blur-[120px] animate-pulse"></div>
@@ -22,14 +29,14 @@ export default function LandingPage() {
                         transition={{ duration: 0.8 }}
                     >
                         <span className="inline-block px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-black uppercase tracking-[0.3em] mb-8">
-                            La Evolución del E-commerce Artesanal
+                            La Evolución del E-commerce Emprendedor
                         </span>
                         <h1 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter leading-[0.9] mb-8">
                             Tu marca en <br />
                             <span className="text-orange-600">toda la red</span>
                         </h1>
                         <p className="max-w-2xl mx-auto text-neutral-400 text-lg md:text-xl font-medium mb-12 leading-relaxed">
-                            La plataforma definitiva para herreros y artesanos. Crea tu tienda profesional en minutos,
+                            La plataforma definitiva para E-comerce emprendedores/as. Crea tu tienda profesional en minutos,
                             gestiona pedidos y escala tu negocio con tecnología de punta.
                         </p>
 
@@ -49,24 +56,36 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* Features Grid */}
+            {/* Features Grid Section - UPDATED BY USER REQUEST */}
             <section className="relative z-10 py-32 px-6">
                 <div className="max-w-7xl mx-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="text-center mb-16">
+                        <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter mb-4 italic">
+                            Tu tienda es tuya. <br />
+                            <span className="text-orange-600">Manejala como quieras.</span>
+                        </h2>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                         <FeatureCard
-                            icon={<Store className="w-8 h-8 text-orange-600" />}
-                            title="Tu Propia Marca"
-                            description="Personaliza tu catálogo, logo y colores. Es tu tienda, no la nuestra."
+                            icon={<Banknote className="w-8 h-8 text-orange-600" />}
+                            title="Dinero al Instante"
+                            description="Maneja tu dinero al instante. Sin esperas, cobras y dispones de tus fondos."
                         />
                         <FeatureCard
-                            icon={<Zap className="w-8 h-8 text-orange-600" />}
-                            title="Venta Instantánea"
-                            description="Checkout optimizado para móviles y pagos integrados. Sin fricción."
+                            icon={<CreditCard className="w-8 h-8 text-orange-600" />}
+                            title="Pago Único"
+                            description="Pago único por creación de la tienda. Sin suscripciones mensuales abusivas."
                         />
                         <FeatureCard
-                            icon={<Rocket className="w-8 h-8 text-orange-600" />}
-                            title="Escalabilidad"
-                            description="Desde tu primer venta hasta volúmenes industriales. Crecemos con vos."
+                            icon={<PieChart className="w-8 h-8 text-orange-600" />}
+                            title="Comisión Justa"
+                            description="Pagas solo si vendes: entre 5% y 10% de tus ventas. Transparencia total."
+                        />
+                        <FeatureCard
+                            icon={<Users className="w-8 h-8 text-orange-600" />}
+                            title="Publicidad Gratis"
+                            description="No te cobramos por publicidad. Tu crecimiento es nuestro éxito."
                         />
                     </div>
                 </div>
@@ -78,8 +97,8 @@ export default function LandingPage() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
                         <StatItem count="+100" label="Socio-Vendedores" />
                         <StatItem count="24/7" label="Soporte Técnico" />
-                        <StatItem count="ML" label="Integración" />
-                        <StatItem count="100%" label="Soberanía de Datos" />
+                        <StatItem count="API" label="Integración" />
+                        <StatItem count="100%" label="Efectividad" />
                     </div>
                 </div>
             </section>
@@ -92,7 +111,7 @@ export default function LandingPage() {
                             ¿Listo para dar el salto?
                         </h2>
                         <p className="text-neutral-400 text-lg mb-12">
-                            Únete a la red de artesanos digitales más grande de la región.
+                            Únete a la red de emprendedores digitales más grande de la región.
                         </p>
                         <Link to="/registro">
                             <Button size="lg" className="h-16 px-12 bg-white text-black hover:bg-neutral-200 font-black italic uppercase rounded-2xl text-lg">
@@ -108,12 +127,12 @@ export default function LandingPage() {
 
 function FeatureCard({ icon, title, description }) {
     return (
-        <div className="group p-10 bg-neutral-900/50 border border-neutral-800 rounded-[2.5rem] hover:border-orange-500/50 transition-all duration-500">
+        <div className="group p-10 bg-neutral-900/50 border border-neutral-800 rounded-[2.5rem] hover:border-orange-500/50 transition-all duration-500 flex flex-col h-full">
             <div className="mb-6 p-4 bg-orange-500/10 rounded-2xl w-fit group-hover:scale-110 transition-transform">
                 {icon}
             </div>
             <h3 className="text-2xl font-black italic uppercase mb-4">{title}</h3>
-            <p className="text-neutral-500 font-medium leading-relaxed">
+            <p className="text-neutral-400 font-medium leading-relaxed">
                 {description}
             </p>
         </div>
@@ -128,3 +147,4 @@ function StatItem({ count, label }) {
         </div>
     );
 }
+
