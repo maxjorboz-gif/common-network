@@ -20,7 +20,7 @@ import SuperAdminSolicitudes from '@/components/admin/SuperAdminSolicitudes';
 import { ShieldAlert } from 'lucide-react';
 
 export default function AdminPanel() {
-  const [selectedTab, setSelectedTab] = useState('estadisticas');
+  const [selectedTab, setSelectedTab] = useState(''); // Empezar vacío para decidir según rol
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -40,6 +40,12 @@ export default function AdminPanel() {
 
 
         setUser(currentUser);
+        // LEY DE MEMORIA: Si es supremo, el tab por defecto es solicitudes
+        if (currentUser.role === 'admin') {
+          setSelectedTab('solicitudes');
+        } else {
+          setSelectedTab('estadisticas');
+        }
       } catch (err) {
         console.error('Error de autenticación:', err);
         base44.auth.redirectToLogin(window.location.href);
@@ -52,11 +58,7 @@ export default function AdminPanel() {
   }, []);
 
   // Si es Supremo, por defecto mostrar solicitudes
-  useEffect(() => {
-    if (isSupremo && selectedTab === 'estadisticas') {
-      setSelectedTab('solicitudes');
-    }
-  }, [isSupremo]);
+  // Eliminamos el anterior useEffect que duplicaba lógica
 
   // LEY DE MEMORIA: Obtención de datos del comercio (incluye % de descuento transferencia en config)
   const { data: comercio, isLoading: loadingComercio, error } = useQuery({
@@ -222,32 +224,44 @@ export default function AdminPanel() {
               <SuperAdminSolicitudes />
             </TabsContent>
           )}
-          <TabsContent value="estadisticas" className="mt-0 focus-visible:ring-0">
-            <AdminEstadisticas comercio={comercio} />
-          </TabsContent>
 
-          <TabsContent value="productos" className="mt-0 focus-visible:ring-0">
-            {/* Aquí es donde se gestionará la Ley de Stock y Precios Estándar */}
-            <AdminProductos comercio={comercio} />
-          </TabsContent>
+          {/* LEY DE MEMORIA: Solo renderizamos estas tabs si NO es supremo o si hay un comercio cargado */}
+          {!isSupremo && comercio && (
+            <>
+              <TabsContent value="estadisticas" className="mt-0 focus-visible:ring-0">
+                <AdminEstadisticas comercio={comercio} />
+              </TabsContent>
 
-          <TabsContent value="ordenes" className="mt-0 focus-visible:ring-0">
-            <AdminOrdenes comercio={comercio} />
-          </TabsContent>
+              <TabsContent value="productos" className="mt-0 focus-visible:ring-0">
+                <AdminProductos comercio={comercio} />
+              </TabsContent>
 
-          <TabsContent value="leads" className="mt-0 focus-visible:ring-0">
-            <AdminLeads comercio={comercio} />
-          </TabsContent>
+              <TabsContent value="ordenes" className="mt-0 focus-visible:ring-0">
+                <AdminOrdenes comercio={comercio} />
+              </TabsContent>
 
-          <TabsContent value="conversaciones" className="mt-0 focus-visible:ring-0">
-            {/* LEY DE MEMORIA: Aquí actúa el experto vendedor de WhatsApp */}
-            <AdminConversaciones comercio={comercio} />
-          </TabsContent>
+              <TabsContent value="leads" className="mt-0 focus-visible:ring-0">
+                <AdminLeads comercio={comercio} />
+              </TabsContent>
 
-          <TabsContent value="config" className="mt-0 focus-visible:ring-0">
-            {/* LEY DE MEMORIA: Aquí se configura el % de descuento para transferencia */}
-            <AdminConfiguracion comercio={comercio} />
-          </TabsContent>
+              <TabsContent value="conversaciones" className="mt-0 focus-visible:ring-0">
+                <AdminConversaciones comercio={comercio} />
+              </TabsContent>
+
+              <TabsContent value="config" className="mt-0 focus-visible:ring-0">
+                <AdminConfiguracion comercio={comercio} />
+              </TabsContent>
+            </>
+          )}
+
+          {/* Fallback para el Supremo si por alguna razón hace clic en Tabs de tienda sin tener una */}
+          {isSupremo && selectedTab !== 'solicitudes' && (
+            <div className="py-20 text-center bg-white border rounded-2xl">
+              <ShieldAlert className="w-12 h-12 text-orange-600 mx-auto mb-4" />
+              <h3 className="text-xl font-black italic uppercase">Modo Administrador de Red</h3>
+              <p className="text-neutral-500">Como Administrador Supremo, gestionas la red desde la pestaña <span className="text-orange-600 font-bold">Solicitudes</span>.</p>
+            </div>
+          )}
         </Tabs>
       </div>
     </div>
