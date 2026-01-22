@@ -26,9 +26,9 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Falta nombre del comercio' }, { status: 400 });
         }
 
-        // LEY DE MEMORIA: Usamos una entidad NUEVA "SolicitudVenta" para evitar basura de bases anteriores
+        // LEY DE MEMORIA: Usamos una entidad NUEVA "SolicitudComercio" para evitar basura de bases anteriores
         // Esto garantiza que el esquema sea fresco y no choque con nada viejo.
-        const result = await base44.asServiceRole.entities.SolicitudVenta.create({
+        const result = await base44.asServiceRole.entities.SolicitudComercio.create({
             nombre: nombre_comercio,
             email: userEmail,
             whatsapp: whatsapp || "",
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
         return Response.json({
             success: false,
             error: `Error en la base de datos: ${error.message}`,
-            debug_info: "Probablemente la entidad SolicitudVenta está naciendo ahora"
+            debug_info: "Probablemente la entidad SolicitudComercio está naciendo ahora"
         }, { status: 500 });
     }
 });

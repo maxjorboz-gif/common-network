@@ -61,6 +61,7 @@ export default function AdminPanel() {
   // Eliminamos el anterior useEffect que duplicaba lógica
 
   // LEY DE MEMORIA: Obtención de datos del comercio (incluye % de descuento transferencia en config)
+  // SOLO se ejecuta si el usuario NO es supremo
   const { data: comercio, isLoading: loadingComercio, error } = useQuery({
     queryKey: ['comercio-admin'],
     queryFn: async () => {
@@ -70,26 +71,24 @@ export default function AdminPanel() {
       }
       return response.data.comercio;
     },
-    enabled: !!user,
-    retry: 0, // No reintentar si es 404, queremos fallar rápido para redirigir
-    staleTime: 0 // Siempre fresco para detectar si se acaba de registrar
+    enabled: !!user && !isSupremo, // Solo cargar si NO es supremo
+    retry: 0,
+    staleTime: 0
   });
 
-  useEffect(() => {
-    if (isSupremo) return;
-    // LEY DE TORTUGA: Manejo de errores de inicialización de comercio
-    if (error) {
-      const errorMsg = error.message || '';
-      const isNotFound = errorMsg.includes('404') ||
-        errorMsg.includes('Comercio no inicializado') ||
-        errorMsg.includes('COMMERCE_NOT_FOUND');
+  // Verificar si tiene solicitud pendiente (solo si no es supremo y no tiene comercio)
+  const { data: solicitudPendiente, isLoading: loadingSolicitud } = useQuery({
+    queryKey: ['solicitud-pendiente'],
+    queryFn: async () => {
+      const response = await base44.functions.invoke('verificarSolicitudPendiente', {});
+      return response.data;
+    },
+    enabled: !!user && !isSupremo && !comercio && !loadingComercio,
+    retry: 0
+  });
 
-      if (isNotFound) {
-        console.warn('Comercio no encontrado, redirigiendo a registro...');
-        window.location.href = '/registro';
-      }
-    }
-  }, [error, isSupremo]);
+  // ELIMINADO: El redirect automático impedía mostrar la pantalla "Cuenta en Revisión"
+  // Ahora dejamos que el render maneje los diferentes estados
 
   // Pantalla de carga unificada
   if (checkingAuth || (user && !isSupremo && loadingComercio)) {
@@ -126,15 +125,56 @@ export default function AdminPanel() {
     );
   }
 
-  // Si no hay comercio configurado (tienda vacía) - Permitir al supremo entrar igual
+  // Si no hay comercio configurado - Verificar si tiene solicitud pendiente
   if (!comercio && !isSupremo) {
+    // Caso 1: Tiene solicitud pendiente (esperando aprobación)
+    if (solicitudPendiente?.tiene_solicitud) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-neutral-950 p-4 text-white">
+          <div className="max-w-md w-full text-center space-y-6">
+            <div className="w-20 h-20 bg-orange-500/10 rounded-[2rem] flex items-center justify-center mx-auto border border-orange-500/20">
+              <ShieldAlert className="w-10 h-10 text-orange-600 animate-pulse" />
+            </div>
+            <h2 className="text-3xl font-black italic uppercase tracking-tight">Cuenta en Revisión</h2>
+            <p className="text-neutral-400">
+              Tu tienda <span className="text-white font-bold">{solicitudPendiente.solicitud.nombre_comercio}</span> está esperando la aprobación del administrador.
+              <br /><br />
+              Una vez validado tu pago (Operación #{solicitudPendiente.solicitud.numero_operacion}), recibirás acceso total a este panel en las próximas <span className="text-orange-500 font-bold">24 horas</span>.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => window.location.href = '/'}
+              className="border-neutral-800 text-neutral-400 hover:text-white"
+            >
+              Volver al Inicio
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Caso 2: No tiene solicitud ni comercio (nunca se registró)
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="text-center">
-          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Tienda no configurada</h2>
-          <p className="text-gray-600">Contactá al soporte técnico de Base 44 para activar tu comercio.</p>
-        </div>
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle className="text-center flex flex-col items-center gap-4">
+              <Package className="w-16 h-16 text-orange-600" />
+              <span className="text-2xl font-bold text-gray-900">Registrá tu Comercio</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-gray-600">
+              Para acceder al panel de administración, primero necesitás registrar tu comercio.
+            </p>
+            <Button
+              onClick={() => window.location.href = '/registro'}
+              className="bg-orange-600 hover:bg-orange-700 text-white w-full font-bold"
+            >
+              Ir a Registro
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

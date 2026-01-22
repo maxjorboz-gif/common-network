@@ -37,19 +37,19 @@ Deno.serve(async (req) => {
             console.warn("La tabla Comercio ya estaba limpia o no existe aún.");
         }
 
-        // 3. Limpieza de Tabla SolicitudVenta (La sala de espera)
+        // 3. Limpieza de Tabla SolicitudComercio (La sala de espera)
         try {
-            const listS = await base44.asServiceRole.entities.SolicitudVenta.list();
+            const listS = await base44.asServiceRole.entities.SolicitudComercio.list();
             for (const doc of listS) {
                 try {
-                    await base44.asServiceRole.entities.SolicitudVenta.delete(doc.id);
+                    await base44.asServiceRole.entities.SolicitudComercio.delete(doc.id);
                     solicitudesBorradas++;
                 } catch (err) {
                     console.error(`Error borrando solicitud ${doc.id}:`, err.message);
                 }
             }
         } catch (e) {
-            console.warn("La tabla SolicitudVenta ya estaba limpia o no existe aún.");
+            console.warn("La tabla SolicitudComercio ya estaba limpia o no existe aún.");
         }
 
         return Response.json({

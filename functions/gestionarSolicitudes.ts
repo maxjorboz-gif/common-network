@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
             let activos = [];
 
             try {
-                pendientes = await base44.asServiceRole.entities.SolicitudVenta.list();
-            } catch (e) { console.warn("List SolicitudVenta fail:", e.message); }
+                pendientes = await base44.asServiceRole.entities.SolicitudComercio.list();
+            } catch (e) { console.warn("List SolicitudComercio fail:", e.message); }
 
             try {
                 activos = await base44.asServiceRole.entities.Comercio.list();
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
         // ACCION: APROBAR
         if (action === 'approve') {
             if (!id_registro) return Response.json({ error: 'Falta ID de registro' }, { status: 400 });
-            const solicitud = await base44.asServiceRole.entities.SolicitudVenta.get(id_registro);
+            const solicitud = await base44.asServiceRole.entities.SolicitudComercio.get(id_registro);
             if (!solicitud) return Response.json({ error: 'Solicitud no encontrada' }, { status: 404 });
 
             const finalId = generateRandomId(10);
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
                 created_date: new Date().toISOString()
             });
 
-            await base44.asServiceRole.entities.SolicitudVenta.delete(id_registro);
+            await base44.asServiceRole.entities.SolicitudComercio.delete(id_registro);
             return Response.json({ success: true, new_id: finalId });
         }
 
