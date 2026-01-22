@@ -8,13 +8,22 @@ function generateSovereignId(num) {
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me(); // Verify auth
 
+        // Verificación de autenticación
+        const user = await base44.auth.me();
         if (!user) {
             return Response.json({ error: 'No autorizado' }, { status: 401 });
         }
 
-        const { nombre_comercio, whatsapp, numero_operacion } = await req.json();
+        // Parseo de body con fallback para evitar crash
+        let body;
+        try {
+            body = await req.json();
+        } catch (e) {
+            return Response.json({ error: 'Body de solicitud inválido o vacío' }, { status: 400 });
+        }
+
+        const { nombre_comercio, whatsapp, numero_operacion } = body;
 
         if (!nombre_comercio) {
             return Response.json({ error: 'Nombre de comercio requerido' }, { status: 400 });
@@ -24,51 +33,50 @@ Deno.serve(async (req) => {
         const normalizedEmail = userEmail.toLowerCase().trim();
 
         // 1. Check if user already has a commerce
+        // Usamos asServiceRole para poder filtrar por email_admin libremente
         const existingCommerce = await base44.asServiceRole.entities.Comercio.filter({
             email_admin: normalizedEmail
         }, '-created_date', 1);
 
-        // 2. Generate Next ID (ID Soberano)
-        const todosLosComercios = await base44.asServiceRole.entities.Comercio.list('-created_date', 1000);
+        // 2. Logic for ID generation
+        // Si ya existe y tiene ID, lo mantenemos. Si no, generamos uno temporal.
+        let idSoberano;
+        if (existingCommerce.length > 0 && existingCommerce[0].id_comercio) {
+            idSoberano = existingCommerce[0].id_comercio;
+        } else {
+            // Generación de ID incremental para el flujo inicial
+            const todos = await base44.asServiceRole.entities.Comercio.list('-created_date', 1000);
+            let maxActual = 0;
+            todos.forEach((c) => {
+                if (c.id_comercio) {
+                    const num = parseInt(c.id_comercio, 10);
+                    if (!isNaN(num) && num > maxActual) maxActual = num;
+                }
+            });
+            idSoberano = generateSovereignId(maxActual + 1);
+        }
 
-        let maxActual = 0;
-        todosLosComercios.forEach((c) => {
-            if (c.id_comercio) {
-                const num = parseInt(c.id_comercio, 10);
-                if (!isNaN(num) && num > maxActual) maxActual = num;
-            }
-        });
-
-        const nuevoIdSoberano = generateSovereignId(maxActual + 1);
-
-        // 3. Create or Update Commerce (ALWAYS INACTIVE UNTIL SUPREME ADMIN APPROVAL)
-        let nuevoComercio;
-
+        // 3. Data structure
         const commerceData = {
             email_admin: normalizedEmail,
-            user_id: user.id,
-            id_comercio: nuevoIdSoberano,
-            id_visual: nuevoIdSoberano,
+            user_id: user.id || "",
+            id_comercio: idSoberano,
+            id_visual: idSoberano,
             nombre_comercio: nombre_comercio,
             whatsapp: whatsapp || "",
             numero_operacion: numero_operacion || "",
-            aprobacion_pendiente: true,
-            activo: false, // BLOQUEADO HASTA QUE EL SUPREMO DIGA SI
-            configuracion: {
-                nombre_tienda: nombre_comercio,
-                color_primario: "#ea580c"
-            }
+            aprobacion_pendiente: true, // Flag para el Panel Supremo
+            activo: false, // Inactivo hasta aprobación
+            // No guardamos configuración compleja aquí para evitar problemas de esquema
+            updated_at: new Date().toISOString()
         };
 
+        let result;
         if (existingCommerce.length > 0) {
-            const idExistente = existingCommerce[0].id;
-            await base44.asServiceRole.entities.Comercio.update(idExistente, {
-                ...commerceData,
-                updated_at: new Date().toISOString()
-            });
-            nuevoComercio = { ...existingCommerce[0], ...commerceData };
+            const idDoc = existingCommerce[0].id;
+            result = await base44.asServiceRole.entities.Comercio.update(idDoc, commerceData);
         } else {
-            nuevoComercio = await base44.asServiceRole.entities.Comercio.create({
+            result = await base44.asServiceRole.entities.Comercio.create({
                 ...commerceData,
                 created_at: new Date().toISOString()
             });
@@ -76,12 +84,17 @@ Deno.serve(async (req) => {
 
         return Response.json({
             success: true,
-            id_comercio: nuevoIdSoberano,
-            comercio: nuevoComercio
+            message: 'Solicitud de registro exitosa',
+            id_comercio: idSoberano,
+            comercio: result
         });
 
     } catch (error) {
-        console.error('Error registrarComercio:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        console.error('Fatal Error registrarComercio:', error);
+        return Response.json({
+            error: 'Database Error',
+            details: error.message,
+            stack: error.stack
+        }, { status: 500 });
     }
 });
