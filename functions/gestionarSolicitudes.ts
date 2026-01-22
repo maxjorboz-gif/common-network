@@ -24,12 +24,19 @@ Deno.serve(async (req) => {
 
         const { action, id_registro, id_comercio } = body;
 
-        // ACCION: LISTAR (Ahora lee de SolicitudVenta + Comercios existentes)
+        // ACCION: LISTAR (Con manejo de errores para evitar 500 en tablas vacías)
         if (action === 'list') {
-            const pendientes = await base44.asServiceRole.entities.SolicitudVenta.list('-fecha', 100);
-            const activos = await base44.asServiceRole.entities.Comercio.list('-created_date', 100);
+            let pendientes = [];
+            let activos = [];
 
-            // Adaptamos las solicitudes pendientes al formato que espera el front
+            try {
+                pendientes = await base44.asServiceRole.entities.SolicitudVenta.list();
+            } catch (e) { console.warn("List SolicitudVenta fail:", e.message); }
+
+            try {
+                activos = await base44.asServiceRole.entities.Comercio.list();
+            } catch (e) { console.warn("List Comercio fail:", e.message); }
+
             const solicitudesNormalizadas = [
                 ...pendientes.map(p => ({
                     id: p.id,
@@ -51,16 +58,13 @@ Deno.serve(async (req) => {
             return Response.json({ success: true, solicitudes: solicitudesNormalizadas });
         }
 
-        // ACCION: APROBAR (Crea el comercio real a partir de la solicitud)
+        // ACCION: APROBAR
         if (action === 'approve') {
             if (!id_registro) return Response.json({ error: 'Falta ID de registro' }, { status: 400 });
-
             const solicitud = await base44.asServiceRole.entities.SolicitudVenta.get(id_registro);
             if (!solicitud) return Response.json({ error: 'Solicitud no encontrada' }, { status: 404 });
 
             const finalId = generateRandomId(10);
-
-            // Creamos el comercio REAL en la tabla final
             await base44.asServiceRole.entities.Comercio.create({
                 id_comercio: finalId,
                 id_visual: finalId,
@@ -74,28 +78,13 @@ Deno.serve(async (req) => {
                 created_date: new Date().toISOString()
             });
 
-            // Borramos la solicitud para limpiar la "sala de espera"
             await base44.asServiceRole.entities.SolicitudVenta.delete(id_registro);
-
             return Response.json({ success: true, new_id: finalId });
         }
 
-        // ACCION: HABILITAR / DESHABILITAR (Para comercios ya existentes)
-        if (action === 'toggle_active') {
-            if (!id_comercio) return Response.json({ error: 'ID requerido' }, { status: 400 });
-            const { active } = body;
-
-            const query = await base44.asServiceRole.entities.Comercio.filter({ id_comercio }, '-created_date', 1);
-            if (query.length === 0) return Response.json({ error: 'Not found' }, { status: 404 });
-
-            await base44.asServiceRole.entities.Comercio.update(query[0].id, { activo: active });
-            return Response.json({ success: true });
-        }
-
-        return Response.json({ error: 'Acción inválida' }, { status: 400 });
+        return Response.json({ error: 'Acción no soportada' }, { status: 400 });
 
     } catch (error) {
-        console.error("ERROR GESTION:", error.message);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });
