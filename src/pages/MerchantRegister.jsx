@@ -85,12 +85,11 @@ const MerchantRegister = () => {
             }
         } catch (error) {
             console.error("--- DEBUG REGISTRO COMPLETO ---");
-            console.error("Objeto Error:", error);
-            console.error("Mensaje:", error.message);
-
+            console.dir(error);
+            const detailMsg = error.message || "Error desconocido";
             toast({
                 title: "Error de Registro",
-                description: `Detalle: ${error.message || "Error desconocido"}. Por favor, informanos este mensaje por WhatsApp.`,
+                description: `Detalle: ${detailMsg}. Enviame este mensaje por WhatsApp.`,
                 variant: "destructive"
             });
         } finally {
