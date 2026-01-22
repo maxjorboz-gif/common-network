@@ -51,6 +51,13 @@ export default function AdminPanel() {
     checkAdminAccess();
   }, []);
 
+  // Si es Supremo, por defecto mostrar solicitudes
+  useEffect(() => {
+    if (isSupremo && selectedTab === 'estadisticas') {
+      setSelectedTab('solicitudes');
+    }
+  }, [isSupremo]);
+
   // LEY DE MEMORIA: Obtención de datos del comercio (incluye % de descuento transferencia en config)
   const { data: comercio, isLoading: loadingComercio, error } = useQuery({
     queryKey: ['comercio-admin'],
@@ -93,7 +100,7 @@ export default function AdminPanel() {
   }
 
   // Manejo de errores de conexión o datos
-  if (error) {
+  if (error && !isSupremo) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <Card className="max-w-md w-full border-red-200">
