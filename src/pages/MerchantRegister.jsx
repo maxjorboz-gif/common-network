@@ -84,10 +84,13 @@ const MerchantRegister = () => {
                 throw new Error(response.data?.error || 'Error al procesar el registro');
             }
         } catch (error) {
-            console.error("DEBUG REGISTRO:", error);
+            console.error("--- DEBUG REGISTRO COMPLETO ---");
+            console.error("Objeto Error:", error);
+            console.error("Mensaje:", error.message);
+
             toast({
                 title: "Error de Registro",
-                description: error.message || "Hubo un problema procesando tu registro.",
+                description: `Detalle: ${error.message || "Error desconocido"}. Por favor, informanos este mensaje por WhatsApp.`,
                 variant: "destructive"
             });
         } finally {
