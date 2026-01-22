@@ -4,6 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
     Store, ArrowRight, Loader2, CheckCircle2, Copy, Banknote,
     ShieldAlert, X, MessageCircle, ExternalLink, Flame
