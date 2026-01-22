@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import {
     Check, X, User, Phone, Mail, Hash, Loader2,
     TrendingUp, Store, DollarSign, Filter, Search,
-    ArrowUpRight, ArrowDownRight, Power, PowerOff, ShieldAlert
+    ArrowUpRight, ArrowDownRight, Power, PowerOff, ShieldAlert, Flame
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 
@@ -27,7 +27,6 @@ export default function SuperAdminSolicitudes() {
     });
 
     // MOCK DATA para items que aún no existen en DB (ROAS, Ventas)
-    // En una fase posterior, esto vendrá de un join o una agregación en backend
     const solicitudesConMetricas = useMemo(() => {
         if (!solicitudes) return [];
         return solicitudes.map(s => ({
@@ -40,8 +39,6 @@ export default function SuperAdminSolicitudes() {
 
     const filteredList = useMemo(() => {
         let list = [...solicitudesConMetricas];
-
-        // Buscador
         if (searchTerm) {
             list = list.filter(s =>
                 s.nombre_comercio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -49,13 +46,10 @@ export default function SuperAdminSolicitudes() {
                 s.email_admin?.toLowerCase().includes(searchTerm.toLowerCase())
             );
         }
-
-        // Ordenamiento
         if (filterBy === 'mayor_roas') list.sort((a, b) => b.roas - a.roas);
         if (filterBy === 'menor_roas') list.sort((a, b) => a.roas - b.roas);
         if (filterBy === 'mayor_ventas') list.sort((a, b) => b.ventas - a.ventas);
         if (filterBy === 'ticket_alto') list.sort((a, b) => b.ticketPromedio - a.ticketPromedio);
-
         return list;
     }, [solicitudesConMetricas, searchTerm, filterBy]);
 
@@ -89,18 +83,8 @@ export default function SuperAdminSolicitudes() {
         }
     };
 
-    if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-orange-600" /></div>;
-
-    const stats = {
-        totalComercios: solicitudes?.length || 0,
-        activos: solicitudes?.filter(s => s.activo).length || 0,
-        pendientes: solicitudes?.filter(s => s.aprobacion_pendiente).length || 0,
-        recaudacionTotal: (solicitudes?.filter(s => s.pago_confirmado).length || 0) * 150000
-    };
-
     const handleNuclearReset = async () => {
         if (!window.confirm("¿ESTÁS SEGURO? Esto borrará TODOS los comercios y solicitudes antiguas para empezar de cero. Esta acción no se puede deshacer.")) return;
-
         try {
             const { data } = await base44.functions.invoke('resetData', {});
             if (data.success) {
@@ -112,10 +96,16 @@ export default function SuperAdminSolicitudes() {
         }
     };
 
+    const stats = {
+        totalComercios: solicitudes?.length || 0,
+        activos: solicitudes?.filter(s => s.activo).length || 0,
+        pendientes: solicitudes?.filter(s => s.aprobacion_pendiente).length || 0,
+        recaudacionTotal: (solicitudes?.filter(s => s.pago_confirmado).length || 0) * 150000
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
-
-            {/* Header con Botón de Emergencia */}
+            {/* Header con Botón de Emergencia - SIEMPRE VISIBLE */}
             <div className="flex justify-between items-end">
                 <div>
                     <h2 className="text-2xl font-black italic uppercase text-neutral-900 tracking-tighter">Gestión de Red</h2>
@@ -131,102 +121,105 @@ export default function SuperAdminSolicitudes() {
                 </Button>
             </div>
 
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <StatCard title="Total Comercios" value={stats.totalComercios} icon={<Store className="text-blue-500" />} />
-                <StatCard title="Red Activa" value={stats.activos} icon={<Check className="text-green-500" />} />
-                <StatCard title="Esperando" value={stats.pendientes} icon={<ShieldAlert className="text-orange-500" />} />
-                <StatCard title="Ingresos Inscripción" value={`$${stats.recaudacionTotal.toLocaleString()}`} icon={<DollarSign className="text-emerald-500" />} />
-            </div>
-
-            {/* Toolbar */}
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border shadow-sm">
-                <div className="relative flex-1 w-full">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 w-4 h-4" />
-                    <Input
-                        placeholder="Buscar por nombre, ID o email..."
-                        className="pl-10 h-11 border-neutral-100 bg-neutral-50/50 rounded-xl"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center p-20 bg-white border rounded-3xl border-dashed">
+                    <Loader2 className="animate-spin text-orange-600 w-10 h-10 mb-4" />
+                    <p className="text-neutral-500 font-bold uppercase italic text-xs tracking-widest">Sincronizando con la red...</p>
                 </div>
-                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                    <FilterButton active={filterBy === 'recientes'} onClick={() => setFilterBy('recientes')}>Recientes</FilterButton>
-                    <FilterButton active={filterBy === 'mayor_roas'} onClick={() => setFilterBy('mayor_roas')}>Mejor ROAS</FilterButton>
-                    <FilterButton active={filterBy === 'mayor_ventas'} onClick={() => setFilterBy('mayor_ventas')}>Más Ventas</FilterButton>
-                    <FilterButton active={filterBy === 'ticket_alto'} onClick={() => setFilterBy('ticket_alto')}>Ticket Prom.</FilterButton>
-                </div>
-            </div>
+            ) : (
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <StatCard title="Total Comercios" value={stats.totalComercios} icon={<Store className="text-blue-500" />} />
+                        <StatCard title="Red Activa" value={stats.activos} icon={<Check className="text-green-500" />} />
+                        <StatCard title="Esperando" value={stats.pendientes} icon={<ShieldAlert className="text-orange-500" />} />
+                        <StatCard title="Ingresos Inscripción" value={`$${stats.recaudacionTotal.toLocaleString()}`} icon={<DollarSign className="text-emerald-500" />} />
+                    </div>
 
-            <div className="grid grid-cols-1 gap-4">
-                {filteredList.length === 0 && (
-                    <Card className="bg-white border-dashed border-2">
-                        <CardContent className="py-20 text-center text-neutral-400">
-                            <Store className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                            No se encontraron comercios con esos criterios.
-                        </CardContent>
-                    </Card>
-                )}
-
-                {filteredList.map((sol) => (
-                    <Card key={sol.id} className={`overflow-hidden transition-all duration-300 ${sol.activo ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-orange-500'}`}>
-                        <div className="flex flex-col lg:flex-row">
-                            <div className="p-6 flex-1 space-y-6">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black italic ${sol.activo ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                                            {sol.nombre_comercio?.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="font-black italic uppercase text-neutral-900 text-xl tracking-tight">{sol.nombre_comercio}</h3>
-                                                {sol.activo ? (
-                                                    <Badge className="bg-green-500/10 text-green-600 border-none text-[10px] uppercase font-bold tracking-tighter italic">Activo</Badge>
-                                                ) : (
-                                                    <Badge className="bg-orange-500/10 text-orange-600 border-none text-[10px] uppercase font-bold tracking-tighter italic">Esperando</Badge>
-                                                )}
-                                            </div>
-                                            <p className="text-xs font-mono text-neutral-400 mt-1">ID: <span className="text-neutral-900 font-bold">{sol.id_comercio}</span></p>
-                                        </div>
-                                    </div>
-
-                                    {/* Métricas Mockeadas Solicitadas */}
-                                    <div className="flex gap-6">
-                                        <Metric v={sol.roas} l="ROAS" icon={sol.roas > 4 ? <ArrowUpRight className="text-green-500 w-3 h-3" /> : <ArrowDownRight className="text-orange-500 w-3 h-3" />} />
-                                        <Metric v={sol.ventas} l="Ventas" />
-                                        <Metric v={`$${(sol.ticketPromedio / 1000).toFixed(1)}k`} l="Avg. Ticket" />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-neutral-100">
-                                    <ContactItem icon={<Mail size={14} />} label="Email" value={sol.email_admin} />
-                                    <ContactItem icon={<Phone size={14} />} label="WhatsApp" value={sol.whatsapp} />
-                                    <ContactItem icon={<Hash size={14} />} label="Op. Pago" value={sol.numero_operacion || 'N/A'} highlight />
-                                </div>
-                            </div>
-
-                            <div className="bg-neutral-50/50 p-6 flex flex-row lg:flex-col items-center gap-3 border-l border-neutral-100 lg:w-56 justify-center">
-                                {sol.aprobacion_pendiente ? (
-                                    <Button
-                                        onClick={() => handleHabilitar(sol)}
-                                        className="bg-orange-600 hover:bg-orange-700 text-white w-full font-black italic uppercase text-xs h-12 rounded-xl"
-                                    >
-                                        <Check className="w-4 h-4 mr-2" /> Activar Comercio
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        onClick={() => handleToggleStatus(sol.id_comercio, sol.activo)}
-                                        variant="outline"
-                                        className={`w-full font-black italic uppercase text-xs h-12 rounded-xl bg-white ${sol.activo ? 'text-red-500 hover:bg-red-50' : 'text-green-500 hover:bg-green-50'}`}
-                                    >
-                                        {sol.activo ? <><PowerOff className="w-4 h-4 mr-2" /> Deshabilitar</> : <><Power className="w-4 h-4 mr-2" /> Habilitar</>}
-                                    </Button>
-                                )}
-                            </div>
+                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-2xl border shadow-sm">
+                        <div className="relative flex-1 w-full">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 w-4 h-4" />
+                            <Input
+                                placeholder="Buscar por nombre, ID o email..."
+                                className="pl-10 h-11 border-neutral-100 bg-neutral-50/50 rounded-xl"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
                         </div>
-                    </Card>
-                ))}
-            </div>
+                        <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                            <FilterButton active={filterBy === 'recientes'} onClick={() => setFilterBy('recientes')}>Recientes</FilterButton>
+                            <FilterButton active={filterBy === 'mayor_roas'} onClick={() => setFilterBy('mayor_roas')}>Mejor ROAS</FilterButton>
+                            <FilterButton active={filterBy === 'mayor_ventas'} onClick={() => setFilterBy('mayor_ventas')}>Más Ventas</FilterButton>
+                            <FilterButton active={filterBy === 'ticket_alto'} onClick={() => setFilterBy('ticket_alto')}>Ticket Prom.</FilterButton>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                        {filteredList.length === 0 && (
+                            <Card className="bg-white border-dashed border-2">
+                                <CardContent className="py-20 text-center text-neutral-400">
+                                    <Store className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                                    No se encontraron comercios con esos criterios.
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {filteredList.map((sol) => (
+                            <Card key={sol.id} className={`overflow-hidden transition-all duration-300 ${sol.activo ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-orange-500'}`}>
+                                <div className="flex flex-col lg:flex-row">
+                                    <div className="p-6 flex-1 space-y-6">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black italic ${sol.activo ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                    {sol.nombre_comercio?.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-black italic uppercase text-neutral-900 text-xl tracking-tight">{sol.nombre_comercio}</h3>
+                                                        {sol.activo ? (
+                                                            <Badge className="bg-green-500/10 text-green-600 border-none text-[10px] uppercase font-bold tracking-tighter italic">Activo</Badge>
+                                                        ) : (
+                                                            <Badge className="bg-orange-500/10 text-orange-600 border-none text-[10px] uppercase font-bold tracking-tighter italic">Esperando</Badge>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs font-mono text-neutral-400 mt-1">ID: <span className="text-neutral-900 font-bold">{sol.id_comercio}</span></p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-6">
+                                                <Metric v={sol.roas} l="ROAS" icon={sol.roas > 4 ? <ArrowUpRight className="text-green-500 w-3 h-3" /> : <ArrowDownRight className="text-orange-500 w-3 h-3" />} />
+                                                <Metric v={sol.ventas} l="Ventas" />
+                                                <Metric v={`$${(sol.ticketPromedio / 1000).toFixed(1)}k`} l="Avg. Ticket" />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-neutral-100">
+                                            <ContactItem icon={<Mail size={14} />} label="Email" value={sol.email_admin} />
+                                            <ContactItem icon={<Phone size={14} />} label="WhatsApp" value={sol.whatsapp} />
+                                            <ContactItem icon={<Hash size={14} />} label="Op. Pago" value={sol.numero_operacion || 'N/A'} highlight />
+                                        </div>
+                                    </div>
+                                    <div className="bg-neutral-50/50 p-6 flex flex-row lg:flex-col items-center gap-3 border-l border-neutral-100 lg:w-56 justify-center">
+                                        {sol.aprobacion_pendiente ? (
+                                            <Button
+                                                onClick={() => handleHabilitar(sol)}
+                                                className="bg-orange-600 hover:bg-orange-700 text-white w-full font-black italic uppercase text-xs h-12 rounded-xl"
+                                            >
+                                                <Check className="w-4 h-4 mr-2" /> Activar Comercio
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                onClick={() => handleToggleStatus(sol.id_comercio, sol.activo)}
+                                                variant="outline"
+                                                className={`w-full font-black italic uppercase text-xs h-12 rounded-xl bg-white ${sol.activo ? 'text-red-500 hover:bg-red-50' : 'text-green-500 hover:bg-green-50'}`}
+                                            >
+                                                {sol.activo ? <><PowerOff className="w-4 h-4 mr-2" /> Deshabilitar</> : <><Power className="w-4 h-4 mr-2" /> Habilitar</>}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                </>
+            )}
         </div>
     );
 }
