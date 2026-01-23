@@ -5,18 +5,10 @@ Deno.serve(async (req) => {
     console.log("INICIO: registrarComercio (Simple Flow)");
 
     try {
-        // 0. CHECK ENV VARS
-        const apiUrl = Deno.env.get("BASE44_API_URL");
-        const serviceKey = Deno.env.get("BASE44_SERVICE_ROLE_KEY");
-        if (!apiUrl || !serviceKey) {
-            console.error("CRITICAL: Missing Admin Env Vars");
-            return Response.json({ success: false, error: "Server Config Error: Missing API Keys" }, { status: 200 });
-        }
+        // 0. NATIVE SERVICE ROLE (No Manual Keys needed)
+        const base44 = createClientFromRequest(req);
 
-        const base44Admin = createClient(apiUrl, serviceKey);
-        const base44User = createClientFromRequest(req);
-
-        const user = await base44User.auth.me();
+        const user = await base44.auth.me();
         if (!user) return Response.json({ success: false, error: 'Auth Expired' }, { status: 200 });
 
         let body;
@@ -30,7 +22,8 @@ Deno.serve(async (req) => {
         }
 
         // DIRECT INSERT: SolicitudComercio
-        const result = await base44Admin.entities.SolicitudComercio.create({
+        // Use native Service Role from Platform
+        const result = await base44.asServiceRole.entities.SolicitudComercio.create({
             nombre: nombre_comercio,
             email: userEmail,
             whatsapp: whatsapp || "",
