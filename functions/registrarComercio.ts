@@ -8,27 +8,46 @@ Deno.serve(async (req) => {
         // 0. NATIVE SERVICE ROLE (No Manual Keys needed)
         const base44 = createClientFromRequest(req);
 
-        const user = await base44.auth.me();
-        if (!user) return Response.json({ success: false, error: 'Auth Expired' }, { status: 200 });
+        // PUBLIC ENDPOINT - No Auth Check needed
 
         let body;
         try { body = await req.json(); } catch (e) { body = {}; }
 
-        const { nombre_comercio, whatsapp, numero_operacion } = body;
-        const userEmail = (user.email || "").toLowerCase().trim();
+        const { nombre_comercio, whatsapp, numero_operacion, email, password, full_name } = body;
 
-        if (!nombre_comercio) {
-            return Response.json({ success: false, error: 'Falta nombre del comercio' }, { status: 200 });
+        // Validaciones Básicas de Payload
+        if (!nombre_comercio || !email || !password) {
+            return Response.json({ success: false, error: 'Faltan datos obligatorios (Nombre, Email, Password)' }, { status: 200 });
         }
 
-        // DIRECT INSERT: SolicitudComercio
-        // Use native Service Role from Platform
+        const emailNorm = email.toLowerCase().trim();
+
+        // 1. CREAR USUARIO (Auth Admin)
+        const { data: newUser, error: authError } = await base44.asServiceRole.auth.admin.createUser({
+            email: emailNorm,
+            password: password,
+            email_confirm: true,
+            user_metadata: { full_name: full_name || nombre_comercio }
+        });
+
+        if (authError) {
+            console.error("AUTH ERROR:", authError.message);
+            if (authError.message.includes("already registered")) {
+                return Response.json({ success: false, error: 'El email ya está registrado. Por favor inicia sesión primero.' }, { status: 200 });
+            }
+            return Response.json({ success: false, error: `Error creando usuario: ${authError.message}` }, { status: 200 });
+        }
+
+        const userId = newUser.user.id;
+        console.log("USUARIO CREADO:", userId);
+
+        // 2. CREAR SOLICITUD (DB)
         const result = await base44.asServiceRole.entities.SolicitudComercio.create({
             nombre: nombre_comercio,
-            email: userEmail,
+            email: emailNorm,
             whatsapp: whatsapp || "",
             comprobante: numero_operacion || "NO_OP",
-            user_id: user.id || "",
+            user_id: userId,
             status: "pendiente",
             fecha: new Date().toISOString()
         });
@@ -37,7 +56,8 @@ Deno.serve(async (req) => {
 
         return Response.json({
             success: true,
-            id_registro: result.id
+            id_registro: result.id,
+            message: "Usuario y Solicitud creados correctamente"
         });
 
     } catch (error) {

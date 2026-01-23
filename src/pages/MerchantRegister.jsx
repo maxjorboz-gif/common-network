@@ -39,25 +39,14 @@ const MerchantRegister = () => {
             return;
         }
 
-        setLoading(true);
-        try {
-            if (!user) {
-                await base44.auth.signUp({
-                    email: form.email,
-                    password: form.password,
-                    full_name: form.usuario || form.email,
-                    custom_data: { whatsapp: form.whatsapp }
-                });
-
-                toast({ title: "Cuenta creada", description: "Por favor, inciá sesión y continuá con el pago." });
-                window.location.reload();
-                return;
-            }
+        if (user) {
+            // Si ya está logueado, solo avanzamos.
             setStep(2);
-        } catch (error) {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
-        } finally {
-            setLoading(false);
+        } else {
+            // Si no está logueado, NO intentamos registrar todavía.
+            // Esperamos al paso 2 para enviar todo junto al backend.
+            // Simplemente avanzamos para pedir el pago.
+            setStep(2);
         }
     };
 
@@ -66,11 +55,14 @@ const MerchantRegister = () => {
 
         setLoading(true);
         try {
-            // Intentamos invocar la función de registro
+            // Intentamos invocar la función de registro (BACKEND ATOMIC CREATION)
             const response = await base44.functions.invoke('registrarComercio', {
                 nombre_comercio: form.nombreComercio,
                 whatsapp: form.whatsapp,
-                numero_operacion: numOperacion
+                numero_operacion: numOperacion,
+                email: form.email,
+                password: form.password,
+                full_name: form.usuario
             });
 
             // Si hay error 500 o similar, data vendrá como null o con error
@@ -80,6 +72,8 @@ const MerchantRegister = () => {
 
             if (response.data?.success) {
                 setStep(3);
+                // Opcional: Auto-login alert o redirección
+                toast({ title: "¡Cuenta Creada!", description: "Tu usuario ha sido generado. Inicia sesión para ver el estado." });
             } else {
                 throw new Error(response.data?.error || 'Error al procesar el registro');
             }
