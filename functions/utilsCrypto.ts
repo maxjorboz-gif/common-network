@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
 /**
  * UTILS CRYPTO - Basado en Leyes de Meta y Privacidad

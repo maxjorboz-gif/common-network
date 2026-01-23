@@ -22,13 +22,10 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Producto no encontrado' }, { status: 404 });
         }
 
-        // BACKEND VALIDA TODO
         if (productoData.precio_estandar) {
-            const precioEstandar = parseFloat(productoData.precio_estandar);
-            if (precioEstandar <= 0) {
-                return Response.json({ error: 'Precio debe ser mayor a 0' }, { status: 400 });
-            }
-            productoData.precio_minimo = precioEstandar * 0.60;
+            // ADMIN POWER: Permitimos cualquier precio, incluso 0 o negativo si lo desea (ej. ajustes contables)
+            // NO calculamos precio_minimo automáticamente. Si el user no lo manda, queda como está o null.
+            productoData.precio_estandar = parseFloat(productoData.precio_estandar);
         }
 
         if (productoData.categoria && productoData.categoria.trim() === '') {

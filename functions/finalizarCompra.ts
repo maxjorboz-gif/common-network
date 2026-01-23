@@ -32,8 +32,6 @@ async function sendCAPI(eventName, userData, customData, eventId) {
     } catch (e) { console.error("Error Meta CAPI:", e.message); }
 }
 
-const ID_REAL_MAXI_FALLBACK = '6967c145da288cc653cfeab2';
-
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -53,10 +51,12 @@ Deno.serve(async (req) => {
             fbp, fbc, userAgent
         } = body;
 
-        // === RESOLUCIÓN DE IDENTIDAD (Soberana) ===
-        // Usamos el ID recibido directamente como id_comercio (000001)
+        // === RESOLUCIÓN DE IDENTIDAD ===
+        if (!idRecibido) {
+            return Response.json({ error: 'Falta id_comercio en el payload' }, { status: 400 });
+        }
         const id_comercio_final = idRecibido;
-        // =============================================
+        // ==============================
 
         // 1. SIEMPRE NORMALIZAMOS Y HASHEAMOS PARA MARKETING/ORDEN
         const phoneNorm = normalizeArgentinaPhone(cliente?.telefono_whatsapp);

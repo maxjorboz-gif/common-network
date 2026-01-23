@@ -14,9 +14,13 @@ import {
     Ticket, CreditCard, Landmark, Fingerprint, Hash, ShoppingBasket, Truck, FileText, Info
 } from 'lucide-react';
 
-const COMERCIO_ID = '000001';
+import { useSearchParams } from 'react-router-dom';
+
+const COMERCIO_ID_FALLBACK = null; // Eliminado 000001
 
 export default function Checkout() {
+    const [searchParams] = useSearchParams();
+    const COMERCIO_ID = searchParams.get('id') || COMERCIO_ID_FALLBACK;
     const navigate = useNavigate();
     const { cartItems, total, clearCart } = useCart();
 

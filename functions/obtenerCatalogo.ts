@@ -13,10 +13,9 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Falta ID de comercio (id_comercio)' }, { status: 400 });
         }
 
-        // === TRADUCTOR MARCA BLANCA ===
-        // Usamos el ID recibido directamente como id_comercio (Soberano)
+        // === ID COMERCIO ===
         const id_comercio = idRecibido;
-        // ==============================
+        // ===================
 
         // 1. OBTENER PRODUCTOS (Usamos asServiceRole para que sea público y rápido)
         // Traemos todos los activos (o que no tengan flag de inactivo explícito/false)

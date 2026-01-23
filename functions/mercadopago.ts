@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
     const preferenceBody = {
       items: mpItems,
       back_urls: {
-        // Rutas normalizadas a minúsculas para evitar 404
+        // Rutas normalizadas a minúsculas
         success: `${origin}/checkout?payment=success&external_reference=${orden.numero_orden || orden.id}`,
         failure: `${origin}/checkout?payment=failure`,
         pending: `${origin}/checkout?payment=pending`

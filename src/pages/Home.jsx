@@ -10,9 +10,11 @@ import PopupLeadHook from '@/components/ui/PopupLeadHook';
 import { motion } from 'framer-motion';
 import { useCart } from '@/components/CartContext';
 
-const COMERCIO_ID = '000001';
+import { useSearchParams } from 'react-router-dom';
 
 export default function Home() {
+  const [searchParams] = useSearchParams();
+  const COMERCIO_ID = searchParams.get('id') || null; // SIN DEFAULT 000001
   const { openDrawer, addItem } = useCart();
   const [searchTerm, setSearchTerm] = useState('');
   const [popupOpen, setPopupOpen] = useState(false);

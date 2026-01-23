@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClient } from 'npm:@base44/sdk@0.8.6';
+import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
 
 const base44 = createClient(
     Deno.env.get("BASE44_API_URL") ?? "",

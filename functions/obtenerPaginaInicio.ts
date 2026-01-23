@@ -6,9 +6,11 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const { id_comercio: idComercioRequest } = await req.json().catch(() => ({}));
 
-        // ID SOBERANO por defecto si no viene en el request (para admin principal)
-        const DEFAULT_ID = "000001";
-        const idBusqueda = idComercioRequest || DEFAULT_ID;
+        // SIN FALLBACK: El ID debe venir del request (url)
+        if (!idComercioRequest) {
+            return Response.json({ error: 'Falta ID comercio' }, { status: 400 });
+        }
+        const idBusqueda = idComercioRequest;
 
         // 1. Obtener CATEGORÍAS activas para ese comercio (agrupando productos)
         // Optimizacion: Traemos productos y extraemos categorías únicas en memoria 

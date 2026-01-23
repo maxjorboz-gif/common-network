@@ -1,20 +1,20 @@
 import React from 'react';
 import { useCart } from '@/components/CartContext';
 import { useNavigate } from 'react-router-dom';
-import { 
-  X, ShoppingBag, Plus, Minus, Trash2, ArrowRight, Flame 
+import {
+  X, ShoppingBag, Plus, Minus, Trash2, ArrowRight, Flame
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { 
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter 
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
 export default function CartDrawerNew() {
-  const { 
-    cartItems, removeItem, updateQuantity, total, 
-    isDrawerOpen, closeDrawer 
+  const {
+    cartItems, removeItem, updateQuantity, total,
+    isDrawerOpen, closeDrawer
   } = useCart();
   const navigate = useNavigate();
 
@@ -51,15 +51,15 @@ export default function CartDrawerNew() {
           ) : (
             <div className="space-y-6">
               {cartItems.map((item) => (
-                <div key={item.id || item.id_producto} className="flex gap-4 group">
+                <div key={item.id} className="flex gap-4 group">
                   <div className="relative w-24 h-24 bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800">
-                    <img 
-                      src={item.imagen_principal || item.imagen || '/placeholder-grill.jpg'} 
+                    <img
+                      src={item.imagen_principal || item.imagen || '/placeholder-grill.jpg'}
                       alt={item.titulo}
                       className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all"
                     />
                   </div>
-                  
+
                   <div className="flex-1 flex flex-col justify-between py-1">
                     <div>
                       <h4 className="font-black uppercase text-sm leading-tight">{item.titulo}</h4>
@@ -70,23 +70,23 @@ export default function CartDrawerNew() {
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center bg-neutral-900 rounded-lg border border-neutral-800">
-                        <button 
-                          onClick={() => updateQuantity(item.id || item.id_producto, item.cantidad - 1)}
+                        <button
+                          onClick={() => updateQuantity(item.id, item.cantidad - 1)}
                           className="p-1 hover:text-orange-500 transition-colors"
                         >
                           <Minus className="w-4 h-4" />
                         </button>
                         <span className="w-8 text-center font-bold text-xs">{item.cantidad}</span>
-                        <button 
-                          onClick={() => updateQuantity(item.id || item.id_producto, item.cantidad + 1)}
+                        <button
+                          onClick={() => updateQuantity(item.id, item.cantidad + 1)}
                           className="p-1 hover:text-orange-500 transition-colors"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
-                      
-                      <button 
-                        onClick={() => removeItem(item.id || item.id_producto)}
+
+                      <button
+                        onClick={() => removeItem(item.id)}
                         className="text-neutral-700 hover:text-red-500 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -113,14 +113,14 @@ export default function CartDrawerNew() {
               </div>
             </div>
 
-            <Button 
+            <Button
               onClick={handleIrACheckout}
               className="w-full h-16 bg-orange-600 hover:bg-orange-700 text-white font-black text-xl rounded-2xl group"
             >
               INICIAR COMPRA
               <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
             </Button>
-            
+
             <p className="text-[10px] text-center text-neutral-500 uppercase font-bold tracking-tighter">
               Los descuentos por transferencia se aplican en el siguiente paso
             </p>

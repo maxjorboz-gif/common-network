@@ -16,7 +16,6 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Faltan parámetros' }, { status: 400 });
     }
 
-    // USO ID SOBERANO (000001)
     const configs = await base44.asServiceRole.entities.ConfiguracionComercio.filter({
       id_comercio: id_comercio
     }, '-created_date', 1);

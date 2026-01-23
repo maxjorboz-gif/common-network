@@ -6,9 +6,9 @@ Deno.serve(async (req) => {
         const base44 = createClientFromRequest(req);
         const { id_comercio, configData } = await req.json();
 
-        if (!id_comercio) return Response.json({ error: 'Falta ID Soberano' }, { status: 400 });
+        if (!id_comercio) return Response.json({ error: 'Falta ID Comercio' }, { status: 400 });
 
-        // Buscamos la configuración vinculada al ID SOBERANO
+        // Buscamos la configuración vinculada al ID COMERCIO
         const configs = await base44.asServiceRole.entities.ConfiguracionComercio.filter({
             id_comercio: id_comercio
         }, '-created_date', 1);

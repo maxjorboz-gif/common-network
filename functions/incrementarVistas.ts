@@ -1,9 +1,10 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+// @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        
+
         const { productoId } = await req.json();
 
         if (!productoId) {

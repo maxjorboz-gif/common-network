@@ -12,15 +12,12 @@ Deno.serve(async (req) => {
         if (!productoData || !productoData.titulo || !productoData.precio_estandar) {
             return Response.json({ error: 'Parámetros incompletos: Titulo y Precio son obligatorios' }, { status: 400 });
         }
-        // BACKEND VALIDA PRECIO
-        const precioEstandar = parseFloat(productoData.precio_estandar);
-        if (precioEstandar <= 0) {
-            return Response.json({ error: 'Precio debe ser mayor a 0' }, { status: 400 });
-        }
+        // BACKEND LIBRE: Sin validaciones de precio > 0
+        const precioEstandar = parseFloat(productoData.precio_estandar || 0);
         if (!productoData.categoria || productoData.categoria.trim() === '') {
             return Response.json({ error: 'Categoría es obligatoria' }, { status: 400 });
         }
-        // BLINDAJE: ID SOBERANO (Dinámico)
+        // BLINDAJE: ID COMERCIO DINÁMICO
         // Buscamos cuál es TU ID real en la base de datos
         const comercios = await base44.asServiceRole.entities.Comercio.filter({
             email_admin: user.email
@@ -28,13 +25,13 @@ Deno.serve(async (req) => {
         if (!comercios[0] || !comercios[0].id_comercio) {
             return Response.json({ error: "Usuario no tiene ID Comercio asignado. Ejecute vincularNuevoUsuario primero." }, { status: 400 });
         }
-        const SOVEREIGN_ID = comercios[0].id_comercio;
+        const DYNAMIC_ID = comercios[0].id_comercio;
         // Crear producto con ID Comercio forzado
         const nuevoProducto = await base44.asServiceRole.entities.Producto.create({
             ...productoData,
-            id_comercio: SOVEREIGN_ID, // Sobrescribe cualquier cosa que venga del front
+            id_comercio: DYNAMIC_ID, // Sobrescribe cualquier cosa que venga del front
             precio_estandar: precioEstandar,
-            precio_minimo: precioEstandar * 0.60,
+            precio_minimo: parseFloat(productoData.precio_minimo || 0), // Respetamos lo que mande el front o 0
             stock_actual: parseInt(productoData.stock_actual || 0),
             costo_producto: parseFloat(productoData.costo_producto || 0),
             activo: true,

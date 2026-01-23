@@ -19,25 +19,9 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Falta ID de comercio (id_comercio)' }, { status: 400 });
         }
 
-        // === RESOLUCIÓN DE IDENTIDAD ESCALABLE ===
-        // Buscamos por el ID Soberano (id_comercio) suministrado
-        const comerciosSoberanos = await base44.asServiceRole.entities.Comercio.filter({
-            id_comercio: idRecibido
-        }, '-created_date', 1);
-
-        let id_base44_interno;
-
-        if (comerciosSoberanos.length > 0) {
-            // El backend usa el ID nativo de la entidad para filtrar los productos 
-            // que tienen ese 'id_comercio' vinculado. 
-            // IMPORTANTE: En el esquema de Base44, los productos guardados por crearProducto
-            // guardan el id_comercio (000001) en su campo id_comercio.
-            id_base44_interno = idRecibido;
-        } else {
-            // Fallback: si no encontramos el comercio soberano, usamos el ID recibido directamente
-            // por si ya es un ID nativo (compatibilidad)
-            id_base44_interno = idRecibido;
-        }
+        // === RESOLUCIÓN DE IDENTIDAD ===
+        const id_base44_interno = idRecibido;
+        // ==============================
         // ==========================================
 
         const productos = await base44.asServiceRole.entities.Producto.filter({

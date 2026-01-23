@@ -4,6 +4,7 @@ import { Rocket, Shield, Zap, ArrowRight, Store, Globe, Star, Users, Banknote, C
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { base44 } from '@/api/base44Client';
 
 
 export default function LandingPage() {
@@ -117,6 +118,7 @@ export default function LandingPage() {
             </section>
 
             {/* CTA Section */}
+            {/* CTA Section */}
             <section className="relative z-10 py-32 px-6">
                 <div className="max-w-3xl mx-auto bg-gradient-to-br from-orange-600 to-red-800 p-1 rounded-[3rem] shadow-[0_0_100px_rgba(234,88,12,0.1)]">
                     <div className="bg-neutral-950 rounded-[2.8rem] p-12 md:p-20 text-center">
@@ -134,6 +136,32 @@ export default function LandingPage() {
                     </div>
                 </div>
             </section>
+
+            {/* EMERGENCY WIPE BUTTON - HIDDEN/DISCRETE */}
+            <div className="fixed bottom-4 right-4 z-50 opacity-50 hover:opacity-100 transition-opacity">
+                <Button
+                    variant="destructive"
+                    size="sm"
+                    className="text-[10px] uppercase font-bold tracking-widest bg-red-900/50 hover:bg-red-600 border border-red-800"
+                    onClick={async () => {
+                        if (!confirm("⚠️ PELIGRO: ¿BORRAR TODA LA BASE DE DATOS?\n\nEsta acción eliminará comercios, productos, órdenes y todo el contenido.\n\n¿Estás seguro?")) return;
+
+                        try {
+                            const res = await base44.functions.invoke('forceWipe');
+                            if (res.data?.success) {
+                                alert("✅ BASE DE DATOS BORRADA.\n\nRecargando página...");
+                                window.location.reload();
+                            } else {
+                                alert("❌ Error: " + (res.data?.error || JSON.stringify(res.data)));
+                            }
+                        } catch (e) {
+                            alert("Error invocando forceWipe: " + e.message);
+                        }
+                    }}
+                >
+                    ☢️ BORRAR DB
+                </Button>
+            </div>
         </div>
     );
 }

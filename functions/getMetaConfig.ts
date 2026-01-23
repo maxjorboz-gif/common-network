@@ -1,9 +1,10 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+// @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        
+
         // 1. AUTENTICACIÓN (Seguridad de Ley)
         // Solo el Admin o el sistema interno pueden pedir esta configuración completa
         const user = await base44.auth.me();
@@ -22,9 +23,9 @@ Deno.serve(async (req) => {
         if (!DATASET_ID || !ACCESS_TOKEN) {
             console.error('🚨 ALERTA LEY DE META: Faltan credenciales en el servidor.');
             return Response.json(
-                { 
-                    status: 'error', 
-                    message: 'Falta configurar META_DATASET_ID o META_ACCESS_TOKEN en el entorno' 
+                {
+                    status: 'error',
+                    message: 'Falta configurar META_DATASET_ID o META_ACCESS_TOKEN en el entorno'
                 },
                 { status: 500 }
             );

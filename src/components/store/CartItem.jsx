@@ -13,11 +13,11 @@ export default function CartItem({ item, onUpdateQuantity, onRemove }) {
           className="w-full h-full object-cover"
         />
       </div>
-      
+
       {/* Info */}
       <div className="flex-1 min-w-0">
         <h4 className="font-medium text-gray-900 truncate">{item.titulo}</h4>
-        
+
         {/* Atributos seleccionados */}
         {item.atributos_seleccionados && Object.keys(item.atributos_seleccionados).length > 0 && (
           <div className="flex gap-2 mt-1 flex-wrap">
@@ -28,19 +28,19 @@ export default function CartItem({ item, onUpdateQuantity, onRemove }) {
             ))}
           </div>
         )}
-        
+
         <div className="flex items-center justify-between mt-2">
           <span className="font-semibold text-gray-900">
             ${item.precio_unitario?.toLocaleString('es-AR')}
           </span>
-          
+
           {/* Cantidad */}
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="icon"
               className="h-8 w-8 rounded-lg"
-              onClick={() => onUpdateQuantity(item.id_producto, item.cantidad - 1)}
+              onClick={() => onUpdateQuantity(item.id, item.cantidad - 1)}
               disabled={item.cantidad <= 1}
             >
               <Minus className="w-3 h-3" />
@@ -50,13 +50,13 @@ export default function CartItem({ item, onUpdateQuantity, onRemove }) {
               variant="outline"
               size="icon"
               className="h-8 w-8 rounded-lg"
-              onClick={() => onUpdateQuantity(item.id_producto, item.cantidad + 1)}
+              onClick={() => onUpdateQuantity(item.id, item.cantidad + 1)}
             >
               <Plus className="w-3 h-3" />
             </Button>
           </div>
         </div>
-        
+
         {/* Subtotal y Eliminar */}
         <div className="flex items-center justify-between mt-2">
           <span className="text-sm text-gray-500">
@@ -68,7 +68,7 @@ export default function CartItem({ item, onUpdateQuantity, onRemove }) {
             variant="ghost"
             size="sm"
             className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2"
-            onClick={() => onRemove(item.id_producto)}
+            onClick={() => onRemove(item.id)}
           >
             <Trash2 className="w-4 h-4" />
           </Button>

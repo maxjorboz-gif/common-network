@@ -10,7 +10,7 @@ export function CartProvider({ children }) {
     }
     return [];
   });
-  
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -22,14 +22,14 @@ export function CartProvider({ children }) {
 
   const addItem = (producto) => {
     setCartItems((prev) => {
-      const idActual = producto.id || producto.id_producto;
-      const existe = prev.find(item => (item.id || item.id_producto) === idActual);
+      const idActual = producto.id; // STRICT ID
+      const existe = prev.find(item => item.id === idActual);
 
       if (existe) {
-        return prev.map(item => 
-          (item.id || item.id_producto) === idActual 
-          ? { ...item, cantidad: (item.cantidad || 1) + 1 } 
-          : item
+        return prev.map(item =>
+          item.id === idActual
+            ? { ...item, cantidad: (item.cantidad || 1) + 1 }
+            : item
         );
       }
       return [...prev, { ...producto, cantidad: 1 }];
@@ -38,7 +38,7 @@ export function CartProvider({ children }) {
   };
 
   const removeItem = (id) => {
-    setCartItems((prev) => prev.filter(item => (item.id || item.id_producto) !== id));
+    setCartItems((prev) => prev.filter(item => item.id !== id));
   };
 
   const updateQuantity = (id, cantidad) => {
@@ -46,8 +46,8 @@ export function CartProvider({ children }) {
       removeItem(id);
       return;
     }
-    setCartItems((prev) => 
-      prev.map(item => (item.id || item.id_producto) === id ? { ...item, cantidad } : item)
+    setCartItems((prev) =>
+      prev.map(item => item.id === id ? { ...item, cantidad } : item)
     );
   };
 
@@ -57,15 +57,15 @@ export function CartProvider({ children }) {
   }, 0);
 
   return (
-    <CartContext.Provider value={{ 
-      cartItems, 
-      addItem, 
-      removeItem, 
-      updateQuantity, 
-      total, 
-      isDrawerOpen, 
-      openDrawer, 
-      closeDrawer 
+    <CartContext.Provider value={{
+      cartItems,
+      addItem,
+      removeItem,
+      updateQuantity,
+      total,
+      isDrawerOpen,
+      openDrawer,
+      closeDrawer
     }}>
       {children}
     </CartContext.Provider>
