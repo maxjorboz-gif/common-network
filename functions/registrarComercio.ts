@@ -5,15 +5,19 @@ Deno.serve(async (req) => {
     console.log("INICIO: registrarComercio (Simple Flow)");
 
     try {
+        // 0. CHECK ENV VARS
+        const apiUrl = Deno.env.get("BASE44_API_URL");
+        const serviceKey = Deno.env.get("BASE44_SERVICE_ROLE_KEY");
+        if (!apiUrl || !serviceKey) {
+            console.error("CRITICAL: Missing Admin Env Vars");
+            return Response.json({ success: false, error: "Server Config Error: Missing API Keys" }, { status: 200 });
+        }
+
+        const base44Admin = createClient(apiUrl, serviceKey);
         const base44User = createClientFromRequest(req);
-        // Admin client for DB writes
-        const base44Admin = createClient(
-            Deno.env.get("BASE44_API_URL") ?? "",
-            Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
-        );
 
         const user = await base44User.auth.me();
-        if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 });
+        if (!user) return Response.json({ success: false, error: 'Auth Expired' }, { status: 200 });
 
         let body;
         try { body = await req.json(); } catch (e) { body = {}; }
@@ -22,7 +26,7 @@ Deno.serve(async (req) => {
         const userEmail = (user.email || "").toLowerCase().trim();
 
         if (!nombre_comercio) {
-            return Response.json({ error: 'Falta nombre del comercio' }, { status: 400 });
+            return Response.json({ success: false, error: 'Falta nombre del comercio' }, { status: 200 });
         }
 
         // DIRECT INSERT: SolicitudComercio
@@ -45,6 +49,7 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error("REGISTRO_FAIL:", error.message);
-        return Response.json({ error: error.message }, { status: 500 });
+        // Important: Return 200 so frontend reads the JSON 'error' field
+        return Response.json({ success: false, error: `DB Error: ${error.message}` }, { status: 200 });
     }
 });
