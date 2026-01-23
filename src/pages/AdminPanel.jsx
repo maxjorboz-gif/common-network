@@ -66,10 +66,8 @@ export default function AdminPanel() {
     queryKey: ['comercio-admin'],
     queryFn: async () => {
       const response = await base44.functions.invoke('obtenerDatosComercio', {});
-      if (!response.data || !response.data.comercio) {
-        throw new Error('No se pudo obtener la información del comercio.');
-      }
-      return response.data.comercio;
+      // LEY DE MEMORIA: Allow null! Do not throw.
+      return response.data?.comercio || null;
     },
     enabled: !!user, // Cargar siempre si hay usuario (incluso si es supremo, para que pueda gestionar SU tienda)
     retry: 0,

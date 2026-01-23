@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+import { createClientFromRequest, createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
 
 function generateRandomId(length = 10) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -12,8 +12,14 @@ function generateRandomId(length = 10) {
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        const base44User = createClientFromRequest(req);
+        // Admin client always for managing other users stuff
+        const base44Admin = createClient(
+            Deno.env.get("BASE44_API_URL") ?? "",
+            Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
+        );
+
+        const user = await base44User.auth.me();
 
         if (!user || user.role !== 'admin') {
             return Response.json({ error: 'No autorizado' }, { status: 403 });
@@ -22,20 +28,21 @@ Deno.serve(async (req) => {
         let body;
         try { body = await req.json(); } catch (e) { body = {}; }
 
-        const { action, id_registro, id_comercio } = body;
+        const { action, id_registro } = body;
 
-        // ACCION: LISTAR (Con manejo de errores para evitar 500 en tablas vacías)
+        // ACCION: LISTAR
         if (action === 'list') {
             let pendientes = [];
             let activos = [];
 
             try {
-                pendientes = await base44.asServiceRole.entities.SolicitudComercio.list();
-            } catch (e) { console.warn("List SolicitudComercio fail:", e.message); }
+                // Use admin client to be sure
+                pendientes = await base44Admin.entities.SolicitudComercio.list();
+            } catch (e) { console.warn("List SolicitudComercio fail (maybe empty):", e.message); }
 
             try {
-                activos = await base44.asServiceRole.entities.Comercio.list();
-            } catch (e) { console.warn("List Comercio fail:", e.message); }
+                activos = await base44Admin.entities.Comercio.list();
+            } catch (e) { console.warn("List Comercio fail (maybe empty):", e.message); }
 
             const solicitudesNormalizadas = [
                 ...pendientes.map(p => ({
@@ -61,11 +68,14 @@ Deno.serve(async (req) => {
         // ACCION: APROBAR
         if (action === 'approve') {
             if (!id_registro) return Response.json({ error: 'Falta ID de registro' }, { status: 400 });
-            const solicitud = await base44.asServiceRole.entities.SolicitudComercio.get(id_registro);
+
+            const solicitud = await base44Admin.entities.SolicitudComercio.get(id_registro);
             if (!solicitud) return Response.json({ error: 'Solicitud no encontrada' }, { status: 404 });
 
             const finalId = generateRandomId(10);
-            await base44.asServiceRole.entities.Comercio.create({
+
+            // Create ACTIVE Commerce
+            await base44Admin.entities.Comercio.create({
                 id_comercio: finalId,
                 id_visual: finalId,
                 nombre_comercio: solicitud.nombre,
@@ -78,7 +88,9 @@ Deno.serve(async (req) => {
                 created_date: new Date().toISOString()
             });
 
-            await base44.asServiceRole.entities.SolicitudComercio.delete(id_registro);
+            // Delete Pending Request
+            await base44Admin.entities.SolicitudComercio.delete(id_registro);
+
             return Response.json({ success: true, new_id: finalId });
         }
 

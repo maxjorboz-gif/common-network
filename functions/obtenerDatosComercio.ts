@@ -4,9 +4,6 @@ import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-
-        // NO HACEMOS AUTH CHECK COMPLEJO AQUÍ PARA EVITAR COLLISIONES CON TABLAS DAÑADAS
-        // Solo verificamos email de usuario si es posible
         let user;
         try {
             user = await base44.auth.me();
@@ -18,29 +15,32 @@ Deno.serve(async (req) => {
 
         const userEmail = (user.email || "").toLowerCase().trim();
 
-        // LEY DE MEMORIA: Al buscar datos de comercio, si la tabla está rota, 
-        // devolvemos 404 para que el front lo mande a /registro.
-        // NO intentamos hacer cosas raras si falla.
+        // FAILSAFE: If DB is broken or empty, we just say "No Commerce" (null)
+        // This allows the frontend to show the "Register Now" screen instead of a Red Error.
+        let miComercio = null;
+
         try {
             const comercios = await base44.asServiceRole.entities.Comercio.filter({
                 email_admin: userEmail
             }, '-created_date', 1);
 
-            const miComercio = comercios[0];
-
-            if (!miComercio || !miComercio.activo) {
-                return Response.json({ error: 'No activo', code: 'COMMERCE_NOT_FOUND' }, { status: 404 });
+            if (comercios && comercios.length > 0) {
+                miComercio = comercios[0];
             }
-
-            return Response.json({
-                success: true,
-                id_comercio: miComercio.id_comercio,
-                comercio: miComercio
-            });
         } catch (dbErr) {
-            // Si la tabla está tan rota que el filter da 500, devolvemos 404 controlado
-            return Response.json({ error: 'DB Error/Empty', code: 'COMMERCE_NOT_FOUND' }, { status: 404 });
+            console.warn("Comercio lookup failed (likely empty table), returning null.", dbErr.message);
         }
+
+        // Return logic: 
+        // If Commerce exists and is active -> Return it.
+        // If Commerce exists but inactive -> Return it (Frontend handles "Pending" UI).
+        // If NO Commerce -> Return null (Frontend handles "Register" UI).
+
+        return Response.json({
+            success: true,
+            id_comercio: miComercio ? miComercio.id_comercio : null,
+            comercio: miComercio // Can be null
+        });
 
     } catch (globalErr) {
         return Response.json({ error: globalErr.message }, { status: 500 });

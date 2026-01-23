@@ -2,30 +2,21 @@
 import { createClientFromRequest, createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
-    console.log("INICIO: registrarComercio (Isolated Waiting Room)");
+    console.log("INICIO: registrarComercio (Simple Flow)");
 
     try {
-        // Cliente Normal para verificar Auth del usuario
         const base44User = createClientFromRequest(req);
-
-        // Cliente Admin explícito para operaciones de DB privilegiadas
+        // Admin client for DB writes
         const base44Admin = createClient(
             Deno.env.get("BASE44_API_URL") ?? "",
             Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
         );
 
         const user = await base44User.auth.me();
-
-        if (!user) {
-            return Response.json({ error: 'No autorizado' }, { status: 401 });
-        }
+        if (!user) return Response.json({ error: 'No autorizado' }, { status: 401 });
 
         let body;
-        try {
-            body = await req.json();
-        } catch (e) {
-            return Response.json({ error: 'Body mismatch' }, { status: 400 });
-        }
+        try { body = await req.json(); } catch (e) { body = {}; }
 
         const { nombre_comercio, whatsapp, numero_operacion } = body;
         const userEmail = (user.email || "").toLowerCase().trim();
@@ -34,8 +25,7 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Falta nombre del comercio' }, { status: 400 });
         }
 
-        // LEY DE MEMORIA: Usamos una entidad NUEVA "SolicitudComercio" para evitar basura de bases anteriores
-        // Esto garantiza que el esquema sea fresco y no choque con nada viejo.
+        // DIRECT INSERT: SolicitudComercio
         const result = await base44Admin.entities.SolicitudComercio.create({
             nombre: nombre_comercio,
             email: userEmail,
@@ -46,20 +36,15 @@ Deno.serve(async (req) => {
             fecha: new Date().toISOString()
         });
 
-        console.log("EXITO: Solicitud creada con ID:", result.id);
+        console.log("EXITO: Solicitud creada:", result.id);
 
         return Response.json({
             success: true,
-            id_registro: result.id,
-            data: result
+            id_registro: result.id
         });
 
     } catch (error) {
-        console.error("CRITICAL_SOLICITUD_ERROR:", error.message);
-        return Response.json({
-            success: false,
-            error: `Error en la base de datos: ${error.message}`,
-            debug_info: "Probablemente la entidad SolicitudComercio está naciendo ahora"
-        }, { status: 500 });
+        console.error("REGISTRO_FAIL:", error.message);
+        return Response.json({ error: error.message }, { status: 500 });
     }
 });
