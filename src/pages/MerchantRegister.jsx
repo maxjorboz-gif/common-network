@@ -42,7 +42,7 @@ const MerchantRegister = () => {
         setLoading(true);
         try {
             if (!user) {
-                await base44.auth.signup({
+                await base44.auth.signUp({
                     email: form.email,
                     password: form.password,
                     full_name: form.usuario || form.email,
