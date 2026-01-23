@@ -108,13 +108,21 @@ export default function Layout({ children }) {
                       </div>
                     </div>
 
-                    {(user.role === 'admin' || isAdminPage) && (
-                      <Link to="/admin" className="p-2 text-neutral-500 hover:text-orange-500 transition-colors">
+                    {user.role === 'admin' && (
+                      <Link to="/admin" title="Panel Supremo" className="p-2 text-neutral-500 hover:text-orange-500 transition-colors">
                         <LayoutDashboard size={20} />
                       </Link>
                     )}
 
-                    <button onClick={handleLogout} className="p-2 text-neutral-600 hover:text-red-500 transition-colors">
+                    <button
+                      onClick={() => {
+                        base44.auth.logout();
+                        // Clear storage to avoid 404 references to old tokens/builds
+                        localStorage.clear();
+                        window.location.href = '/';
+                      }}
+                      className="p-2 text-neutral-600 hover:text-red-500 transition-colors"
+                    >
                       <LogOut size={20} />
                     </button>
                   </div>
