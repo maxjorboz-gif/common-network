@@ -3,9 +3,15 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
+  // Obtener ID del comercio actual de la URL
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const currentCommerceId = searchParams.get('id') || 'default';
+
+  const STORAGE_KEY = `carrito_${currentCommerceId}`;
+
   const [cartItems, setCartItems] = useState(() => {
     if (typeof window !== 'undefined') {
-      const savedCart = localStorage.getItem('carrito_local');
+      const savedCart = localStorage.getItem(STORAGE_KEY);
       return savedCart ? JSON.parse(savedCart) : [];
     }
     return [];
@@ -13,9 +19,10 @@ export function CartProvider({ children }) {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  // Update storage whenever cart changes OR commerce ID changes
   useEffect(() => {
-    localStorage.setItem('carrito_local', JSON.stringify(cartItems));
-  }, [cartItems]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cartItems));
+  }, [cartItems, STORAGE_KEY]);
 
   const openDrawer = () => setIsDrawerOpen(true);
   const closeDrawer = () => setIsDrawerOpen(false);

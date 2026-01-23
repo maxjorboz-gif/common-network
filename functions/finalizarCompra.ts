@@ -88,15 +88,23 @@ Deno.serve(async (req) => {
         }
 
         // 3. LÓGICA DE CIERRE DE ORDEN (Action: 'finalizar')
-        // Buscamos productos para asegurar que el precio es el correcto
-        // AQUÍ DEBERÍAMOS FILTRAR PRODUCTOS POR id_db TAMBIÉN PARA SEGURIDAD (TODO)
-        // Por ahora listamos todos (limit 1000) porque es single-tenant de facto en performance
-        const todosProductos = await base44.asServiceRole.entities.Producto.list('-created_date', 1000);
+        // 3. LÓGICA DE CIERRE DE ORDEN (Action: 'finalizar')
+        // Buscamos productos SOLO DE ESTE COMERCIO para seguridad (Avoid Mixed Carts)
+        const productosComercio = await base44.asServiceRole.entities.Producto.filter({
+            id_comercio: id_comercio_final
+        }, '-created_date', 1000);
+
         let subtotalCalculado = 0;
 
         for (const item of items) {
-            const pDb = todosProductos.find((p) => p.id === (item.id || item.id_producto));
-            if (pDb) subtotalCalculado += Number(pDb.precio_estandar) * Number(item.cantidad);
+            // Validate that the item belongs to THIS commerce
+            const pDb = productosComercio.find((p) => p.id === (item.id || item.id_producto));
+
+            if (pDb) {
+                subtotalCalculado += Number(pDb.precio_estandar) * Number(item.cantidad);
+            } else {
+                console.warn(`Producto ${item.id} no pertenece al comercio ${id_comercio_final}. Ignorado.`);
+            }
         }
 
         // Aplicamos descuento de transferencia si aplica (ej. 10%)
