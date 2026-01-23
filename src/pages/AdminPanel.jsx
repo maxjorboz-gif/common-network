@@ -71,7 +71,7 @@ export default function AdminPanel() {
       }
       return response.data.comercio;
     },
-    enabled: !!user && !isSupremo, // Solo cargar si NO es supremo
+    enabled: !!user, // Cargar siempre si hay usuario (incluso si es supremo, para que pueda gestionar SU tienda)
     retry: 0,
     staleTime: 0
   });
@@ -265,8 +265,8 @@ export default function AdminPanel() {
             </TabsContent>
           )}
 
-          {/* LEY DE MEMORIA: Solo renderizamos estas tabs si NO es supremo o si hay un comercio cargado */}
-          {!isSupremo && comercio && (
+          {/* LEY DE MEMORIA: Renderizamos tabs de tienda si hay comercio (sea admin o no) */}
+          {comercio && (
             <>
               <TabsContent value="estadisticas" className="mt-0 focus-visible:ring-0">
                 <AdminEstadisticas comercio={comercio} />
@@ -295,7 +295,7 @@ export default function AdminPanel() {
           )}
 
           {/* Fallback para el Supremo si por alguna razón hace clic en Tabs de tienda sin tener una */}
-          {isSupremo && selectedTab !== 'solicitudes' && (
+          {isSupremo && !comercio && selectedTab !== 'solicitudes' && (
             <div className="py-20 text-center bg-white border rounded-2xl">
               <ShieldAlert className="w-12 h-12 text-orange-600 mx-auto mb-4" />
               <h3 className="text-xl font-black italic uppercase">Modo Administrador de Red</h3>

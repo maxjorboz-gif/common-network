@@ -7,6 +7,7 @@ import { createPageUrl } from '@/utils';
 // IMPORTANTE: Ya no importamos CartProvider aquí porque lo maneja el App.js
 import CartDrawerNew from '@/components/store/CartDrawerNew';
 import CartButton from '@/components/CartButton';
+import { LoginModal } from '@/components/LoginModal';
 
 const getPageNameFromPath = (pathname) => {
   const path = pathname.toLowerCase();
@@ -118,14 +119,15 @@ export default function Layout({ children }) {
                     </button>
                   </div>
                 ) : (
-                  <Button
-                    variant="ghost"
-                    onClick={() => base44.auth.redirectToLogin(window.location.href)}
-                    className="text-neutral-400 hover:text-white hover:bg-neutral-800 font-bold uppercase text-xs tracking-widest"
-                  >
-                    <User className="w-4 h-4 mr-2" />
-                    Ingresar
-                  </Button>
+                  <LoginModal trigger={
+                    <Button
+                      variant="ghost"
+                      className="text-neutral-400 hover:text-white hover:bg-neutral-800 font-bold uppercase text-xs tracking-widest"
+                    >
+                      <User className="w-4 h-4 mr-2" />
+                      Ingresar
+                    </Button>
+                  } />
                 )}
               </nav>
 

@@ -1,12 +1,20 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+import { createClientFromRequest, createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
     console.log("INICIO: registrarComercio (Isolated Waiting Room)");
 
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        // Cliente Normal para verificar Auth del usuario
+        const base44User = createClientFromRequest(req);
+
+        // Cliente Admin explícito para operaciones de DB privilegiadas
+        const base44Admin = createClient(
+            Deno.env.get("BASE44_API_URL") ?? "",
+            Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
+        );
+
+        const user = await base44User.auth.me();
 
         if (!user) {
             return Response.json({ error: 'No autorizado' }, { status: 401 });
@@ -28,7 +36,7 @@ Deno.serve(async (req) => {
 
         // LEY DE MEMORIA: Usamos una entidad NUEVA "SolicitudComercio" para evitar basura de bases anteriores
         // Esto garantiza que el esquema sea fresco y no choque con nada viejo.
-        const result = await base44.asServiceRole.entities.SolicitudComercio.create({
+        const result = await base44Admin.entities.SolicitudComercio.create({
             nombre: nombre_comercio,
             email: userEmail,
             whatsapp: whatsapp || "",
