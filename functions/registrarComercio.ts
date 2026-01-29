@@ -1,153 +1,69 @@
 // @ts-nocheck
-import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
+// Lógica Directa: Recibir datos -> Fetch a Base44 -> Responder
+// Sin Auth, sin parches, sin lógica extra.
 
-// ==========================================
-// REGISTRO DE COMERCIO - LÓGICA DIRECTA V2
-// ==========================================
-// Objetivo: Crear la entidad comercio sin dependencias de Auth obsoletas.
-// Estrategia: Fetch directo a API Entities usando Key pública.
-
-// CREDENCIALES FIJAS (Environment Vacío Bypass)
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-// CREDENCIALES FIJAS (Environment Vacío Bypass)
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-// URL OFICIAL DE LA API (SEGÚN DOCUMENTACIÓN) - NO INVENTAR
-const ENTITIES_API_URL = `https://app.base44.com/api/apps/${APP_ID}/entities`;
-
-// Helper: Generador de códigos únicos
-function generateCommerceCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 10; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-    return result;
-}
+const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
 
 Deno.serve(async (req) => {
     try {
-        // Parseo seguro del Body
-        let body = {};
-        try { body = await req.json(); } catch { return new Response("Invalid JSON", { status: 400 }); }
+        if (req.method === 'OPTIONS') return new Response("OK"); // CORS
 
-        const { action = 'create', ...data } = body;
-        console.log(`Procesando acción: ${action}`);
+        const body = await req.json();
+        const { action, ...data } = body;
 
-        // ---------------------------------------------------------
-        // CASO 1: CREAR NUEVO COMERCIO (Paso 1 del Formulario)
-        // ---------------------------------------------------------
-        if (action === 'create') {
-            const { nombre_comercio, email, whatsapp, full_name } = data;
+        // Generamos datos requeridos por la DB
+        const commerceCode = Math.random().toString(36).substring(2, 12).toUpperCase();
+        const userIdMock = crypto.randomUUID(); // ID Placeholder para cumplir requisito DB
 
-            // VALIDACIÓN BÁSICA
-            if (!email || !nombre_comercio) {
-                return Response.json({ success: false, error: "Faltan datos obligatorios (email o nombre)" }, { status: 400 });
+        // Construimos el payload EXACTO para Base44
+        const entityPayload = {
+            nombre: data.nombre_comercio,
+            email_negocio: data.email,
+            whatsapp_negocio: data.whatsapp,
+
+            // Campos requeridos por tu Schema
+            user_id: userIdMock,
+            commerce_code: commerceCode,
+
+            // Valores por defecto
+            estado_registro: "pendiente_pago",
+            numero_operacion: "PENDIENTE",
+            activo: false,
+            plan: "bronce",
+            configuracion_avanzada: {
+                full_name: data.full_name
             }
+        };
 
-            // GENERACIÓN DE IDs
-            const commerce_code = generateCommerceCode();
-            // User ID Placeholder (Requisito DB): Usamos UUID aleatorio ya que Auth se gestiona post-registro
-            const userIdPlaceholder = crypto.randomUUID();
+        // EL FETCH (Tal cual tu snippet, adaptado a POST)
+        console.log("Enviando a Base44:", BASE44_URL);
 
-            // CONSTRUCCIÓN DEL OBJETO ENTIDAD (Schema Strict Compliance)
-            const entityData = {
-                nombre: nombre_comercio,
-                user_id: userIdPlaceholder,
-                commerce_code: commerce_code,
-                // Campos opcionales pero útiles
-                email_negocio: email,
-                whatsapp_negocio: whatsapp || "",
-                // Estados iniciales
-                estado_registro: "pendiente_pago",
-                numero_operacion: "PENDIENTE",
-                slug: commerce_code, // Slug inicial igual al código
-                activo: false,       // Inactivo hasta que pague/aprueben
-                plan: "bronce",
-                // Metadata extra
-                configuracion_avanzada: {
-                    full_name_solicitante: full_name,
-                    registro_fecha: new Date().toISOString(),
-                    origen: "registro_web_directo"
-                }
-            };
+        const response = await fetch(BASE44_URL, {
+            method: 'POST',
+            headers: {
+                'api_key': API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(entityPayload)
+        });
 
-            // INSERCIÓN EN BASE DE DATOS (API NATIVA BASE44)
-            console.log(`Intentando crear comercio en: ${ENTITIES_API_URL}/Comercio`);
-
-            const response = await fetch(`${ENTITIES_API_URL}/Comercio`, {
-                method: 'POST',
-                headers: {
-                    'api_key': API_KEY,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(entityData)
-            });
-
-            // MANEJO DE RESPUESTA DB
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error(`Error DB (${response.status}):`, errorText);
-                return Response.json({
-                    success: false,
-                    error: `Error al guardar datos: ${errorText}`
-                }, { status: 500 });
-            }
-
-            const result = await response.json();
-            const idSolicitud = result.id || result._id;
-
-            // ÉXITO
-            return Response.json({
-                success: true,
-                step: 'created',
-                id_solicitud: idSolicitud,
-                commerce_code: commerce_code,
-                message: "Comercio pre-registrado correctamente. Avance al pago."
-            });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Base44 API Error (${response.status}): ${errorText}`);
         }
 
-        // ---------------------------------------------------------
-        // CASO 2: ACTUALIZAR PAGO (Paso 2 del Formulario)
-        // ---------------------------------------------------------
-        if (action === 'update_payment') {
-            const { id_solicitud, numero_operacion } = data;
+        const result = await response.json();
 
-            if (!id_solicitud) {
-                return Response.json({ success: false, error: "Falta ID de solicitud para imputar pago" }, { status: 400 });
-            }
-
-            // Actualización vía API Nativa (PUT)
-            const response = await fetch(`${ENTITIES_API_URL}/Comercio/${id_solicitud}`, {
-                method: 'PUT',
-                headers: {
-                    'api_key': API_KEY,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    numero_operacion: numero_operacion,
-                    estado_registro: 'pendiente_aprobacion',
-                    fecha_pago: new Date().toISOString()
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                return Response.json({ success: false, error: `Error impactando pago: ${errorText}` }, { status: 500 });
-            }
-
-            return Response.json({
-                success: true,
-                step: 'payment_updated',
-                message: "Pago registrado. Su solicitud está en revisión."
-            });
-        }
-
-        // ACCIÓN DESCONOCIDA
-        return Response.json({ error: "Acción no reconocida por el servidor" }, { status: 400 });
+        // Respuesta limpia al Frontend
+        return Response.json({
+            success: true,
+            id_solicitud: result.id || result._id,
+            commerce_code: commerceCode
+        });
 
     } catch (error) {
-        // CATCH-ALL PARA CRASHES IMPREVISTOS
-        console.error("Critical Function Crash:", error);
-        return Response.json({ success: false, error: `Error Interno Crítico: ${error.message}` }, { status: 500 });
+        return Response.json({ success: false, error: error.message }, { status: 500 });
     }
 });
