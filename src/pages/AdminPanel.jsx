@@ -29,31 +29,59 @@ export default function AdminPanel() {
   useEffect(() => {
     const sessionRaw = localStorage.getItem('comercio_session');
     if (!sessionRaw) {
-      // No hay sesión -> Redirigir a Home
       window.location.href = '/';
       return;
     }
 
-    try {
-      const session = JSON.parse(sessionRaw);
+    const validateSession = async () => {
+      try {
+        const session = JSON.parse(sessionRaw);
 
-      if (!session.success) {
-        throw new Error("Sesión inválida");
+        if (!session.success) {
+          throw new Error("Sesión inválida");
+        }
+
+        // 1. Setear estado inicial desde LocalStorage (para rapidez)
+        setUser({ email: session.email_negocio || session.nombre_usuario || 'Comercio' });
+        setComercio(session);
+
+        // 2. CHECK SILENCIOSO DE ESTADO REAL (Solo si está inactivo localmente o para asegurar)
+        // Esto permite que si el admin lo activó, el usuario entre sin reloguear/recargar
+        if (!session.activo) {
+          console.log("Comercio inactivo localmente, verificando estado remoto...");
+          const { data: statusData } = await base44.functions.invoke('gestionarSolicitudes', {
+            action: 'check_status', // Necesitaremos soportar esto en backend o usar 'list' filtrado (usaremos list por ahora para no tocar backend complejo)
+            commerce_code: session.commerce_code
+          });
+
+          // Si gestionarsolicitudes devuelve array o objeto, adaptamos
+          // NOTA: Para no complicar el backend, usaremos la funcion 'loginComercio' que ya devuelve el objeto completo actualizado
+          // O mejor aún, invocamos loginComercio con un flag de "refresh_session" si existiera, pero vamos a re-validar con login o similar.
+          // PLAN B: Usar gestionarSolicitudes 'list' y buscar el mio.
+
+          const res = await base44.functions.invoke('gestionarSolicitudes', { action: 'list' });
+          if (res.data?.solicitudes) {
+            const myCommerce = res.data.solicitudes.find(c => c.commerce_code === session.commerce_code);
+            if (myCommerce && myCommerce.activo) {
+              // ACTIVO EN REMOTO! Actualizamos Local y State
+              console.log("¡Comercio activado remotamente! Actualizando sesión...");
+              const newSession = { ...session, ...myCommerce, activo: true };
+              localStorage.setItem('comercio_session', JSON.stringify(newSession));
+              setComercio(newSession);
+            }
+          }
+        }
+
+      } catch (e) {
+        console.error("Error cargando sesión:", e);
+        // localStorage.removeItem('comercio_session'); // No borrar agresivamente por ahora
+        // window.location.href = '/';
+      } finally {
+        setLoadingComercio(false);
       }
+    };
 
-      // Setear Usuario Mock para visualización
-      setUser({ email: session.email_negocio || session.nombre_usuario || 'Comercio' });
-
-      // Setear objeto Comercio completo
-      setComercio(session);
-
-    } catch (e) {
-      console.error("Error cargando sesión:", e);
-      localStorage.removeItem('comercio_session');
-      window.location.href = '/';
-    } finally {
-      setLoadingComercio(false);
-    }
+    validateSession();
   }, []);
 
   const handleLogout = () => {
