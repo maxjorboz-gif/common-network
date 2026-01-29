@@ -15,6 +15,20 @@ Deno.serve(async (req) => {
 
         // --- MANEJO DE PAGO (SIMULADO / SIMPLE) ---
         if (action === 'update_payment') {
+            const { id_registro, numero_operacion } = data;
+
+            if (id_registro) {
+                const updateUrl = `${BASE44_URL}/${id_registro}`;
+                await fetch(updateUrl, {
+                    method: 'PUT',
+                    headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        numero_operacion: numero_operacion, // Guardamos el numero real
+                        estado_registro: 'pendiente_aprobacion'
+                    })
+                });
+            }
+
             return Response.json({
                 success: true,
                 step: 'payment_updated',

@@ -93,6 +93,23 @@ Deno.serve(async (req) => {
             return Response.json({ success: true });
         }
 
+        if (action === 'delete') {
+            // Eliminar un comercio por ID
+            if (!id) return Response.json({ error: "Se requiere ID" }, { status: 400 });
+
+            const deleteUrl = `${BASE44_URL}/${id}`;
+            const response = await fetch(deleteUrl, {
+                method: 'DELETE',
+                headers: { 'api_key': API_KEY }
+            });
+
+            if (!response.ok) {
+                return Response.json({ success: false, error: "No se pudo eliminar el comercio" });
+            }
+
+            return Response.json({ success: true, message: "Comercio eliminado" });
+        }
+
         if (action === 'resetData') {
             // DANGER: Borrar todo. Solo para admins locos.
             // Fetch list -> Delete loop

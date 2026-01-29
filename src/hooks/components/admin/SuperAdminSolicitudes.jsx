@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import {
     Check, X, User, Phone, Mail, Hash, Loader2,
     TrendingUp, Store, DollarSign, Filter, Search,
-    ArrowUpRight, ArrowDownRight, Power, PowerOff, ShieldAlert, Flame, Trash2
+    ArrowUpRight, ArrowDownRight, Power, PowerOff, ShieldAlert, Flame
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 
@@ -77,20 +77,6 @@ export default function SuperAdminSolicitudes() {
                 active: !currentStatus
             });
             toast({ title: "Estado actualizado", description: `Comercio ${!currentStatus ? 'activado' : 'desactivado'}` });
-            queryClient.invalidateQueries(['solicitudes-comercio']);
-        } catch (error) {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (!window.confirm("¿Seguro que quieres eliminar este comercio permanentemente?")) return;
-        try {
-            await base44.functions.invoke('gestionarSolicitudes', {
-                action: 'delete',
-                id: id
-            });
-            toast({ title: "Comercio Eliminado", description: "El registro ha sido borrado exitosamente." });
             queryClient.invalidateQueries(['solicitudes-comercio']);
         } catch (error) {
             toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -227,16 +213,6 @@ export default function SuperAdminSolicitudes() {
                                                 {sol.activo ? <><PowerOff className="w-4 h-4 mr-2" /> Deshabilitar</> : <><Power className="w-4 h-4 mr-2" /> Habilitar</>}
                                             </Button>
                                         )}
-                                    </div>
-                                    <div className="flex justify-center pb-2">
-                                        <Button
-                                            onClick={() => handleDelete(sol.id_registro)}
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-neutral-400 hover:text-red-600 hover:bg-red-50 text-[10px] uppercase font-bold tracking-widest"
-                                        >
-                                            <Trash2 className="w-3 h-3 mr-1" /> Eliminar
-                                        </Button>
                                     </div>
                                 </div>
                             </Card>

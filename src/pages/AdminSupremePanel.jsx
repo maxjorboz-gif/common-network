@@ -68,6 +68,29 @@ export default function AdminSupremePanel() {
         }
     });
 
+    // TOGGLE STATUS (HABILITAR / DESHABILITAR)
+    const toggleStatusMutation = useMutation({
+        mutationFn: async ({ id_registro, active, commerce_code }) => {
+            const payload = {
+                action: 'toggle_active',
+                id: id_registro,
+                commerce_code,
+                active,
+                admin_secret: hasAccess ? 'abriteporfavor' : undefined
+            };
+            const response = await base44.functions.invoke('gestionarSolicitudes', payload);
+            if (response.error) throw new Error(response.error.message || response.data?.error);
+            return response.data;
+        },
+        onSuccess: () => {
+            toast({ title: "Estado Actualizado", description: "El estado del comercio ha cambiado." });
+            queryClient.invalidateQueries({ queryKey: ['admin-solicitudes'] });
+        },
+        onError: (err) => {
+            toast({ title: "Error", description: err.message, variant: "destructive" });
+        }
+    });
+
     if (loading && !hasAccess) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
@@ -155,13 +178,40 @@ export default function AdminSupremePanel() {
                         {loadingSolicitudes ? (
                             <div className="flex justify-center p-8"><Loader2 className="animate-spin text-blue-500" /></div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {activos.slice(0, 9).map((com) => (
-                                    <div key={com.id} className="bg-neutral-950 p-4 rounded-xl border border-neutral-800">
-                                        <p className="font-bold text-white text-sm">{com.nombre_comercio}</p>
-                                        <p className="text-xs text-neutral-500">{com.commerce_code}</p>
-                                        <div className="mt-2 flex items-center gap-1 text-[10px] text-green-500 uppercase font-bold">
-                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> Activo
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {activos.map((com) => (
+                                    <div key={com.id} className={`p-4 rounded-xl border transition-all ${com.activo ? 'bg-neutral-950 border-neutral-800' : 'bg-red-950/20 border-red-900/50'}`}>
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div>
+                                                <p className="font-bold text-white text-sm truncate pr-2">{com.nombre_comercio}</p>
+                                                <p className="text-xs text-neutral-500 font-mono">{com.commerce_code}</p>
+                                            </div>
+                                            <div className={`px-2 py-1 rounded text-[10px] uppercase font-bold flex items-center gap-1.5 ${com.activo ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                <div className={`w-1.5 h-1.5 rounded-full ${com.activo ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                                {com.activo ? 'Activo' : 'Inactivo'}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-2 mt-4">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => toggleStatusMutation.mutate({
+                                                    id_registro: com.id_registro,
+                                                    active: !com.activo,
+                                                    commerce_code: com.commerce_code
+                                                })}
+                                                disabled={toggleStatusMutation.isPending}
+                                                className={`w-full text-xs font-bold uppercase italic h-8 ${com.activo ? 'hover:bg-red-900/20 hover:text-red-500 border-neutral-800' : 'bg-green-600 hover:bg-green-700 text-white border-transparent'}`}
+                                            >
+                                                {toggleStatusMutation.isPending ? (
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                ) : com.activo ? (
+                                                    "Deshabilitar"
+                                                ) : (
+                                                    "Habilitar"
+                                                )}
+                                            </Button>
                                         </div>
                                     </div>
                                 ))}
