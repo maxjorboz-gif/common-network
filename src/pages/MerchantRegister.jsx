@@ -59,9 +59,11 @@ const MerchantRegister = () => {
                 full_name: form.usuario
             };
 
-            const response = await base44.functions.invoke('registrarComercio', payload);
+            const resultRaw = await base44.functions.invoke('registrarComercio', payload);
+            // Normalizar respuesta: El SDK puede devolver { data: {...} } o el objeto directo
+            const response = resultRaw.data || resultRaw;
 
-            if (response.success) {
+            if (response && response.success) {
                 setPendingId(response.id_solicitud);
                 setCreatedCommerceCode(response.commerce_code);
                 setStep(2);
