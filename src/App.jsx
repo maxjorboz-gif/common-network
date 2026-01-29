@@ -42,8 +42,8 @@ const AuthenticatedApp = () => {
     }
   }
 
-  // Filtrar 'adminSupreme' para que no se genere automáticamente con el Layout estándar
-  const standardPages = Object.entries(Pages).filter(([path]) => path !== 'adminSupreme');
+  // Filtrar 'adminSupreme' y 'registro' para que no se generen automáticamente con el Layout estándar
+  const standardPages = Object.entries(Pages).filter(([path]) => path !== 'adminSupreme' && path !== 'registro');
 
   return (
     <Routes>
@@ -84,6 +84,9 @@ const AuthenticatedApp = () => {
 
       {/* Ruta Principal dinamicamente desde pagesConfig */}
       <Route path="/" element={<MainPage />} />
+
+      {/* RUTA DE REGISTRO (Sin Layout de Tienda) */}
+      <Route path="/registro" element={<Pages.registro />} />
 
       {/* Mapeo automático de todas las páginas ESTÁNDAR (Con Layout de Tienda) */}
       {standardPages.map(([path, Page]) => (
