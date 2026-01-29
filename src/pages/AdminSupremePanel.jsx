@@ -1,0 +1,175 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/AuthContext';
+import { Shield, Settings, Users, Activity, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { base44 } from '@/api/base44Client';
+import { useToast } from "@/components/ui/use-toast";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+// HARDCODED SUPER ADMIN ID (As per requirement)
+const SUPER_ADMIN_ID = "14349463-549c-4bf9-b223-95b058a7493a";
+
+export default function AdminSupremePanel() {
+    const { user, loading } = useAuth();
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+
+    const hasAccess = localStorage.getItem('supreme_access') === 'true';
+
+    React.useEffect(() => {
+        if (!loading) {
+            // Permitir si tiene bandera de acceso O si es el usuario autenticado correcto
+            const isSuperUser = user && (user.id === SUPER_ADMIN_ID || user.email?.toLowerCase() === "maxjorboz@gmail.com");
+
+            if (!hasAccess && !isSuperUser) {
+                navigate('/');
+            }
+        }
+    }, [user, loading, navigate, hasAccess]);
+
+    // OBTENER SOLICITUDES (Usando Backdoor Secret si es necesario)
+    const { data: solicitudes, isLoading: loadingSolicitudes } = useQuery({
+        queryKey: ['admin-solicitudes'],
+        queryFn: async () => {
+            const payload = {
+                action: 'list',
+                // Enviamos secreto solo si entramos por backdoor
+                admin_secret: hasAccess ? 'abriteporfavor' : undefined
+            };
+
+            const response = await base44.functions.invoke('gestionarSolicitudes', payload);
+            if (response.error) throw new Error(response.error.message);
+            return response.data?.solicitudes || [];
+        },
+        enabled: hasAccess || !!user // Ejecutar si tenemos acceso
+    });
+
+    // APROBAR SOLICITUD
+    const approveMutation = useMutation({
+        mutationFn: async (id_registro) => {
+            const payload = {
+                action: 'approve',
+                id_registro,
+                admin_secret: hasAccess ? 'abriteporfavor' : undefined
+            };
+            const response = await base44.functions.invoke('gestionarSolicitudes', payload);
+            if (response.error) throw new Error(response.error.message || response.data?.error);
+            return response.data;
+        },
+        onSuccess: (data) => {
+            toast({ title: "Comercio Aprobado", description: `ID Asignado: ${data.new_id}` });
+            queryClient.invalidateQueries({ queryKey: ['admin-solicitudes'] });
+        },
+        onError: (err) => {
+            toast({ title: "Error", description: err.message, variant: "destructive" });
+        }
+    });
+
+    if (loading && !hasAccess) {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <span className="text-orange-600 animate-pulse font-bold uppercase tracking-widest">
+                    Verificando Credenciales Supremas...
+                </span>
+            </div>
+        );
+    }
+
+    // Si entramos por backdoor y no hay user, mostramos datos dummy
+    const displayEmail = user?.email || "maxjorboz@gmail.com";
+
+    const pendientes = solicitudes?.filter(s => s.aprobacion_pendiente) || [];
+    const activos = solicitudes?.filter(s => !s.aprobacion_pendiente) || [];
+
+    return (
+        <div className="min-h-screen bg-neutral-950 text-white p-8">
+            <header className="mb-12 flex items-center justify-between border-b border-neutral-900 pb-8">
+                <div>
+                    <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-2 flex items-center gap-3">
+                        <Shield className="text-orange-600" size={32} />
+                        Administrador Supremo
+                    </h1>
+                    <p className="text-neutral-500 font-bold uppercase tracking-widest text-sm">
+                        Gestión Global de la Plataforma
+                    </p>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="text-right">
+                        <p className="text-sm font-bold text-white">{displayEmail}</p>
+                        <p className="text-xs text-orange-600 uppercase font-black tracking-widest">Super Admin</p>
+                    </div>
+                    <Button variant="outline" onClick={() => navigate('/')}>
+                        Volver al Sitio
+                    </Button>
+                </div>
+            </header>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* SOLICITUDES PENDIENTES */}
+                <Card className="bg-neutral-900 border-neutral-800 md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-white font-black uppercase italic">
+                            <AlertCircle className="text-orange-600" /> Solicitudes Pendientes ({pendientes.length})
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {loadingSolicitudes ? (
+                            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-orange-600" /></div>
+                        ) : pendientes.length === 0 ? (
+                            <div className="text-center p-8 text-neutral-500 italic">No hay solicitudes pendientes</div>
+                        ) : (
+                            <div className="space-y-4">
+                                {pendientes.map((sol) => (
+                                    <div key={sol.id} className="bg-black/40 p-4 rounded-xl border border-neutral-800 flex flex-col md:flex-row items-center justify-between gap-4">
+                                        <div>
+                                            <h3 className="font-bold text-lg text-white">{sol.nombre_comercio}</h3>
+                                            <p className="text-sm text-neutral-400">{sol.email_admin} • {sol.whatsapp}</p>
+                                            <p className="text-xs text-orange-500 font-mono mt-1">OP: {sol.numero_operacion}</p>
+                                        </div>
+                                        <Button
+                                            onClick={() => approveMutation.mutate(sol.id_registro)}
+                                            disabled={approveMutation.isPending}
+                                            className="bg-green-600 hover:bg-green-700 font-bold uppercase italic"
+                                        >
+                                            {approveMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                                            Aprobar y Activar
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* COMERCIOS ACTIVOS */}
+                <Card className="bg-neutral-900 border-neutral-800 md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-white font-black uppercase italic">
+                            <Activity className="text-blue-500" /> Comercios Activos ({activos.length})
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {loadingSolicitudes ? (
+                            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-blue-500" /></div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {activos.slice(0, 9).map((com) => (
+                                    <div key={com.id} className="bg-neutral-950 p-4 rounded-xl border border-neutral-800">
+                                        <p className="font-bold text-white text-sm">{com.nombre_comercio}</p>
+                                        <p className="text-xs text-neutral-500">{com.commerce_code}</p>
+                                        <div className="mt-2 flex items-center gap-1 text-[10px] text-green-500 uppercase font-bold">
+                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> Activo
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}
