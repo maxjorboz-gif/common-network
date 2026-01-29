@@ -21,41 +21,56 @@ import { ShieldAlert } from 'lucide-react';
 export default function AdminPanel() {
   const [selectedTab, setSelectedTab] = useState('estadisticas');
   const [user, setUser] = useState(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // LEY DE MEMORIA: Verificación básica de sesión
+  // CUSTOM AUTH: Leer sesión del almacenamiento local (Bypass Supabase Auth)
+  const [comercio, setComercio] = useState(null);
+  const [loadingComercio, setLoadingComercio] = useState(true);
+
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const currentUser = await base44.auth.me();
-        if (!currentUser) {
-          base44.auth.redirectToLogin(window.location.href);
-          return;
-        }
-        setUser(currentUser);
-      } catch (err) {
-        console.error('Error de autenticación:', err);
-        base44.auth.redirectToLogin(window.location.href);
-      } finally {
-        setCheckingAuth(false);
-      }
-    };
+    const sessionRaw = localStorage.getItem('comercio_session');
+    if (!sessionRaw) {
+      // No hay sesión -> Redirigir a Home
+      window.location.href = '/';
+      return;
+    }
 
-    checkAuth();
+    try {
+      const session = JSON.parse(sessionRaw);
+
+      if (!session.success) {
+        throw new Error("Sesión inválida");
+      }
+
+      // Setear Usuario Mock para visualización
+      setUser({ email: session.email_negocio || session.nombre_usuario || 'Comercio' });
+
+      // Setear objeto Comercio completo
+      setComercio(session);
+
+    } catch (e) {
+      console.error("Error cargando sesión:", e);
+      localStorage.removeItem('comercio_session');
+      window.location.href = '/';
+    } finally {
+      setLoadingComercio(false);
+    }
   }, []);
 
-  // LEY DE MEMORIA: Obtención de datos del comercio
-  const { data: comercio, isLoading: loadingComercio, error } = useQuery({
-    queryKey: ['comercio-admin'],
-    queryFn: async () => {
-      // Backend resolves tenant from Auth Token
-      const response = await base44.functions.invoke('obtenerDatosComercio', {});
-      return response.data?.comercio || null;
-    },
-    enabled: !!user,
-    retry: 0,
-    staleTime: 0
-  });
+  const handleLogout = () => {
+    if (window.confirm("¿Cerrar sesión?")) {
+      localStorage.removeItem('comercio_session');
+      window.location.href = '/';
+    }
+  };
+
+  // Loading State
+  if (loadingComercio) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   // Caso: No tiene comercio activo
   if (!comercio) {
