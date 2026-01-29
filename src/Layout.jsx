@@ -55,12 +55,7 @@ export default function Layout({ children }) {
 
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center gap-6">
-                <Link
-                  to="/home"
-                  className={`px-4 py-2 rounded-xl text-sm font-black uppercase italic tracking-widest transition-all ${currentPageName === 'Home' ? 'text-orange-500 bg-orange-500/10' : 'text-neutral-400 hover:text-white'}`}
-                >
-                  Catálogo Demo
-                </Link>
+
 
                 {isLandingPage && (
                   <Link
