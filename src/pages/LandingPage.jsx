@@ -3,13 +3,8 @@ import { motion } from 'framer-motion';
 import { Rocket, Shield, Zap, ArrowRight, Store, Globe, Star, Users, Banknote, CreditCard, PieChart } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/lib/AuthContext';
-import { base44 } from '@/api/base44Client';
-
 
 export default function LandingPage() {
-    const { user } = useAuth();
-    const isSuperAdmin = user?.role === 'admin';
 
     return (
         <div className="min-h-screen bg-neutral-950 text-white overflow-hidden relative">
@@ -34,14 +29,6 @@ export default function LandingPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8 }}
                     >
-                        {isSuperAdmin && (
-                            <Link to="/admin">
-                                <Button size="sm" variant="ghost" className="mb-6 border border-orange-500/30 text-orange-500 font-black italic uppercase rounded-full px-6 hover:bg-orange-500/10">
-                                    <Shield className="w-4 h-4 mr-2" /> Ingresar a Panel Supremo
-                                </Button>
-                            </Link>
-                        )}
-
                         <span className="inline-block px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs font-black uppercase tracking-[0.3em] mb-8">
                             La Evolución del E-commerce Emprendedor
                         </span>
@@ -58,11 +45,6 @@ export default function LandingPage() {
                             <Link to="/registro">
                                 <Button size="lg" className="h-16 px-10 bg-orange-600 hover:bg-orange-700 text-white font-black italic uppercase rounded-2xl text-lg shadow-[0_0_40px_rgba(234,88,12,0.3)] group">
                                     Empezar a Vender <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" />
-                                </Button>
-                            </Link>
-                            <Link to="/home">
-                                <Button variant="outline" size="lg" className="h-16 px-10 border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 font-black italic uppercase rounded-2xl text-lg">
-                                    Ver Demo
                                 </Button>
                             </Link>
                         </div>
@@ -118,7 +100,6 @@ export default function LandingPage() {
             </section>
 
             {/* CTA Section */}
-            {/* CTA Section */}
             <section className="relative z-10 py-32 px-6">
                 <div className="max-w-3xl mx-auto bg-gradient-to-br from-orange-600 to-red-800 p-1 rounded-[3rem] shadow-[0_0_100px_rgba(234,88,12,0.1)]">
                     <div className="bg-neutral-950 rounded-[2.8rem] p-12 md:p-20 text-center">
@@ -136,32 +117,6 @@ export default function LandingPage() {
                     </div>
                 </div>
             </section>
-
-            {/* EMERGENCY WIPE BUTTON - HIDDEN/DISCRETE */}
-            <div className="fixed bottom-4 right-4 z-50 opacity-50 hover:opacity-100 transition-opacity">
-                <Button
-                    variant="destructive"
-                    size="sm"
-                    className="text-[10px] uppercase font-bold tracking-widest bg-red-900/50 hover:bg-red-600 border border-red-800"
-                    onClick={async () => {
-                        if (!confirm("⚠️ PELIGRO: ¿BORRAR TODA LA BASE DE DATOS?\n\nEsta acción eliminará comercios, productos, órdenes y todo el contenido.\n\n¿Estás seguro?")) return;
-
-                        try {
-                            const res = await base44.functions.invoke('forceWipe');
-                            if (res.data?.success) {
-                                alert("✅ BASE DE DATOS BORRADA.\n\nRecargando página...");
-                                window.location.reload();
-                            } else {
-                                alert("❌ Error: " + (res.data?.error || JSON.stringify(res.data)));
-                            }
-                        } catch (e) {
-                            alert("Error invocando forceWipe: " + e.message);
-                        }
-                    }}
-                >
-                    ☢️ BORRAR DB
-                </Button>
-            </div>
         </div>
     );
 }
