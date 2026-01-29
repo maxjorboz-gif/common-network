@@ -23,6 +23,22 @@ Deno.serve(async (req) => {
         }
 
         // --- MANEJO DE CREACIÓN (REAL) ---
+
+        // 1. Validar Duplicados (Email)
+        console.log(`Verificando existencia de: ${data.email}`);
+        const checkResponse = await fetch(`${BASE44_URL}?email_negocio=${encodeURIComponent(data.email)}`, {
+            headers: { 'api_key': API_KEY }
+        });
+
+        if (checkResponse.ok) {
+            const existing = await checkResponse.json();
+            // Si data es un array y tiene elementos, ya existe
+            if (Array.isArray(existing) && existing.length > 0) {
+                return Response.json({ success: false, error: "Este email ya está registrado. Por favor inicia sesión." }, { status: 400 });
+            }
+        }
+
+        // 2. Generamos datos
         // Generamos datos requeridos por la DB
         const commerceCode = Math.random().toString(36).substring(2, 12).toUpperCase();
 
@@ -30,6 +46,7 @@ Deno.serve(async (req) => {
         const entityPayload = {
             nombre: data.nombre_comercio,
             email_negocio: data.email,
+            password: data.password, // Guardamos contraseña para Login Propio
             whatsapp_negocio: data.whatsapp,
 
             // Campos requeridos por tu Schema (user_id eliminado bajo supuesto de que ya es opcional)
