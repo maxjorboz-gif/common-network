@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useCart } from '@/components/CartContext';
 import ReviewSlider from '@/components/store/ReviewSlider';
+import { useNavigate, useParams } from 'react-router-dom';
 
 export default function Producto() {
   const urlParams = new URLSearchParams(window.location.search);
   const idProducto = urlParams.get('id');
+  const { commerce_code } = useParams();
+  const navigate = useNavigate();
   const { addItem, openDrawer } = useCart();
   const [selectedImage, setSelectedImage] = useState(0);
 
@@ -30,6 +33,11 @@ export default function Producto() {
     if (typeof file === 'string') return file;
     // Si Base44 devuelve un objeto de archivo:
     return file.url || (file.id ? `${base44.config.baseUrl}/files/${file.id}` : null);
+  };
+
+  const handleVolver = () => {
+    if (commerce_code) navigate(`/tienda/${commerce_code}`);
+    else window.history.back();
   };
 
   if (isLoading) return (
@@ -59,7 +67,7 @@ export default function Producto() {
     <div className="min-h-screen bg-neutral-950 text-white p-6">
       <div className="max-w-6xl mx-auto">
         <button
-          onClick={() => window.history.back()}
+          onClick={handleVolver}
           className="flex items-center gap-2 mb-8 text-neutral-500 font-bold uppercase text-[10px] tracking-widest hover:text-white transition-all"
         >
           <ArrowLeft size={14} /> VOLVER AL CATÁLOGO

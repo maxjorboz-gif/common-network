@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, ShoppingBag, MessageCircle } from 'lucide-react';
@@ -7,7 +7,13 @@ import { CheckCircle2, ShoppingBag, MessageCircle } from 'lucide-react';
 export default function Confirmacion() {
     const location = useLocation();
     const navigate = useNavigate();
+    const { commerce_code } = useParams();
     const { orden } = location.state || {};
+
+    const handleVolver = () => {
+        if (commerce_code) navigate(`/tienda/${commerce_code}`);
+        else navigate('/');
+    };
 
     if (!orden) {
         return (
@@ -32,13 +38,13 @@ export default function Confirmacion() {
                         <span className="text-4xl font-black tracking-widest text-orange-500">#{orden.numero_orden || orden.id.slice(-6).toUpperCase()}</span>
                     </div>
                     <div className="flex flex-col gap-3">
-                        <Button 
-                            onClick={() => navigate('/')} 
+                        <Button
+                            onClick={() => navigate('/')}
                             className="bg-orange-600 hover:bg-orange-700 h-12 font-bold"
                         >
                             <ShoppingBag className="mr-2 w-4 h-4" /> SEGUIR COMPRANDO
                         </Button>
-                        <Button 
+                        <Button
                             variant="outline"
                             onClick={() => window.open(`https://wa.me/5493410000000?text=Hola, mi orden es #${orden.id}`, '_blank')}
                             className="border-neutral-700 text-white h-12"

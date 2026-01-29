@@ -81,6 +81,42 @@ export default function AdminConfiguracion({ comercio }) {
 
   return (
     <div className="space-y-6">
+      {/* URL de la Tienda */}
+      <Card className="border-orange-600/30 bg-orange-950/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-orange-500">
+            <Settings className="w-5 h-5" />
+            Tu Tienda Online
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Label>URL Pública de tu Comercio</Label>
+          <div className="flex gap-2 mt-2">
+            <Input
+              readOnly
+              value={`${window.location.origin}/tienda/${comercio.commerce_code}`}
+              className="bg-black/30 text-neutral-300 border-orange-900/30 font-mono"
+            />
+            <Button
+              variant="outline"
+              className="border-orange-600 text-orange-500 hover:bg-orange-600 hover:text-white"
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/tienda/${comercio.commerce_code}`);
+                toast.success("URL copiada al portapapeles");
+              }}
+            >
+              Copiar
+            </Button>
+            <Button
+              className="bg-orange-600 hover:bg-orange-700"
+              onClick={() => window.open(`/tienda/${comercio.commerce_code}`, '_blank')}
+            >
+              Ver Tienda
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Estrategia de Precios */}
       <Card>
         <CardHeader>

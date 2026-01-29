@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoginModal } from "@/components/LoginModal";
 import {
     Store, ArrowRight, Loader2, CheckCircle2, Copy, Banknote,
-    ShieldAlert, X, MessageCircle, ExternalLink, Flame
+    X, MessageCircle, ExternalLink
 } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from 'react-router-dom';

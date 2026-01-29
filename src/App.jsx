@@ -50,6 +50,38 @@ const AuthenticatedApp = () => {
       {/* RUTA SUPREMA (Aislada, sin Layout de Tienda, Carga Rápida) */}
       <Route path="/adminSupreme" element={<Pages.adminSupreme />} />
 
+      {/* RUTAS DINÁMICAS DE TIENDA (SEO Friendly) */}
+      <Route path="/tienda/:commerce_code" element={
+        <LayoutWrapper currentPageName="home">
+          <Pages.home />
+        </LayoutWrapper>
+      } />
+      <Route path="/tienda/:commerce_code/checkout" element={
+        <LayoutWrapper currentPageName="checkout">
+          <Pages.checkout />
+        </LayoutWrapper>
+      } />
+      <Route path="/tienda/:commerce_code/producto" element={
+        <LayoutWrapper currentPageName="producto">
+          <Pages.producto />
+        </LayoutWrapper>
+      } />
+      <Route path="/tienda/:commerce_code/confirmacion" element={
+        <LayoutWrapper currentPageName="confirmacion">
+          <Pages.confirmacion />
+        </LayoutWrapper>
+      } />
+      <Route path="/tienda/:commerce_code/terminos" element={
+        <LayoutWrapper currentPageName="terminos">
+          <Pages.terminos />
+        </LayoutWrapper>
+      } />
+      <Route path="/tienda/:commerce_code/devolucion" element={
+        <LayoutWrapper currentPageName="devolucion">
+          <Pages.devolucion />
+        </LayoutWrapper>
+      } />
+
       {/* Ruta Principal dinamicamente desde pagesConfig */}
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>

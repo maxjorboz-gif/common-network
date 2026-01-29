@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { Shield, Settings, Users, Activity, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Shield, Activity, CheckCircle2, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
@@ -12,7 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 const SUPER_ADMIN_ID = "14349463-549c-4bf9-b223-95b058a7493a";
 
 export default function AdminSupremePanel() {
-    const { user, loading } = useAuth();
+    const { user, isLoadingAuth: loading } = useAuth();
     const navigate = useNavigate();
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -184,7 +184,18 @@ export default function AdminSupremePanel() {
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
                                                 <p className="font-bold text-white text-sm truncate pr-2">{com.nombre_comercio}</p>
-                                                <p className="text-xs text-neutral-500 font-mono">{com.commerce_code}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-xs text-neutral-500 font-mono">{com.commerce_code}</p>
+                                                    <a
+                                                        href={`/tienda/${com.commerce_code}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-orange-500 hover:text-orange-400"
+                                                        title="Ver tienda pública"
+                                                    >
+                                                        <ExternalLink size={12} />
+                                                    </a>
+                                                </div>
                                             </div>
                                             <div className={`px-2 py-1 rounded text-[10px] uppercase font-bold flex items-center gap-1.5 ${com.activo ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
                                                 <div className={`w-1.5 h-1.5 rounded-full ${com.activo ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>

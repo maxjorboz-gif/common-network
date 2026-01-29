@@ -10,13 +10,15 @@ import PopupLeadHook from '@/components/ui/PopupLeadHook';
 import { motion } from 'framer-motion';
 import { useCart } from '@/components/CartContext';
 
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import LandingPage from './LandingPage'; // Importación de Landing Pública
 
 export default function Home() {
   const [searchParams] = useSearchParams();
-  // LÓGICA STRICTA: El ID solo viene de la URL. Si no hay ID, es la home pública de la red.
-  const COMERCIO_ID = searchParams.get('id');
+  const { commerce_code } = useParams();
+
+  // LÓGICA STRICTA: Prioridad a ruta dinámica, luego query params
+  const COMERCIO_ID = commerce_code || searchParams.get('id') || searchParams.get('code');
   const { openDrawer, addItem } = useCart();
   const [searchTerm, setSearchTerm] = useState('');
   const [popupOpen, setPopupOpen] = useState(false);

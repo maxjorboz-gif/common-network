@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import {
-  LayoutDashboard, Package, ShoppingBag, Users, Settings,
-  TrendingUp, DollarSign, AlertCircle, MessageCircle
+  Package, ShoppingBag, Users, Settings,
+  TrendingUp, MessageCircle, ShieldAlert
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +14,7 @@ import AdminOrdenes from '@/components/admin/AdminOrdenes.jsx';
 import AdminLeads from '@/components/admin/AdminLeads.jsx';
 import AdminEstadisticas from '@/components/admin/AdminEstadisticas.jsx';
 import AdminConfiguracion from '@/components/admin/AdminConfiguracion.jsx';
-import AdminConversaciones from '../components/admin/AdminConversaciones';
-import { ShieldAlert } from 'lucide-react';
+import AdminConversaciones from '@/components/admin/AdminConversaciones.jsx';
 
 export default function AdminPanel() {
   const [selectedTab, setSelectedTab] = useState('estadisticas');

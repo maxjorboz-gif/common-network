@@ -55,9 +55,10 @@ const MessageBubble = ({ message }) => {
   );
 };
 
-export default function AdminConversaciones() {
+export default function AdminConversaciones({ comercio }) {
   const [selectedConversation, setSelectedConversation] = useState(null);
   const queryClient = useQueryClient();
+
 
   // Listar conversaciones
   const { data: conversaciones = [], isLoading } = useQuery({
@@ -171,8 +172,8 @@ export default function AdminConversaciones() {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedConversation(conv)}
                     className={`w-full text-left p-4 rounded-lg border-2 transition-all ${selectedConversation?.id === conv.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
                       }`}
                   >
                     <div className="flex items-start gap-3">

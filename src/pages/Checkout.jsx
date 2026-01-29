@@ -14,14 +14,16 @@ import {
     Ticket, CreditCard, Landmark, Fingerprint, Hash, ShoppingBasket, Truck, FileText, Info
 } from 'lucide-react';
 
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 
 const COMERCIO_ID_FALLBACK = null; // Eliminado 000001
 
 export default function Checkout() {
     const [searchParams] = useSearchParams();
-    // Support new commerce_code or legacy ID, but prioritize code
-    const COMERCIO_ID = searchParams.get('code') || searchParams.get('id');
+    const { commerce_code } = useParams();
+
+    // Support new commerce_code (dynamic route) or legacy ID (query param)
+    const COMERCIO_ID = commerce_code || searchParams.get('code') || searchParams.get('id');
     const navigate = useNavigate();
     const { cartItems, total, clearCart } = useCart();
 

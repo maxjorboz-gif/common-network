@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCart } from '@/components/CartContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   X, ShoppingBag, Plus, Minus, Trash2, ArrowRight, Flame
 } from 'lucide-react';
@@ -17,10 +17,15 @@ export default function CartDrawerNew() {
     isDrawerOpen, closeDrawer
   } = useCart();
   const navigate = useNavigate();
+  const { commerce_code } = useParams();
 
   const handleIrACheckout = () => {
     closeDrawer();
-    navigate('/checkout');
+    if (commerce_code) {
+      navigate(`/tienda/${commerce_code}/checkout`);
+    } else {
+      navigate('/checkout');
+    }
   };
 
   return (
