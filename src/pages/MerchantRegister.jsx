@@ -59,7 +59,7 @@ const MerchantRegister = () => {
                 full_name: form.usuario
             };
 
-            const response = await base44.call('registrarComercio', payload);
+            const response = await base44.functions.registrarComercio.invoke(payload);
 
             if (response.success) {
                 setPendingId(response.id_solicitud);
@@ -87,7 +87,7 @@ const MerchantRegister = () => {
                 numero_operacion: numOperacion
             };
 
-            const response = await base44.call('registrarComercio', payload);
+            const response = await base44.functions.registrarComercio.invoke(payload);
 
             if (response.success) {
                 setStep(3);
