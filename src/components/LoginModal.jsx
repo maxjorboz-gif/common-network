@@ -35,16 +35,25 @@ export function LoginModal({ trigger }) {
                 return;
             }
 
-            const { error } = await base44.auth.signInWithPassword({
+            // LOGIN CUSTOM: Llamada a función backend que chequea tabla Comercio
+            const resultRaw = await base44.functions.invoke('loginComercio', {
                 email,
-                password,
+                password
             });
+            const result = resultRaw.data || resultRaw; // Normalizar respuesta
 
-            if (error) throw error;
+            if (!result || !result.success) {
+                throw new Error(result?.error || "Credenciales inválidas");
+            }
 
-            toast({ title: "Bienvenido", description: "Has iniciado sesión correctamente" });
+            // Guardar sesión custom en LocalStorage
+            localStorage.setItem('comercio_session', JSON.stringify(result));
+
+            toast({ title: "Bienvenido", description: `Hola, ${result.nombre_comercio}` });
             setOpen(false);
-            window.location.reload(); // Recargar para actualizar estado
+
+            // Redirigir al panel de administración
+            window.location.href = '/admin/dashboard';
         } catch (error) {
             toast({
                 title: "Error de acceso",
