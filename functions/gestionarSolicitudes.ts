@@ -6,10 +6,10 @@ import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
     try {
-        // Usamos ANON KEY para todo. Confiamos en que la DB sea accesible o el Backdoor sea suficiente.
+        // Usamos SERVICE ROLE para tener permisos absolutos de Admin (Bypass RLS)
         const base44 = createClient(
             Deno.env.get("BASE44_API_URL") ?? "",
-            Deno.env.get("BASE44_ANON_KEY") ?? ""
+            Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
         );
 
         let body;
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
             const solicitud = await base44.entities.SolicitudComercio.get(id_registro);
             if (!solicitud) throw new Error("Solicitud no encontrada");
 
-            // Crear Comercio Real
+            // Crear Comercio Real (Transferimos metadata CRÍTICA para el login interno)
             const nuevoComercio = await base44.entities.Comercio.create({
                 commerce_code: solicitud.commerce_code,
                 nombre_comercio: solicitud.nombre,
@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
                 whatsapp: solicitud.whatsapp,
                 numero_operacion: solicitud.comprobante,
                 user_id: solicitud.user_id,
+                metadata: solicitud.metadata, // <--- CRÍTICO: Aquí viaja el password interno
                 activo: true,
                 pago_confirmado: true,
                 created_date: new Date().toISOString()
@@ -85,6 +86,25 @@ Deno.serve(async (req) => {
                 return Response.json({ success: true });
             }
             return Response.json({ error: "Comercio no encontrado" });
+        }
+
+        if (action === 'delete') {
+            const { id, type } = body;
+            // type: 'solicitud' | 'comercio'
+
+            if (type === 'solicitud') {
+                await base44.entities.SolicitudComercio.delete(id);
+                return Response.json({ success: true, message: "Solicitud eliminada" });
+            }
+
+            if (type === 'comercio') {
+                // Borrar Comercio es delicado, idealmente soft-delete, pero el user pidió borrar.
+                // Borramos.
+                await base44.entities.Comercio.delete(id);
+                return Response.json({ success: true, message: "Comercio eliminado definitivamente" });
+            }
+
+            return Response.json({ error: "Tipo no especificado" });
         }
 
         return Response.json({ error: 'Accion desconocida' });
