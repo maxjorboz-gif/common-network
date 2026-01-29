@@ -32,23 +32,17 @@ Deno.serve(async (req) => {
             const commerce_code = generateCommerceCode();
             let userId = null;
 
-            // Auth: Intentamos, pero si no estamos logueados (registro publico), 
-            // el cliente derivado del request será ANONIMO.
-            // Si es anónimo, createClientFromRequest usa la ANON KEY pública que viene en los headers del front.
-            // ¡ESO ES LO QUE QUEREMOS!
-
+            // Auth: Recuperamos el usuario autenticado que viene del Frontend
             try {
-                if (base44.auth && typeof base44.auth.signUp === 'function') {
-                    const { data: authData, error: authError } = await base44.auth.signUp({
-                        email: email,
-                        password: password
-                    });
-                    if (!authError && authData.user) {
-                        userId = authData.user.id;
-                    }
+                // @ts-ignore
+                const currentUser = await base44.auth.me();
+                if (currentUser && currentUser.id) {
+                    userId = currentUser.id;
+                } else {
+                    throw new Error("Usuario no autenticado");
                 }
             } catch (e) {
-                // Ignoramos error auth
+                return Response.json({ success: false, error: "Debes iniciar sesión con Google para registrar un comercio." }, { status: 401 });
             }
 
             // INSERT DB
