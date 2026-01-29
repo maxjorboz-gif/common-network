@@ -99,14 +99,7 @@ export default function Layout({ children }) {
                       </div>
                     </div>
 
-                    {/* Botón Panel Comercio: Visible para todos MENOS el Super Admin */}
-                    {user.id !== "14349463-549c-4bf9-b223-95b058a7493a" && (
-                      <Link to="/merchant" title="Panel de Comercio" className="p-2 text-neutral-500 hover:text-white transition-colors">
-                        <LayoutDashboard size={20} />
-                      </Link>
-                    )}
-
-                    {/* Botón EXCLUSIVO para Super Admin (Solo visible por ID) */}
+                    {/* Botón EXCLUSIVO para Super Admin (Solo visible por ID Real) */}
                     {user.id === "14349463-549c-4bf9-b223-95b058a7493a" && (
                       <Link to="/adminSupreme" title="Panel Supremo" className="p-2 text-orange-600 hover:text-orange-400 transition-colors">
                         <Flame size={20} />
