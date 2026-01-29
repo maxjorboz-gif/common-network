@@ -47,12 +47,12 @@ Deno.serve(async (req) => {
             body: JSON.stringify(entityPayload)
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Base44 API Error (${response.status}): ${errorText}`);
-        }
-
         const result = await response.json();
+
+        // Si Base44 devuelve error estructurado
+        if (result.error || (result.code && result.message)) {
+            throw new Error(result.message || result.error || "Error Base44");
+        }
 
         // Respuesta limpia al Frontend
         return Response.json({
