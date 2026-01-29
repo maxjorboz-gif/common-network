@@ -10,8 +10,11 @@ import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
 // CREDENCIALES FIJAS (Environment Vacío Bypass)
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const PROJECT_URL = "https://common-network-a32d56fd.base44.app"; // Tu dominio real
-const ENTITIES_API_URL = `${PROJECT_URL}/api/apps/${APP_ID}/entities`;
+// CREDENCIALES FIJAS (Environment Vacío Bypass)
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+// URL OFICIAL DE LA API (SEGÚN DOCUMENTACIÓN) - NO INVENTAR
+const ENTITIES_API_URL = `https://app.base44.com/api/apps/${APP_ID}/entities`;
 
 // Helper: Generador de códigos únicos
 function generateCommerceCode() {
