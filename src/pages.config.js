@@ -26,6 +26,7 @@ import MerchantDashboard from './pages/MerchantDashboard';
 export const PAGES = {
     "adminSupreme": AdminSupremePanel,
     "merchant": AdminPanel,
+    "adminpanel": AdminPanel, // Alias para cumplir requerimiento explicito
     "checkout": Checkout,
     "confirmacion": Confirmacion,
     "registro": MerchantRegister,
