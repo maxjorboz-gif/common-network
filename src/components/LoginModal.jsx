@@ -52,8 +52,8 @@ export function LoginModal({ trigger }) {
             toast({ title: "Bienvenido", description: `Hola, ${result.nombre_comercio}` });
             setOpen(false);
 
-            // Redirigir al panel de administración
-            window.location.href = '/admin/dashboard';
+            // Redirigir al panel del comercio (según pages.config.js)
+            window.location.href = '/merchant';
         } catch (error) {
             toast({
                 title: "Error de acceso",
