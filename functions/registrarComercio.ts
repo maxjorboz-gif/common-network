@@ -13,6 +13,16 @@ Deno.serve(async (req) => {
         const body = await req.json();
         const { action, ...data } = body;
 
+        // --- MANEJO DE PAGO (SIMULADO / SIMPLE) ---
+        if (action === 'update_payment') {
+            return Response.json({
+                success: true,
+                step: 'payment_updated',
+                message: "¡Gracias! Tu pago ha sido informado. En breve procesaremos tu solicitud."
+            });
+        }
+
+        // --- MANEJO DE CREACIÓN (REAL) ---
         // Generamos datos requeridos por la DB
         const commerceCode = Math.random().toString(36).substring(2, 12).toUpperCase();
 
