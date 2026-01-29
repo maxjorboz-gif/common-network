@@ -45,6 +45,7 @@ Deno.serve(async (req) => {
         // Construimos el payload EXACTO para Base44
         const entityPayload = {
             nombre: data.nombre_comercio,
+            nombre_usuario: data.full_name, // NUEVO CAMPO
             email_negocio: data.email,
             password: data.password, // Guardamos contraseña para Login Propio
             whatsapp_negocio: data.whatsapp,
@@ -57,9 +58,7 @@ Deno.serve(async (req) => {
             numero_operacion: "PENDIENTE",
             activo: false,
             plan: "bronce",
-            configuracion_avanzada: {
-                full_name: data.full_name
-            }
+            configuracion_avanzada: {} // Limpio de parches
         };
 
         // EL FETCH (Tal cual tu snippet, adaptado a POST)
