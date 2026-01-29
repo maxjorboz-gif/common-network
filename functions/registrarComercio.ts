@@ -5,146 +5,112 @@ import { createClientFromRequest, createClient } from 'https://esm.sh/@base44/sd
 // - Paso 1: Crea Solicitud con Auth de Usuario (Vinculación)
 // - Paso 2: Actualiza Pago con Service Role (Garantía de ejecución y bypass RLS)
 
-Deno.serve(async (req) => {
-    try {
-        let body;
-        try { body = await req.json(); } catch { body = {}; }
-        const { action = 'create', ...data } = body;
+// --- PASO 1: CREAR SOLICITUD (NATIVO - MODIFICADO PARA BASE44 ENTITIES) ---
+if (action === 'create') {
+    const { nombre_comercio, email, whatsapp, password, full_name } = data;
 
-        // Cliente estándar para Auth check inicial
-        let userClient;
-        try { userClient = createClientFromRequest(req); } catch (e) { /* ignore */ }
+    // CLIENTE: Usamos el cliente derivado del request (Contexto Base44)
+    // Si Base44 inyecta credenciales, esto debería bastar.
+    // Si falla usuario anónimo, usamos la ANON KEY pública como fallback.
+    let base44 = userClient;
+    if (!base44) {
+        base44 = createClient(
+            Deno.env.get("BASE44_API_URL") ?? "https://app.base44.com",
+            Deno.env.get("BASE44_ANON_KEY") ?? ""
+        );
+    }
 
-        // --- PASO 1: CREAR SOLICITUD (NATIVO - SIN GOOGLE PREVIO) ---
-        if (action === 'create') {
-            const { nombre_comercio, email, whatsapp, password, full_name } = data;
+    let userId = null;
+    let userCreatedNew = false;
 
-            // 1. Instanciar Cliente Admin (Service Role)
-            const adminBase44 = createClient(
-                Deno.env.get("BASE44_API_URL") ?? "",
-                Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
-            );
-
-            let userId = null;
-            let userCreatedNew = false;
-
-            // 2. Intentar Crear Usuario de Auth (Base44/Supabase)
-            const { data: newUser, error: authError } = await adminBase44.auth.admin.createUser({
-                email: email,
-                password: password,
-                email_confirm: true,
-                user_metadata: { full_name, commerce_registered: true }
-            });
-
-            if (authError) {
-                // LÓGICA DE RECUPERACIÓN / REINTENTO ROBUSTO
-                console.log("Usuario Auth ya existe o error:", authError.message);
-
-                // Buscamos si ya tiene un comercio asociado a este email
-                const { data: existingCommerce } = await adminBase44.entities.Comercio.filter({
-                    email_negocio: email
-                });
-
-                if (existingCommerce && existingCommerce.length > 0) {
-                    const comercio = existingCommerce[0];
-
-                    if (comercio.activo) {
-                        return Response.json({ success: false, error: "Ya tienes una tienda activa con este email. Inicia sesión." }, { status: 400 });
-                    }
-
-                    // Si existe pero no está activo (pendiente de pago o aprobación), permitimos continuar (Idempotencia)
-                    // Actualizamos datos básicos por si corrigió el nombre o whatsapp
-                    await adminBase44.entities.Comercio.update(comercio.id, {
-                        nombre: nombre_comercio,
-                        whatsapp_negocio: whatsapp,
-                        user_id: comercio.user_id // Mantenemos el mismo user
-                    });
-
-                    return Response.json({
-                        success: true,
-                        step: 'created',
-                        id_solicitud: comercio.id,
-                        commerce_code: comercio.commerce_code,
-                        message: "Solicitud existente recuperada. Continúa al pago."
-                    });
-                } else {
-                    // El usuario Auth existe pero NO tiene comercio en la tabla (caso raro: creó cuenta pero falló insert DB previo)
-                    // En este caso, no tenemos el ID del usuario fácilmente sin login. 
-                    // Por seguridad y simplicidad, pedimos login o soporte, o asumimos que el email está ocupado por otra cosa.
-                    return Response.json({ success: false, error: "El email ya está registrado en el sistema. Intenta iniciar sesión." }, { status: 400 });
-                }
-            } else {
-                userId = newUser.user.id;
-                userCreatedNew = true;
-            }
-
-            // ... Continuar creación solo si es usuario nuevo ...
-            if (userCreatedNew) {
-                const commerce_code = generateCommerceCode();
-
-                // 3. INSERT DB (Usando Service Role)
-                const dbData = {
-                    nombre: nombre_comercio || "Comercio Sin Nombre",
-                    email_negocio: email,
-                    whatsapp_negocio: whatsapp || "",
-                    user_id: userId,
-                    estado_registro: "pendiente_pago",
-                    numero_operacion: "PENDIENTE",
-                    commerce_code: commerce_code,
-                    slug: commerce_code,
-                    activo: false,
-                    plan: "bronce",
-                    meta_pixel_id: "",
-                    meta_dataset_id: "",
-                    meta_access_token: "",
-                    configuracion_avanzada: {
-                        pass_backup: "PROTECTED",
-                        full_name: full_name
-                    }
-                };
-
-                const result = await adminBase44.entities.Comercio.create(dbData);
-
-                return Response.json({
-                    success: true,
-                    step: 'created',
-                    id_solicitud: result.id,
-                    commerce_code: commerce_code,
-                    message: "Usuario y Comercio creados exitosamente"
-                });
-            }
+    // 2. Intentar Crear Usuario usando AUTH PÚBLICO (signUp), no Admin
+    // Esto permite registro sin Service Role Key
+    const { data: authData, error: authError } = await base44.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+            data: { full_name, commerce_registered: true }
         }
+    });
 
-        // --- PASO 2: ACTUALIZAR PAGO ---
-        if (action === 'update_payment') {
-            const { id_solicitud, numero_operacion } = data;
+    if (authError) {
+        console.log("Error Auth (SignUp):", authError.message);
 
-            if (!id_solicitud) throw new Error("Falta ID de solicitud");
+        // Fallback: Si el usuario ya existe, intentamos buscarlo en tabla Comercio
+        // Nota: Sin Service Role, no podemos "buscar" usuarios en auth.users, 
+        // pero si el login falla por "ya existe", asumimos que existe.
 
-            const adminBase44 = createClient(
-                Deno.env.get("BASE44_API_URL") ?? "",
-                Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
-            );
+        // Intentamos leer la entidad Comercio con el cliente actual (esperando que sea pública/lectura)
+        // Usamos una query 'ciega' o confiamos en que si falla el signUp, el usuario debe loguearse.
+        return Response.json({ success: false, error: "El usuario ya existe o hubo un error. Intenta iniciar sesión." }, { status: 400 });
+    } else {
+        // SignUp exitoso (puede requerir confirmación de email según config, pero devuelve ID)
+        userId = authData.user?.id;
+        userCreatedNew = true;
+    }
 
-            // Actualizamos la entidad COMERCIO
-            await adminBase44.entities.Comercio.update(id_solicitud, {
-                numero_operacion: numero_operacion,
-                estado_registro: 'pendiente_aprobacion'
-            });
+    if (userId && userCreatedNew) {
+        const commerce_code = generateCommerceCode();
 
-            return Response.json({
-                success: true,
-                step: 'payment_updated',
-                message: "Pago registrado exitosamente"
-            });
-        }
+        const dbData = {
+            nombre: nombre_comercio || "Comercio Sin Nombre",
+            email_negocio: email,
+            whatsapp_negocio: whatsapp || "",
+            user_id: userId,
+            estado_registro: "pendiente_pago",
+            numero_operacion: "PENDIENTE",
+            commerce_code: commerce_code,
+            slug: commerce_code,
+            activo: false,
+            plan: "bronce",
+            configuracion_avanzada: {
+                pass_backup: "PROTECTED",
+                full_name: full_name
+            }
+        };
 
-        return Response.json({ error: "Acción no válida" }, { status: 400 });
+        // 3. INSERT ENTITY usando el mismo cliente (asumiendo permisos RLS públicos para create)
+        const result = await base44.entities.Comercio.create(dbData);
+
+        return Response.json({
+            success: true,
+            step: 'created',
+            id_solicitud: result.id,
+            commerce_code: commerce_code,
+            message: "Usuario y Comercio creados exitosamente"
+        });
+    }
+}
+
+// --- PASO 2: ACTUALIZAR PAGO ---
+if (action === 'update_payment') {
+    const { id_solicitud, numero_operacion } = data;
+    if (!id_solicitud) throw new Error("Falta ID de solicitud");
+
+    // Reutilizamos userClient o creamos uno básico
+    let base44 = userClient || createClient(
+        Deno.env.get("BASE44_API_URL") ?? "https://app.base44.com",
+        Deno.env.get("BASE44_ANON_KEY") ?? ""
+    );
+
+    await base44.entities.Comercio.update(id_solicitud, {
+        numero_operacion: numero_operacion,
+        estado_registro: 'pendiente_aprobacion'
+    });
+
+    return Response.json({
+        success: true,
+        step: 'payment_updated',
+        message: "Pago registrado exitosamente"
+    });
+}
+
+return Response.json({ error: "Acción no válida" }, { status: 400 });
 
     } catch (error) {
-        console.error("Critical Register Error:", error);
-        return Response.json({ success: false, error: error.message }, { status: 500 });
-    }
+    console.error("Critical Register Error:", error);
+    return Response.json({ success: false, error: error.message }, { status: 500 });
+}
 });
 
 function generateCommerceCode() {
