@@ -83,11 +83,7 @@ const AuthenticatedApp = () => {
       } />
 
       {/* Ruta Principal dinamicamente desde pagesConfig */}
-      <Route path="/" element={
-        <LayoutWrapper currentPageName={mainPageKey}>
-          <MainPage />
-        </LayoutWrapper>
-      } />
+      <Route path="/" element={<MainPage />} />
 
       {/* Mapeo automático de todas las páginas ESTÁNDAR (Con Layout de Tienda) */}
       {standardPages.map(([path, Page]) => (
