@@ -1,115 +1,120 @@
 // @ts-nocheck
-import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
+// Gestión de Solicitudes y Comercios (Backend Puro V3)
+// Lee y gestiona la Entity 'Comercio' directamente.
 
-// NUEVA LÓGICA V8: Gestión Directa
-// Sin validación de rol 'admin' de Supabase. Solo lógica de negocio.
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
 
 Deno.serve(async (req) => {
     try {
-        // Usamos SERVICE ROLE para tener permisos absolutos de Admin (Bypass RLS)
-        const base44 = createClient(
-            Deno.env.get("BASE44_API_URL") ?? "",
-            Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
-        );
+        if (req.method === 'OPTIONS') return new Response("OK");
 
         let body;
         try { body = await req.json(); } catch { body = {}; }
-        const { action, id_registro, admin_secret } = body;
+        const { action, id_registro, commerce_code, active, id } = body;
 
-        // BACKDOOR MUY SIMPLE (Si quieres seguridad, descomenta)
-        // if (admin_secret !== 'abriteporfavor') return Response.json({error: 'Acceso Denegado'}, {status: 403});
+        console.log("GestionarSolicitudes Action:", action);
 
         if (action === 'list') {
-            // Leemos todo. CRUD Puro.
-            const pendientes = await base44.entities.SolicitudComercio.list() || [];
-            const activos = await base44.entities.Comercio.list() || [];
+            // Leemos TODOS los comercios
+            const response = await fetch(BASE44_URL, {
+                headers: { 'api_key': API_KEY }
+            });
 
-            // Normalizamos para el Frontend
-            const listado = [
-                ...pendientes.map(p => ({
-                    ...p,
-                    id_registro: p.id,
-                    aprobacion_pendiente: true,
-                    activo: false,
-                    id_comercio: "PENDIENTE"
-                })),
-                ...activos.map(c => ({
+            if (!response.ok) throw new Error("Error leyendo comercios de Base44");
+            const allComercios = await response.json();
+
+            // Clasificamos para el Frontend
+            const listado = allComercios.map(c => {
+                const esPendiente = c.estado_registro !== 'activo' && c.estado_registro !== 'rechazado';
+                return {
+                    // Datos crudos
                     ...c,
-                    aprobacion_pendiente: false
-                }))
-            ];
+
+                    // Adaptadores para UI vieja
+                    id_registro: c._id || c.id, // ID real de la entity
+                    nombre_comercio: c.nombre,
+                    email_admin: c.email_negocio,
+                    aprobacion_pendiente: esPendiente,
+                    activo: c.activo || (!esPendiente),
+                    id_comercio: c.commerce_code || "PENDIENTE",
+                    pago_confirmado: c.numero_operacion && c.numero_operacion !== 'PENDIENTE'
+                };
+            });
 
             return Response.json({ success: true, solicitudes: listado });
         }
 
         if (action === 'approve') {
-            // CRUD: Leer Solicitud -> Crear Comercio -> Actualizar Solicitud
-            const solicitud = await base44.entities.SolicitudComercio.get(id_registro);
-            if (!solicitud) throw new Error("Solicitud no encontrada");
-
-            // Crear Comercio Real (Transferimos metadata CRÍTICA para el login interno)
-            const nuevoComercio = await base44.entities.Comercio.create({
-                commerce_code: solicitud.commerce_code,
-                nombre_comercio: solicitud.nombre,
-                email_admin: solicitud.email,
-                whatsapp: solicitud.whatsapp,
-                numero_operacion: solicitud.comprobante,
-                user_id: solicitud.user_id,
-                metadata: solicitud.metadata, // <--- CRÍTICO: Aquí viaja el password interno
-                activo: true,
-                pago_confirmado: true,
-                created_date: new Date().toISOString()
+            // Aprobar significa cambiar estado a 'activo'
+            const updateUrl = `${BASE44_URL}/${id_registro}`;
+            const response = await fetch(updateUrl, {
+                method: 'PUT',
+                headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    estado_registro: 'activo',
+                    activo: true
+                })
             });
 
-            // Marcar solicitud como aprobada (Historial)
-            await base44.entities.SolicitudComercio.update(id_registro, { status: 'aprobado' });
-
-            // INTENTO: Actualizar usuario Auth (Puede fallar sin Service Key, lo hacemos opcional)
-            // Si falla, no importa, el login usará la tabla Comercio para validar.
-            try {
-                // Aquí necesitaríamos lógica de tabla, ya no tocamos auth.users metadata.
-                // Todo OK.
-            } catch (e) { console.warn("No se pudo actualizar metadata auth, no importa."); }
-
-            return Response.json({ success: true, comercio: nuevoComercio });
+            const result = await response.json();
+            return Response.json({ success: true, data: result });
         }
 
         if (action === 'toggle_active') {
-            // Lógica de pausar/activar
-            // Necesitamos buscar el comercio por code
-            // Como .list() puede ser lento, idealmente .filter()
-            const { commerce_code, active } = body;
-            // Buscar ID interno
-            const { data: comercios } = await base44.entities.Comercio.filter({ commerce_code });
-            if (comercios && comercios.length > 0) {
-                await base44.entities.Comercio.update(comercios[0].id, { activo: active });
-                return Response.json({ success: true });
+            // Necesitamos el ID para hacer update. Si viene commerce_code, hay que buscarlo primero.
+            // Para simplificar, asumimos que el frontend manda el ID real o que buscamos.
+
+            // BUSQUEDA por commerce_code si no hay ID directo
+            let targetId = id;
+            if (!targetId && commerce_code) {
+                const search = await fetch(`${BASE44_URL}?commerce_code=${commerce_code}`, { headers: { 'api_key': API_KEY } });
+                const found = await search.json();
+                if (found && found.length > 0) targetId = found[0]._id || found[0].id;
             }
-            return Response.json({ error: "Comercio no encontrado" });
+
+            if (!targetId) return Response.json({ error: "ID no encontrado" });
+
+            const updateUrl = `${BASE44_URL}/${targetId}`;
+            await fetch(updateUrl, {
+                method: 'PUT',
+                headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ active: active }) // Ojo: Base44 usa 'active' o 'activo'? Entity definio 'activo'
+            });
+
+            // Update correcto con nombre de campo correcto
+            await fetch(updateUrl, {
+                method: 'PUT',
+                headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ activo: active })
+            });
+
+            return Response.json({ success: true });
         }
 
-        if (action === 'delete') {
-            const { id, type } = body;
-            // type: 'solicitud' | 'comercio'
+        if (action === 'resetData') {
+            // DANGER: Borrar todo. Solo para admins locos.
+            // Fetch list -> Delete loop
+            const listResponse = await fetch(BASE44_URL, { headers: { 'api_key': API_KEY } });
+            const all = await listResponse.json();
 
-            if (type === 'solicitud') {
-                await base44.entities.SolicitudComercio.delete(id);
-                return Response.json({ success: true, message: "Solicitud eliminada" });
+            let deletedCount = 0;
+            for (const item of all) {
+                await fetch(`${BASE44_URL}/${item._id || item.id}`, {
+                    method: 'DELETE',
+                    headers: { 'api_key': API_KEY }
+                });
+                deletedCount++;
             }
 
-            if (type === 'comercio') {
-                // Borrar Comercio es delicado, idealmente soft-delete, pero el user pidió borrar.
-                // Borramos.
-                await base44.entities.Comercio.delete(id);
-                return Response.json({ success: true, message: "Comercio eliminado definitivamente" });
-            }
-
-            return Response.json({ error: "Tipo no especificado" });
+            return Response.json({ success: true, message: `Borrados ${deletedCount} registros.` });
         }
 
         return Response.json({ error: 'Accion desconocida' });
 
     } catch (error) {
+        console.error("Error Gestionar:", error);
         return Response.json({ success: false, error: error.message });
     }
 });
