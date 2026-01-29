@@ -1,11 +1,14 @@
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
 
-// CONSTANTES DE CONEXIÓN DIRECTA (Según Documentación Base44)
-// Extraídas de tu panel:
+// CONSTANTES DE CONEXIÓN DIRECTA
+// App: Common Network (a32d56fd)
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE_URL = `https://app.base44.com/api/apps/${APP_ID}`;
+
+// URL REAL DE TU PROYECTO (No la genérica)
+const PROJECT_URL = "https://common-network-a32d56fd.base44.app";
+const API_BASE_URL = `${PROJECT_URL}/api/apps/${APP_ID}`;
 
 // Helper para generar códigos
 function generateCommerceCode() {
@@ -21,15 +24,14 @@ Deno.serve(async (req) => {
         try { body = await req.json(); } catch { body = {}; }
         const { action = 'create', ...data } = body;
 
-        // --- 1. CONFIGURAR CLIENTE DE AUTH (Solo para SignUp) ---
-        // Usamos la API Key pública para intentar registrar el usuario en el sistema Auth
-        const base44Auth = createClient("https://app.base44.com", API_KEY);
+        // --- 1. CONFIGURAR CLIENTE DE AUTH ---
+        // Usamos la URL correcta del proyecto
+        const base44Auth = createClient(PROJECT_URL, API_KEY);
 
         if (action === 'create') {
             const { nombre_comercio, email, whatsapp, password, full_name } = data;
 
             // A) CREAR USUARIO (Auth Layer)
-            // Intentamos crear el usuario. Si falla por duplicado, devolvemos error.
             const { data: authData, error: authError } = await base44Auth.auth.signUp({
                 email: email,
                 password: password,
@@ -42,16 +44,18 @@ Deno.serve(async (req) => {
                 console.error("Auth Register Error:", authError);
                 return Response.json({
                     success: false,
-                    error: `Error de Autenticación: ${authError.message}. Si ya tienes cuenta, por favor inicia sesión.`
+                    error: `Error de Autenticación: ${authError.message}. Intenta iniciar sesión.`
                 }, { status: 400 });
             }
 
             const userId = authData.user?.id;
             if (!userId) {
-                return Response.json({ success: false, error: "No se pudo generar el ID de usuario." }, { status: 500 });
+                // Si signUp no devuelve ID (ej: confirmación requerida), usamos un placeholder o fallamos
+                // Depende de config. Por ahora fallamos seguro.
+                return Response.json({ success: false, error: "Registro de usuario incompleto. Verifique su email." }, { status: 400 });
             }
 
-            // B) CREAR COMERCIO (Data Layer via FETCH DIRECTO)
+            // B) CREAR COMERCIO (Fetch Directo a tu App URL)
             const commerce_code = generateCommerceCode();
 
             const entityData = {
@@ -67,12 +71,11 @@ Deno.serve(async (req) => {
                 plan: "bronce",
                 configuracion_avanzada: {
                     full_name: full_name,
-                    source: "api_fetch_direct"
+                    source: "api_fetch_fixed_url"
                 }
             };
 
-            // Llamada nativa según documentación Base44
-            const response = await fetch(`${BASE_URL}/entities/Comercio`, {
+            const response = await fetch(`${API_BASE_URL}/entities/Comercio`, {
                 method: 'POST',
                 headers: {
                     'api_key': API_KEY,
@@ -83,8 +86,10 @@ Deno.serve(async (req) => {
 
             if (!response.ok) {
                 const errorText = await response.text();
+                // Si falla Entity pero Auth ya se creó, es un estado inconsistente.
+                // Idealmente borraríamos el usuario, pero no tenemos Admin Key.
                 console.error("Entity Creation Error:", errorText);
-                throw new Error(`Error al crear comercio en DB (${response.status}): ${errorText}`);
+                throw new Error(`Error BD (${response.status}): ${errorText}`);
             }
 
             const result = await response.json();
@@ -94,17 +99,15 @@ Deno.serve(async (req) => {
                 step: 'created',
                 id_solicitud: result.id || result._id,
                 commerce_code: commerce_code,
-                message: "Comercio registrado exitosamente via API Nativa."
+                message: "Cuenta creada exitosamente."
             });
         }
 
         if (action === 'update_payment') {
             const { id_solicitud, numero_operacion } = data;
+            if (!id_solicitud) throw new Error("Falta ID");
 
-            if (!id_solicitud) throw new Error("Falta ID de solicitud para actualizar");
-
-            // Llamada nativa PUT para actualizar
-            const response = await fetch(`${BASE_URL}/entities/Comercio/${id_solicitud}`, {
+            const response = await fetch(`${API_BASE_URL}/entities/Comercio/${id_solicitud}`, {
                 method: 'PUT',
                 headers: {
                     'api_key': API_KEY,
@@ -118,20 +121,20 @@ Deno.serve(async (req) => {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`Error al actualizar pago (${response.status}): ${errorText}`);
+                throw new Error(`Error Actualización (${response.status}): ${errorText}`);
             }
 
             return Response.json({
                 success: true,
                 step: 'payment_updated',
-                message: "Pago registrado exitosamente"
+                message: "Pago registrado"
             });
         }
 
-        return Response.json({ error: "Acción no reconocida" }, { status: 400 });
+        return Response.json({ error: "Acción desconocida" }, { status: 400 });
 
     } catch (error) {
-        console.error("Critical Function Error:", error);
+        console.error("Critical Register Error:", error);
         return Response.json({ success: false, error: error.message }, { status: 500 });
     }
 });
