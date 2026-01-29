@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoginModal } from "@/components/LoginModal";
 import {
     Store, ArrowRight, Loader2, CheckCircle2, Copy, Banknote,
     ShieldAlert, X, MessageCircle, ExternalLink, Flame
@@ -113,6 +114,15 @@ const MerchantRegister = () => {
             <div className="absolute inset-0 z-0">
                 <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-orange-600/10 rounded-full blur-[120px]"></div>
                 <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-red-900/10 rounded-full blur-[120px]"></div>
+            </div>
+
+            {/* Login Button absolute */}
+            <div className="absolute top-6 right-6 z-50">
+                <LoginModal trigger={
+                    <Button variant="ghost" className="text-neutral-400 hover:text-white hover:bg-white/5 gap-2 rounded-full px-6">
+                        <span className="font-bold uppercase tracking-wide text-xs">Ingresar</span>
+                    </Button>
+                } />
             </div>
 
             {step === 3 ? (
