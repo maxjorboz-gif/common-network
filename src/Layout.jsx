@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, LayoutDashboard, User, Menu, X, Flame, LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { base44 } from '@/api/base44Client';
+import { Home, Menu, X, Flame } from 'lucide-react';
 import CartDrawerNew from '@/components/store/CartDrawerNew';
 import CartButton from '@/components/CartButton';
-import { LoginModal } from '@/components/LoginModal';
 import { useAuth } from '@/lib/AuthContext';
 
 const getPageNameFromPath = (pathname) => {
@@ -15,8 +12,6 @@ const getPageNameFromPath = (pathname) => {
   if (path.includes('/admin')) return 'AdminPanel';
   if (path.includes('/checkout')) return 'Checkout';
   if (path.includes('/producto')) return 'Producto';
-  if (path.includes('/terminos')) return 'TerminosYCondiciones';
-  if (path.includes('/devolucion')) return 'PoliticaDevolucion';
   return 'Home';
 };
 
@@ -24,20 +19,13 @@ export default function Layout({ children }) {
   const location = useLocation();
   const currentPageName = getPageNameFromPath(location.pathname);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // useAuth se mantiene por si se necesita en el futuro, pero limpiamos la variable no usada si no es necesaria para lógica oculta.
+  // Si no se usa en absoluto, podríamos borrar el hook, pero dejaré el import por si la lógica de auth se expande. 
+  // Eliminando la destructuración de 'user' que no se usaba.
+  const auth = useAuth();
 
-  // USAR CONTEXTO GLOBAL (La fuente de la verdad)
-  const { user } = useAuth();
-
-  // Verificamos si es página de admin o landing para el estilo
   const isAdminPage = currentPageName === 'AdminPanel';
   const isLandingPage = currentPageName === 'Landing';
-
-  // ELIMINADO: useEffect manual de loadUser (Ya no es necesario)
-
-  const handleLogout = () => {
-    base44.auth.logout();
-    window.location.reload();
-  };
 
   return (
     <>
@@ -69,8 +57,7 @@ export default function Layout({ children }) {
               <nav className="hidden md:flex items-center gap-6">
                 <Link
                   to="/home"
-                  className={`px-4 py-2 rounded-xl text-sm font-black uppercase italic tracking-widest transition-all ${currentPageName === 'Home' ? 'text-orange-500 bg-orange-500/10' : 'text-neutral-400 hover:text-white'
-                    }`}
+                  className={`px-4 py-2 rounded-xl text-sm font-black uppercase italic tracking-widest transition-all ${currentPageName === 'Home' ? 'text-orange-500 bg-orange-500/10' : 'text-neutral-400 hover:text-white'}`}
                 >
                   Catálogo Demo
                 </Link>
@@ -85,51 +72,9 @@ export default function Layout({ children }) {
                 )}
 
                 <div className="h-6 w-px bg-neutral-800 mx-2" />
-
                 {!isLandingPage && <CartButton />}
 
-                {user ? (
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 bg-neutral-800/50 border border-neutral-700 pl-3 pr-1 py-1 rounded-full">
-                      <span className="text-xs font-bold uppercase text-neutral-400 tracking-tighter">
-                        {user.full_name?.split(' ')[0] || 'Comerciante'}
-                      </span>
-                      <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center text-xs font-black text-white">
-                        {user.full_name?.charAt(0) || user.email?.charAt(0)}
-                      </div>
-                    </div>
-
-                    {/* Botón EXCLUSIVO para Super Admin (Solo visible por ID Real) */}
-                    {user.id === "14349463-549c-4bf9-b223-95b058a7493a" && (
-                      <Link to="/adminSupreme" title="Panel Supremo" className="p-2 text-orange-600 hover:text-orange-400 transition-colors">
-                        <Flame size={20} />
-                      </Link>
-                    )}
-
-                    <button
-                      onClick={() => {
-                        base44.auth.logout();
-                        localStorage.clear();
-                        window.location.href = '/';
-                      }}
-                      className="p-2 text-neutral-600 hover:text-red-500 transition-colors"
-                    >
-                      <LogOut size={20} />
-                    </button>
-                  </div>
-                ) : (
-                  <LoginModal trigger={
-                    <Button
-                      variant="ghost"
-                      className="text-neutral-400 hover:text-white hover:bg-neutral-800 font-bold uppercase text-xs tracking-widest"
-                    >
-                      <User className="w-4 h-4 mr-2" />
-                      Ingresar
-                    </Button>
-                  } />
-                )}
               </nav>
-
 
               {/* Mobile Menu Button */}
               <button
@@ -140,25 +85,6 @@ export default function Layout({ children }) {
               </button>
             </div>
           </div>
-
-          {/* Mobile Menu */}
-          {mobileMenuOpen && (
-            <div className="md:hidden border-t border-neutral-800 bg-neutral-900 p-6 space-y-4 animate-in slide-in-from-top">
-              <Link
-                to="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-4 p-4 rounded-2xl bg-neutral-800 text-white font-black uppercase italic"
-              >
-                <Home size={20} className="text-orange-600" />
-                Catálogo
-              </Link>
-              {!user && (
-                <Button className="w-full bg-orange-600 font-black italic uppercase rounded-2xl" onClick={() => base44.auth.redirectToLogin(window.location.href)}>
-                  Iniciar Sesión
-                </Button>
-              )}
-            </div>
-          )}
         </header>
 
         {/* Contenido Principal */}
@@ -166,23 +92,11 @@ export default function Layout({ children }) {
           {children}
         </main>
 
-        {/* Footer Reforzado */}
         {!isAdminPage && (
           <footer className="bg-neutral-950 border-t border-neutral-900 py-16">
-            <div className="max-w-7xl mx-auto px-6">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-12">
-                <div className="flex items-center gap-3 opacity-50 grayscale">
-                  <Flame className="text-white" />
-                  <span className="font-black uppercase italic text-xl">Pasión Fierrera</span>
-                </div>
-                <div className="flex gap-8 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-600">
-                  <Link to="/terminos" className="hover:text-orange-500 transition-colors">Términos</Link>
-                  <Link to="/devolucion" className="hover:text-orange-500 transition-colors">Devoluciones</Link>
-                  <Link to="/contacto" className="hover:text-orange-500 transition-colors">Contacto</Link>
-                </div>
-              </div>
-              <p className="text-center text-neutral-800 text-[10px] font-bold uppercase tracking-widest">
-                © 2026 Herrería Artesanal. Todos los derechos reservados.
+            <div className="max-w-7xl mx-auto px-6 text-center">
+              <p className="text-neutral-800 text-[10px] font-bold uppercase tracking-widest">
+                © 2026 Common Network. Todos los derechos reservados.
               </p>
             </div>
           </footer>

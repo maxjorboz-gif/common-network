@@ -8,13 +8,24 @@ Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
 
-        // 1. Quién soy?
-        const { data: { user } } = await base44.auth.getUser();
-        if (!user) return Response.json({ tiene_solicitud: false });
+        // 1. Quién soy? (Soporte Nativo Híbrido)
+        // Opción A: Me mandan el ID explícitamente (Login Nativo recién hecho)
+        let body;
+        try { body = await req.json(); } catch { body = {}; }
+
+        let userId = body.user_id;
+
+        // Opción B: No mandan ID, intento sacar de sesión (Legacy/Google)
+        if (!userId) {
+            const { data: { user } } = await base44.auth.getUser();
+            if (user) userId = user.id;
+        }
+
+        if (!userId) return Response.json({ tiene_solicitud: false });
 
         // 2. Buscar en mis solicitudes
         const { data: solicitudes } = await base44.entities.SolicitudComercio.filter({
-            user_id: user.id
+            user_id: userId
         });
 
         if (solicitudes && solicitudes.length > 0) {

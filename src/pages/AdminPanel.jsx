@@ -57,101 +57,14 @@ export default function AdminPanel() {
     staleTime: 0
   });
 
-  // Verificar si tiene solicitud pendiente (solo si no tiene comercio activo)
-  const { data: solicitudPendiente } = useQuery({
-    queryKey: ['solicitud-pendiente'],
-    queryFn: async () => {
-      const response = await base44.functions.invoke('verificarSolicitudPendiente', {});
-      return response.data;
-    },
-    enabled: !!user && !comercio && !loadingComercio,
-    retry: 0
-  });
-
-  // Pantalla de carga
-  if (checkingAuth || (user && loadingComercio)) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="animate-spin w-10 h-10 border-4 border-orange-600 border-t-transparent rounded-full mb-4" />
-        <p className="text-gray-600 font-medium">Cargando panel de control...</p>
-      </div>
-    );
-  }
-
-  // Error de sistema
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <Card className="max-w-md w-full border-red-200">
-          <CardHeader>
-            <CardTitle className="text-red-600 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5" />
-              Error en el Sistema
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-gray-600 mb-6">{error.message}</p>
-            <Button
-              onClick={() => window.location.reload()}
-              className="bg-orange-600 hover:bg-orange-700 text-white w-full"
-            >
-              Reintentar Conexión
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Caso 1: Tiene solicitud pendiente
-  if (!comercio && solicitudPendiente?.tiene_solicitud) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-950 p-4 text-white">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="w-20 h-20 bg-orange-500/10 rounded-[2rem] flex items-center justify-center mx-auto border border-orange-500/20">
-            <ShieldAlert className="w-10 h-10 text-orange-600 animate-pulse" />
-          </div>
-          <h2 className="text-3xl font-black italic uppercase tracking-tight">Cuenta en Revisión</h2>
-          <p className="text-neutral-400">
-            Tu tienda <span className="text-white font-bold">{solicitudPendiente.solicitud.nombre_comercio}</span> está esperando la aprobación del administrador.
-            <br /><br />
-            Una vez validado tu pago (Operación #{solicitudPendiente.solicitud.numero_operacion}), recibirás acceso total a este panel en las próximas <span className="text-orange-500 font-bold">24 horas</span>.
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => window.location.href = '/'}
-            className="border-neutral-800 text-neutral-400 hover:text-white"
-          >
-            Volver al Inicio
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Caso 2: No tiene solicitud ni comercio
+  // Caso: No tiene comercio activo
   if (!comercio) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader>
-            <CardTitle className="text-center flex flex-col items-center gap-4">
-              <Package className="w-16 h-16 text-orange-600" />
-              <span className="text-2xl font-bold text-gray-900">Registrá tu Comercio</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <p className="text-gray-600">
-              Para acceder al panel de administración, primero necesitás registrar tu comercio.
-            </p>
-            <Button
-              onClick={() => window.location.href = '/registro'}
-              className="bg-orange-600 hover:bg-orange-700 text-white w-full font-bold"
-            >
-              Ir a Registro
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="text-center space-y-4">
+          <p className="text-gray-600">No se encontró un comercio activo asociado a tu cuenta.</p>
+          <Button onClick={() => window.location.href = '/'} variant="outline">Volver al Inicio</Button>
+        </div>
       </div>
     );
   }

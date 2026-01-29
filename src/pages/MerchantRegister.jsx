@@ -33,118 +33,8 @@ const MerchantRegister = () => {
     const [numOperacion, setNumOperacion] = useState('');
     const [pendingId, setPendingId] = useState(null);
 
-    // Pre-llenar email si el usuario ya existe
-    React.useEffect(() => {
-        if (user?.email) {
-            setForm(prev => ({ ...prev, email: user.email }));
-        }
-    }, [user]);
+    // Google validation check removed for native registration
 
-    // PASO 1: Crear Solicitud (Datos Básicos)
-    const handleNextStep = async (e) => {
-        e.preventDefault();
-
-        if (form.password !== form.confirmPassword) {
-            toast({ title: "Error", description: "Las contraseñas no coinciden.", variant: "destructive" });
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // Llamada al Backend: Crear Borrador
-            const response = await base44.functions.invoke('registrarComercio', {
-                action: 'create',
-                nombre_comercio: form.nombreComercio,
-                whatsapp: form.whatsapp,
-                email: form.email,
-                password: form.password,
-                full_name: form.usuario
-            });
-
-            if (response.error) throw new Error(response.error.message || "Error al conectar");
-            if (!response.data?.success) throw new Error(response.data?.error || "Error al crear solicitud");
-
-            // Guardamos ID y Código para el siguiente paso
-            setPendingId(response.data.id_solicitud);
-            setCreatedCommerceCode(response.data.commerce_code);
-
-            toast({ title: "Datos Guardados", description: "Continuá con el pago para finalizar." });
-            setStep(2); // Avanzamos
-
-        } catch (error) {
-            console.error(error);
-            toast({ title: "Error", description: error.message, variant: "destructive" });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // PASO 2: Confirmar Pago
-    const handleFinalSubmit = async () => {
-        if (!numOperacion.trim()) return;
-        if (!pendingId) {
-            toast({ title: "Error", description: "Falta ID de solicitud. Recargá e intentá de nuevo.", variant: "destructive" });
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const response = await base44.functions.invoke('registrarComercio', {
-                action: 'update_payment',
-                id_solicitud: pendingId,
-                numero_operacion: numOperacion
-            });
-
-            if (response.error) throw new Error(response.error.message);
-            if (!response.data?.success) throw new Error(response.data?.error);
-
-            // Éxito Total
-            setStep(3);
-
-        } catch (error) {
-            console.error(error);
-            toast({ title: "Error de Pago", description: error.message, variant: "destructive" });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const copyCBU = () => {
-        navigator.clipboard.writeText("0000003100000000000000");
-        toast({ title: "Copiado", description: "CBU copiado" });
-    };
-
-    // PROTECCIÓN DE ACCESO: Si no hay usuario Google, mostramos Login Obligatorio
-    if (!user) {
-        return (
-            <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4 text-center relative overflow-hidden">
-                <div className="absolute inset-0 z-0">
-                    <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[50%] h-[50%] bg-orange-600/10 rounded-full blur-[120px]"></div>
-                </div>
-
-                <div className="z-10 bg-neutral-900 border border-neutral-800 p-8 rounded-3xl max-w-md w-full shadow-2xl space-y-6">
-                    <div className="w-20 h-20 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto border border-orange-500/20">
-                        <ShieldAlert className="w-10 h-10 text-orange-600" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black uppercase italic text-white mb-2">Validación de Identidad</h2>
-                        <p className="text-neutral-400 text-sm">
-                            Para garantizar la seguridad de tu comercio, necesitamos validar tu identidad con Google antes de comenzar el registro.
-                        </p>
-                    </div>
-                    <Button
-                        onClick={() => base44.auth.redirectToLogin(window.location.href)}
-                        className="w-full h-14 bg-white text-black hover:bg-neutral-200 font-black uppercase italic rounded-xl text-lg"
-                    >
-                        Iniciar Sesión con Google
-                    </Button>
-                    <p className="text-[10px] text-neutral-600 uppercase font-bold">
-                        Solo usaremos tu email para vincular tu cuenta.
-                    </p>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 relative overflow-hidden">
@@ -251,10 +141,10 @@ const MerchantRegister = () => {
                                         <label className="text-xs font-black uppercase text-neutral-500 italic">Email Verificado (Google)</label>
                                         <Input
                                             type="email"
-                                            className="bg-neutral-900 border-neutral-700 text-neutral-400 h-12 rounded-xl cursor-not-allowed font-bold"
+                                            className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
                                             required
-                                            readOnly
                                             value={form.email}
+                                            onChange={e => setForm({ ...form, email: e.target.value })}
                                         />
                                     </div>
                                     <div className="space-y-2">
