@@ -165,27 +165,7 @@ export default function Home() {
           ¿DUDAS CON TU PARRILLA?
         </span>
       </a>
-      {/* BOTÓN DE ADMINISTRACIÓN (SAAS MULTI-TENANT) */}
-      {!isLoadingAuth && user && (() => {
-        const SUPER_ADMIN_ID = "14349463-549c-4bf9-b223-95b058a7493a";
-        const isSuperAdmin = user.id === SUPER_ADMIN_ID;
 
-        // 1. CASO SUPER ADMIN: Acceso al Panel Supremo Global
-        if (isSuperAdmin) {
-          return (
-            <div className="fixed bottom-10 left-10 z-50">
-              <a
-                href="/adminSupreme"
-                className="bg-neutral-900 border border-orange-500/50 text-orange-500 hover:text-white hover:bg-orange-600 p-4 rounded-2xl shadow-[0_0_20px_rgba(234,88,12,0.2)] transition-all flex items-center gap-3 font-black uppercase italic tracking-widest text-xs group"
-              >
-                <Flame size={20} className="group-hover:rotate-12 transition-transform" />
-                <span className="hidden md:inline">Panel Supremo</span>
-              </a>
-            </div>
-          );
-        }
-        return null;
-      })()}
 
     </div>
   );
