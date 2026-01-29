@@ -35,6 +35,74 @@ const MerchantRegister = () => {
 
     // Google validation check removed for native registration
 
+    const copyCBU = () => {
+        navigator.clipboard.writeText("0000003100000000000000");
+        toast({ title: "CBU Copiado", description: "Listo para transferir." });
+    };
+
+    const handleNextStep = async (e) => {
+        e.preventDefault();
+        if (form.password !== form.confirmPassword) {
+            toast({ title: "Error", description: "Las contraseñas no coinciden.", variant: "destructive" });
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Mapeamos 'usuario' a 'full_name' según lo esperado por el backend
+            const payload = {
+                action: 'create',
+                nombre_comercio: form.nombreComercio,
+                email: form.email,
+                whatsapp: form.whatsapp,
+                password: form.password,
+                full_name: form.usuario
+            };
+
+            const response = await base44.call('registrarComercio', payload);
+
+            if (response.success) {
+                setPendingId(response.id_solicitud);
+                setCreatedCommerceCode(response.commerce_code);
+                setStep(2);
+                toast({ title: "Cuenta Provisoria Creada", description: "Por favor procede al pago." });
+            } else {
+                toast({ title: "Error de Registro", description: response.error || "No se pudo crear la cuenta.", variant: "destructive" });
+            }
+        } catch (error) {
+            console.error("Error en registro:", error);
+            toast({ title: "Error de Conexión", description: "Intenta nuevamente.", variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleFinalSubmit = async () => {
+        if (!numOperacion || !pendingId) return;
+        setLoading(true);
+        try {
+            const payload = {
+                action: 'update_payment',
+                id_solicitud: pendingId,
+                numero_operacion: numOperacion
+            };
+
+            const response = await base44.call('registrarComercio', payload);
+
+            if (response.success) {
+                setStep(3);
+                toast({ title: "¡Todo Listo!", description: "Tu comercio será habilitado pronto." });
+            } else {
+                toast({ title: "Error", description: response.error || "No se pudo registrar el pago.", variant: "destructive" });
+            }
+        } catch (error) {
+            console.error("Error en pago:", error);
+            toast({ title: "Error", description: "Fallo al enviar el comprobante.", variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     return (
         <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 relative overflow-hidden">
