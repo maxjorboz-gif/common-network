@@ -15,7 +15,6 @@ Deno.serve(async (req) => {
 
         // Generamos datos requeridos por la DB
         const commerceCode = Math.random().toString(36).substring(2, 12).toUpperCase();
-        const userIdMock = crypto.randomUUID(); // ID Placeholder para cumplir requisito DB
 
         // Construimos el payload EXACTO para Base44
         const entityPayload = {
@@ -23,8 +22,7 @@ Deno.serve(async (req) => {
             email_negocio: data.email,
             whatsapp_negocio: data.whatsapp,
 
-            // Campos requeridos por tu Schema
-            user_id: userIdMock,
+            // Campos requeridos por tu Schema (user_id eliminado bajo supuesto de que ya es opcional)
             commerce_code: commerceCode,
 
             // Valores por defecto
