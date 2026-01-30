@@ -52,7 +52,6 @@ Deno.serve(async (req) => {
             nombre_comercio: comercio.nombre,
             nombre_usuario: comercio.nombre_usuario,
             estado: comercio.estado_registro,
-            plan: comercio.plan
         });
 
     } catch (error) {
