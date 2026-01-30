@@ -35,26 +35,53 @@ export default function AdminPanel() {
   const [loadingComercio, setLoadingComercio] = useState(true);
 
   useEffect(() => {
-    const sessionRaw = localStorage.getItem('comercio_session') || localStorage.getItem('comercio_admin');
-    if (!sessionRaw) {
-      window.location.href = '/';
-      return;
+    async function initSession() {
+      const sessionRaw = localStorage.getItem('comercio_session') || localStorage.getItem('comercio_admin');
+
+      if (!sessionRaw) {
+        window.location.href = '/';
+        return;
+      }
+
+      try {
+        const session = JSON.parse(sessionRaw);
+
+        // CONSULTA EN TIEMPO REAL A LA BASE DE DATOS
+        // No confiamos más en el 'activo' del carnet viejo del localstorage
+        const response = await base44.functions.invoke('obtenerDatosComercio', {
+          commerce_code: session.commerce_code
+        });
+
+        if (response.data && response.data.comercio) {
+          // Fusionamos la sesión guardada con los datos reales y frescos de la DB
+          const datosFrescos = { ...session, ...response.data.comercio };
+          setComercio(datosFrescos);
+        } else {
+          // Si el backend no devuelve nada, usamos lo que tenemos pero avisamos
+          setComercio(session);
+        }
+      } catch (e) {
+        console.error("Error cargando sesión real:", e);
+      } finally {
+        setLoadingComercio(false);
+      }
     }
 
-    try {
-      const session = JSON.parse(sessionRaw);
-      setComercio(session);
-    } catch (e) {
-      console.error("Error cargando sesión:", e);
-    } finally {
-      setLoadingComercio(false);
-    }
+    initSession();
   }, []);
 
-  if (loadingComercio) return null;
+  if (loadingComercio) return (
+    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="text-orange-600 animate-pulse font-bold uppercase tracking-widest text-sm">
+        Verificando Credenciales Reales...
+      </div>
+    </div>
+  );
+
   if (!comercio) return <div>Acceso no autorizado</div>;
 
-  if (comercio && !comercio.activo) {
+  // El cartel de revisión SOLO se muestra si el BACKEND dice que no está activo
+  if (!comercio.activo) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-950 p-4 text-white">
         <div className="max-w-md w-full text-center space-y-6">
@@ -63,7 +90,7 @@ export default function AdminPanel() {
           </div>
           <h2 className="text-3xl font-black italic uppercase tracking-tight">Cuenta en Revisión</h2>
           <p className="text-neutral-400">
-            Tu tienda <span className="text-white font-bold">{comercio.nombre_comercio || comercio.nombre_tienda}</span> está esperando la aprobación.
+            Tu tienda <span className="text-white font-bold">{comercio.nombre_comercio || comercio.nombre_tienda}</span> está esperando la aprobación de un administrador.
           </p>
           <Button variant="outline" onClick={() => window.location.href = '/'} className="border-neutral-800 text-neutral-400 hover:text-white">
             Volver al Inicio
@@ -126,3 +153,4 @@ export default function AdminPanel() {
     </div>
   );
 }
+
