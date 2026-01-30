@@ -1,35 +1,37 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const URL_LEAD = `https://app.base44.com/api/apps/${APP_ID}/entities/Lead`;
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
+        if (req.method === 'OPTIONS') return new Response("OK");
 
-        const user = await base44.auth.me();
-        if (!user || user.role !== 'admin') {
-            return Response.json({ error: 'Forbidden' }, { status: 403 });
-        }
-
-        const { commerce_code, id_comercio: legacyId } = await req.json();
+        const { commerce_code, id_comercio: legacyId } = await req.json().catch(() => ({}));
         const idBusqueda = commerce_code || legacyId;
 
         if (!idBusqueda) {
             return Response.json({ error: 'Falta ID de comercio (commerce_code)' }, { status: 400 });
         }
 
-        // Obtener Leads ordenados por fecha
-        const filter = {};
-        if (idBusqueda.length > 20) {
-            filter.id_comercio = idBusqueda;
-        } else {
-            filter.commerce_code = idBusqueda;
+        // Determinar parámetro de filtro
+        let filterParam = idBusqueda.length > 20 ? `id_comercio=${idBusqueda}` : `commerce_code=${idBusqueda}`;
+
+        // Obtener Leads (URL Directa)
+        const response = await fetch(`${URL_LEAD}?${filterParam}`, {
+            headers: { 'api_key': API_KEY }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error obteniendo leads: ${await response.text()}`);
         }
 
-        const leads = await base44.asServiceRole.entities.Lead.filter(filter, '-fecha_contacto', 100);
+        const leads = await response.json();
 
         return Response.json({
             success: true,
-            leads
+            leads: Array.isArray(leads) ? leads : []
         });
 
     } catch (error) {

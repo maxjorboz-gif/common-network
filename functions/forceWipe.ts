@@ -1,48 +1,71 @@
 // @ts-nocheck
-import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const BASE_URL_API = `https://app.base44.com/api/apps/${APP_ID}/entities`;
+
+const ENTITIES = [
+    "AtributoProducto",
+    "Carrito",
+    "Cliente",
+    "Comercio",
+    "ConfiguracionComercio",
+    "Cupon",
+    "EventoMeta",
+    "GastoPublicitario",
+    "Lead",
+    "Logs_Configuracion",
+    "Orden",
+    "Producto",
+    "Resena"
+];
 
 Deno.serve(async (req) => {
-    // 1. SIN AUTH USER CHECK - EMERGENCIA
-    // Solo usamos el Service Role Admin
-    const base44Admin = createClient(
-        Deno.env.get("BASE44_API_URL") ?? "",
-        Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    console.log("LOG: FORCE WIPE INICIADO (Bypass Auth)");
-
-    const entities = [
-        'Orden',
-        'Lead',
-        'Conversacion',
-        'Producto',
-        'SolicitudComercio',
-        'SolicitudVenta',
-        'Comercio',
-        'Configuracion'
-    ];
+    console.log("LOG: FORCE WIPE INICIADO (Bypass Auth - Comunicación Directa)");
 
     let stats = {};
 
-    for (const entity of entities) {
+    for (const entityName of ENTITIES) {
         try {
-            if (!base44Admin.entities[entity]) continue;
+            const entityUrl = `${BASE_URL_API}/${entityName}`;
 
-            const items = await base44Admin.entities[entity].list();
-            let count = 0;
-            for (const item of items) {
-                await base44Admin.entities[entity].delete(item.id);
-                count++;
+            // 1. Obtener todos los registros de la entidad
+            const responseList = await fetch(entityUrl, {
+                headers: { 'api_key': API_KEY }
+            });
+
+            if (!responseList.ok) {
+                stats[entityName] = `Error: No se pudo listar (${responseList.status})`;
+                continue;
             }
-            stats[entity] = count;
+
+            const items = await responseList.json();
+            let count = 0;
+
+            if (Array.isArray(items)) {
+                for (const item of items) {
+                    const itemId = item.id || item._id;
+                    // 2. Eliminar cada registro individualmente
+                    const responseDelete = await fetch(`${entityUrl}/${itemId}`, {
+                        method: 'DELETE',
+                        headers: { 'api_key': API_KEY }
+                    });
+
+                    if (responseDelete.ok) {
+                        count++;
+                    }
+                }
+            }
+
+            stats[entityName] = count;
         } catch (e) {
-            stats[entity] = `Error: ${e.message}`;
+            stats[entityName] = `Error: ${e.message}`;
         }
     }
 
     return Response.json({
         success: true,
-        message: "Wipe Forzado Completado",
+        message: "Wipe Forzado Completado via Fetch Directo",
         stats
     });
 });

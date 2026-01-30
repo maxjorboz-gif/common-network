@@ -1,42 +1,51 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
-// NUEVA LÓGICA V8: Obtener Datos Directo (Sin Middleware)
-// El usuario pregunta "¿Quién soy y cuál es mi comercio?". Nosotros respondemos leyendo la base.
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const URL_COMERCIO = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
+        if (req.method === 'OPTIONS') return new Response("OK");
 
-        // 1. Obtener Usuario (Auth Básico)
-        const { data: { user }, error } = await base44.auth.getUser();
+        const body = await req.json().catch(() => ({}));
+        const { user_id, commerce_code } = body;
 
-        if (error || !user) {
-            // Usuario no logueado -> Retornamos null limpio.
+        // Si no hay identificación, devolvemos null para no romper front
+        if (!user_id && !commerce_code) {
             return Response.json({ success: true, comercio: null, commerce_code: null });
         }
 
-        // 2. Buscar Comercio Activo vinculado a este usuario
-        // Buscamos directo en tabla Comercio (la verdad absoluta).
-        const { data: comercios } = await base44.entities.Comercio.filter({
-            user_id: user.id
+        let queryUrl = "";
+        if (commerce_code) {
+            queryUrl = `${URL_COMERCIO}?commerce_code=${commerce_code}`;
+        } else if (user_id) {
+            queryUrl = `${URL_COMERCIO}?user_id=${user_id}`;
+        }
+
+        // 1. Buscar Comercio (URL Directa)
+        const response = await fetch(queryUrl, {
+            headers: { 'api_key': API_KEY }
         });
 
-        // Caso A: Tiene Comercio Aprobado/Activo
-        if (comercios && comercios.length > 0) {
+        if (!response.ok) {
+            throw new Error(`Error recuperando comercio: ${await response.text()}`);
+        }
+
+        const comercios = await response.json();
+
+        if (Array.isArray(comercios) && comercios.length > 0) {
             const miComercio = comercios[0];
             return Response.json({
                 success: true,
                 commerce_code: miComercio.commerce_code,
                 comercio: {
                     ...miComercio,
-                    activo: miComercio.activo // true/false
+                    activo: miComercio.activo
                 }
             });
         }
 
-        // Caso B: No tiene comercio (quizás tiene solicitud pendiente, pero eso lo ve otra función)
-        // Retornamos null para que el front sepa que no hay "Dashboard Activo".
         return Response.json({
             success: true,
             commerce_code: null,
@@ -44,7 +53,7 @@ Deno.serve(async (req) => {
         });
 
     } catch (error) {
-        // Error silencioso, devolvemos null para no romper front
+        console.error("Error en obtenerDatosComercio:", error);
         return Response.json({ success: true, comercio: null });
     }
 });

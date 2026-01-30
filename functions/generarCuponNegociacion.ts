@@ -1,9 +1,13 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const BASE_URL = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Cupon";
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    if (req.method === 'OPTIONS') return new Response("OK");
+
     const { idCliente, porcentajeDescuento, validezMinutos = 15, commerce_code, id_comercio: legacyId } = await req.json();
 
     const id_comercio_final = commerce_code || legacyId;
@@ -21,15 +25,38 @@ Deno.serve(async (req) => {
     // Generar código único corto
     const codigo = `OFF${porcentajeDescuento}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-    const cupon = await base44.asServiceRole.entities.CuponNegociacion.create({
+    // Payload para la entidad Cupon (URL Directa)
+    const cuponPayload = {
       codigo,
-      id_cliente: idCliente,
+      id_comercio: id_comercio_final,
       commerce_code: id_comercio_final,
-      id_comercio: id_comercio_final, // Keep legacy field populated if possible/needed or rely on commerce_code being added to schema
-      descuento_porcentaje: porcentajeDescuento,
-      fecha_expiracion: expiracion.toISOString(),
-      usado: false
+      tipo: 'porcentaje',
+      valor: porcentajeDescuento,
+      fecha_inicio: new Date().toISOString(),
+      fecha_fin: expiracion.toISOString(),
+      activo: true,
+      usos_maximos: 1,
+      usos_actuales: 0,
+      id_cliente_dueno: idCliente,
+      origen: 'negociacion_ia',
+      created_at: new Date().toISOString()
+    };
+
+    const response = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: {
+        'api_key': API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(cuponPayload)
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error creando cupón: ${errorText}`);
+    }
+
+    const cupon = await response.json();
 
     return Response.json({
       success: true,
@@ -37,6 +64,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
+    console.error('Error generarCuponNegociacion:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

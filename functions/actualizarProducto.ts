@@ -1,14 +1,14 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+// URL exacta siguiendo tu regla
+const BASE_URL_PRODUCTO = `https://app.base44.com/api/apps/${APP_ID}/entities/Producto`;
+const BASE_URL_ATRIBUTOS = `https://app.base44.com/api/apps/${APP_ID}/entities/AtributoProducto`;
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
-
-        if (!user || user.role !== 'admin') {
-            return Response.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        if (req.method === 'OPTIONS') return new Response("OK");
 
         const { productoId, productoData, atributos } = await req.json();
 
@@ -16,62 +16,78 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Parámetros incompletos' }, { status: 400 });
         }
 
-        // Obtener producto por ID para validar que existe
-        const productoActual = await base44.asServiceRole.entities.Producto.get(productoId);
-        if (!productoActual) {
+        // 1. Obtener producto por ID
+        const responseProducto = await fetch(`${BASE_URL_PRODUCTO}/${productoId}`, {
+            headers: { 'api_key': API_KEY }
+        });
+
+        if (!responseProducto.ok) {
             return Response.json({ error: 'Producto no encontrado' }, { status: 404 });
         }
+        const productoActual = await responseProducto.json();
 
         if (productoData.precio_estandar) {
-            // ADMIN POWER: Permitimos cualquier precio, incluso 0 o negativo si lo desea (ej. ajustes contables)
-            // NO calculamos precio_minimo automáticamente. Si el user no lo manda, queda como está o null.
             productoData.precio_estandar = parseFloat(productoData.precio_estandar);
         }
 
-        if (productoData.categoria && productoData.categoria.trim() === '') {
-            return Response.json({ error: 'Categoría es obligatoria' }, { status: 400 });
+        // 2. Actualizar producto (PATCH) utilizando la URL completa a la entidad
+        const updateResponse = await fetch(`${BASE_URL_PRODUCTO}/${productoId}`, {
+            method: 'PATCH',
+            headers: {
+                'api_key': API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                ...productoData,
+                stock_actual: productoData.stock_actual !== undefined ? parseInt(productoData.stock_actual) : productoActual.stock_actual,
+                costo_producto: productoData.costo_producto !== undefined ? parseFloat(productoData.costo_producto) : productoActual.costo_producto,
+                updated_at: new Date().toISOString()
+            })
+        });
+
+        if (!updateResponse.ok) {
+            const errorText = await updateResponse.text();
+            throw new Error(`Error actualizando producto: ${errorText}`);
         }
 
-        // Actualizar producto
-        const dataActualizar = {
-            ...productoData,
-            stock_actual: productoData.stock_actual !== undefined ? parseInt(productoData.stock_actual) : productoActual.stock_actual,
-            costo_producto: productoData.costo_producto !== undefined ? parseFloat(productoData.costo_producto) : productoActual.costo_producto
-        };
+        // 3. Gestionar atributos
+        if (atributos && Array.isArray(atributos)) {
+            const resAttrs = await fetch(`${BASE_URL_ATRIBUTOS}?id_producto=${productoId}`, {
+                headers: { 'api_key': API_KEY }
+            });
 
-        await base44.asServiceRole.entities.Producto.update(productoId, dataActualizar);
-
-        // Actualizar atributos si existen
-        if (atributos && atributos.length > 0) {
-            // Eliminar atributos antiguos
-            const atributosAntiguos = await base44.asServiceRole.entities.AtributoProducto.filter({
-                id_producto: productoId
-            }, '-created_date', 100);
-
-            for (const attr of atributosAntiguos) {
-                // Usar filter en lugar de delete directo si es necesario
-                // Por ahora asumimos que podemos actualizar
+            if (resAttrs.ok) {
+                const atributosAntiguos = await resAttrs.json();
+                if (Array.isArray(atributosAntiguos)) {
+                    for (const attr of atributosAntiguos) {
+                        await fetch(`${BASE_URL_ATRIBUTOS}/${attr.id || attr._id}`, {
+                            method: 'DELETE',
+                            headers: { 'api_key': API_KEY }
+                        });
+                    }
+                }
             }
 
-            // Crear nuevos atributos
-            const atributosParaCrear = atributos.map((attr, index) => ({
-                id_producto: productoId,
-                nombre_atributo: attr.nombre_atributo,
-                valor_atributo: attr.valor_atributo,
-                ia_weight: attr.ia_weight || 5,
-                orden: index
-            }));
-
-            await base44.asServiceRole.entities.AtributoProducto.bulkCreate(atributosParaCrear);
+            for (let i = 0; i < atributos.length; i++) {
+                await fetch(BASE_URL_ATRIBUTOS, {
+                    method: 'POST',
+                    headers: {
+                        'api_key': API_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id_producto: productoId,
+                        nombre_atributo: atributos[i].nombre_atributo,
+                        valor_atributo: atributos[i].valor_atributo,
+                        ia_weight: atributos[i].ia_weight || 5,
+                        orden: i,
+                        created_at: new Date().toISOString()
+                    })
+                });
+            }
         }
 
-        const productoActualizado = await base44.asServiceRole.entities.Producto.get(productoId);
-
-        return Response.json({
-            success: true,
-            producto: productoActualizado,
-            mensaje: 'Producto actualizado exitosamente'
-        });
+        return Response.json({ success: true, mensaje: 'Producto actualizado exitosamente' });
 
     } catch (error) {
         console.error('Error actualizarProducto:', error);

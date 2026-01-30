@@ -1,63 +1,55 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+
+const URL_PRODUCTO = `https://app.base44.com/api/apps/${APP_ID}/entities/Producto`;
+const URL_CONFIG = `https://app.base44.com/api/apps/${APP_ID}/entities/ConfiguracionComercio`;
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        
-        // 1. Obtener commerce_code desde la URL (query param)
+        if (req.method === 'OPTIONS') return new Response("OK");
+
+        // 1. Obtener commerce_code (puede venir por URL o por body)
         const url = new URL(req.url);
-        const commerceCode = url.searchParams.get('commerce_code');
+        let commerceCode = url.searchParams.get('commerce_code');
 
-        // 2. Validación mínima (solo para Home público)
         if (!commerceCode) {
-            return Response.json(
-        { error: 'commerce_code requerido' },
-        { status: 400 }
-    );
-}
-
-        // HEURÍSTICA DE COMPATIBILIDAD
-        // Si el ID es largo (> 20 chars), asumimos que es un UUID legacy (id_comercio)
-        // Si es corto, es un commerce_code nuevo
-        const isLegacyId = idBusqueda.length > 20;
-
-        // 1. Obtener CATEGORÍAS
-        const productFilter = { activo: true };
-        if (isLegacyId) {
-            productFilter.id_comercio = idBusqueda;
-        } else {
-            productFilter.commerce_code = idBusqueda;
+            const body = await req.json().catch(() => ({}));
+            commerceCode = body.commerce_code || body.id_comercio;
         }
 
-        const productos = await base44.asServiceRole.entities.Producto.filter(productFilter, '-created_date', 100);
+        if (!commerceCode) {
+            return Response.json({ error: 'commerce_code requerido' }, { status: 400 });
+        }
 
+        const filterParam = commerceCode.length > 20 ? `id_comercio=${commerceCode}` : `commerce_code=${commerceCode}`;
+
+        // 2. Fetch de datos en paralelo (Producto y Configuración)
+        const [resProductos, resConfig] = await Promise.all([
+            fetch(`${URL_PRODUCTO}?${filterParam}&activo=true`, { headers: { 'api_key': API_KEY } }),
+            fetch(`${URL_CONFIG}?${filterParam}`, { headers: { 'api_key': API_KEY } })
+        ]);
+
+        const productos = await resProductos.json().catch(() => []);
+        const configs = await resConfig.json().catch(() => []);
+
+        // 3. PROCESAMIENTO
         const categoriasSet = new Set();
-        productos.forEach((p) => {
+        (Array.isArray(productos) ? productos : []).forEach((p) => {
             if (p.categoria) categoriasSet.add(p.categoria);
         });
+
         const categorias = Array.from(categoriasSet).map(c => ({
             id: c.toLowerCase().replace(/\s+/g, '-'),
             nombre: c
         }));
 
-        // 2. Obtener PRODUCTOS DESTACADOS (ej. los más nuevos o más vendidos)
-        // Por ahora usamos los mismos productos recuperados arriba
-        const destacados = productos.slice(0, 8); // Top 8
+        const destacados = Array.isArray(productos) ? productos.slice(0, 8) : [];
 
-        // 3. Obtener CONFIGURACIÓN visual del comercio (si existe)
-        const configFilter = {};
-        if (isLegacyId) {
-            configFilter.id_comercio = idBusqueda;
-        } else {
-            configFilter.commerce_code = idBusqueda;
-        }
-
-        const configs = await base44.asServiceRole.entities.ConfiguracionComercio.filter(configFilter, '-created_date', 1);
-
-        const configComercio = configs[0] || {
+        const configComercio = (Array.isArray(configs) && configs.length > 0) ? configs[0] : {
             nombre_tienda: "Mi Tienda",
-            color_primario: "#ea580c", // Orange-600 default
+            color_primario: "#ea580c",
             banner_url: null
         };
 

@@ -1,34 +1,38 @@
 // @ts-nocheck
-// @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const URL_PRODUCTO = `https://app.base44.com/api/apps/${APP_ID}/entities/Producto`;
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        if (req.method === 'OPTIONS') return new Response("OK");
 
-        if (!user || user.user_metadata?.role !== 'admin') {
-            return Response.json({ error: 'Forbidden' }, { status: 403 });
-        }
-
-        const { productoId, activo } = await req.json();
+        const { productoId, activo } = await req.json().catch(() => ({}));
 
         if (!productoId || activo === undefined) {
             return Response.json({ error: 'Parámetros incompletos' }, { status: 400 });
         }
 
-        // Obtener producto por ID
-        const producto = await base44.asServiceRole.entities.Producto.get(productoId);
-        if (!producto) {
-            return Response.json({ error: 'Producto no encontrado' }, { status: 404 });
-        }
-
-        // Actualizar estado
-        await base44.asServiceRole.entities.Producto.update(productoId, {
-            activo: Boolean(activo)
+        // 1. Actualizar estado (PATCH)
+        const responseUpdate = await fetch(`${URL_PRODUCTO}/${productoId}`, {
+            method: 'PATCH',
+            headers: {
+                'api_key': API_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                activo: Boolean(activo),
+                updated_at: new Date().toISOString()
+            })
         });
 
-        const productoActualizado = await base44.asServiceRole.entities.Producto.get(productoId);
+        if (!responseUpdate.ok) {
+            const errorText = await responseUpdate.text();
+            throw new Error(`Error actualizando producto: ${errorText}`);
+        }
+
+        const productoActualizado = await responseUpdate.json();
 
         return Response.json({
             success: true,

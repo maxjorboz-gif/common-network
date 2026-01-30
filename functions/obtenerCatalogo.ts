@@ -1,52 +1,53 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const URL_PRODUCTO = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto";
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
+        if (req.method === 'OPTIONS') return new Response("OK");
 
-        // No bloqueamos por auth aquí para que cualquier visitante vea las parrillas
         const body = await req.json().catch(() => ({}));
         const { commerce_code: idRecibido, id_comercio: legacyId } = body;
-
         const commerceCode = idRecibido || legacyId;
 
         if (!commerceCode) {
             return Response.json({ error: 'Falta ID de comercio (commerce_code)' }, { status: 400 });
         }
 
-        // === ID COMERCIO ===
-        const id_comercio = commerceCode;
-        // ===================
+        // 1. OBTENER PRODUCTOS (URL Directa con filtro por commerce_code)
+        const response = await fetch(`${URL_PRODUCTO}?commerce_code=${commerceCode}`, {
+            headers: {
+                'api_key': API_KEY,
+                'Content-Type': 'application/json'
+            }
+        });
 
-        // 1. OBTENER PRODUCTOS (Usamos asServiceRole para que sea público y rápido)
-        // Traemos todos los activos (o que no tengan flag de inactivo explícito/false)
-        const productos = await base44.asServiceRole.entities.Producto.filter({
-            commerce_code: id_comercio
-        }, '-created_date', 1000);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error obteniendo productos: ${errorText}`);
+        }
 
-        // 2. FORMATEAR PARA EL FRONTEND (Garantiza que la Product Card lea el stock)
+        const productos = await response.json();
+
+        // 2. FORMATEAR PARA EL FRONTEND
         const productosProcesados = productos
-            .filter((p) => p.activo !== false) // Filtro en memoria seguro activable
+            .filter((p) => p.activo !== false)
             .map((p) => {
-                // NORMALIZACIÓN CRÍTICA DE STOCK
-                // Revisamos ambos campos posibles para asegurar que NO damos falsos negativos
-                const stockReal = Number(p.stock !== undefined ? p.stock : (p.stock_actual !== undefined ? p.stock_actual : 0));
-
+                // NORMALIZACIÓN DE STOCK
+                const stockReal = Number(p.stock_actual !== undefined ? p.stock_actual : (p.stock !== undefined ? p.stock : 0));
                 const umbral = Number(p.stock_minimo_alerta) || 5;
 
                 return {
                     ...p,
-                    stock: stockReal, // Unificamos nombre del campo para el frontend
-
-                    // Flags de Ley para que el frontend no tenga que calcular nada
+                    stock: stockReal,
                     disponible: stockReal > 0,
                     es_escaso: stockReal > 0 && stockReal <= umbral,
                     mensaje_stock: stockReal > 0 ? (stockReal <= umbral ? `¡Solo quedan ${stockReal}!` : 'En stock') : 'Sin stock'
                 };
             });
 
-        // 3. RESPUESTA LIMPIA
         return Response.json({
             success: true,
             productos: productosProcesados

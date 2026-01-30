@@ -1,82 +1,78 @@
+// @ts-nocheck
 
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
-import { User, Tenant, AuthenticatedContext } from './types.ts';
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const URL_SOLICITUD = `https://app.base44.com/api/apps/${APP_ID}/entities/SolicitudComercio`;
 
-// Simulated Middleware for Base44 Functions
-// In a real edge environment, this would verify JWTs.
-// Here validamos la sesión de Base44 y enriquecemos el contexto con el Tenant.
-
-export async function withAuth(req: Request, handler: (ctx: AuthenticatedContext, req: Request) => Promise<Response>, requiredRole?: 'admin' | 'merchant'): Promise<Response> {
+/**
+ * Middleware withAuth (Refactorizado sin SDK)
+ * Verifica el JWT del usuario y resuelve su commerce_code asociado.
+ */
+export async function withAuth(req, handler, requiredRole) {
     try {
-        const base44 = createClientFromRequest(req);
-
-        // 1. Verify Auth
-        const { data: { user }, error } = await base44.auth.getUser();
-        if (error || !user) {
-            return Response.json({ error: 'Unauthorized', code: 'auth_required' }, { status: 401 });
+        const authHeader = req.headers.get('Authorization');
+        if (!authHeader) {
+            return Response.json({ error: 'No autorizado: Falta encabezado de autorización' }, { status: 401 });
         }
 
-        // 2. Map User & Role
-        // Assuming metadata contains role/tenant, or we fetch it.
-        // For this architecture, we check the 'SolicitudComercio' or explicit metadata
+        // 1. VERIFICAR USUARIO (Fetch directo a la API de Auth)
+        const userResponse = await fetch('https://app.base44.com/api/auth/me', {
+            headers: { 'Authorization': authHeader }
+        });
 
-        const userRole = user.user_metadata?.role || 'merchant'; // Default to merchant for now if undefined
+        if (!userResponse.ok) {
+            return Response.json({ error: 'Sesión expirada o token inválido' }, { status: 401 });
+        }
+
+        const { data: { user } } = await userResponse.json();
+
+        if (!user) {
+            return Response.json({ error: 'Usuario no encontrado' }, { status: 401 });
+        }
+
+        // 2. VALIDAR ROL
+        const userRole = user.user_metadata?.role || 'merchant';
 
         if (requiredRole && userRole !== requiredRole && userRole !== 'admin') {
-            return Response.json({ error: 'Forbidden', code: 'insufficient_permissions' }, { status: 403 });
+            return Response.json({ error: 'Permisos insuficientes' }, { status: 403 });
         }
 
-        // 3. Resolve Tenant (The "SaaS" part)
-        // Verify if user is linked to a commerce
-        let tenant: Tenant | undefined;
+        // 3. RESOLVER COMMERCE_CODE (Tenant)
+        let commerceCode = user.user_metadata?.commerce_code;
 
-        // Optimización: Si el usuario tiene commerce_code en metadata, lo usamos.
-        let storedCode = user.user_metadata?.commerce_code;
-
-        if (storedCode) {
-            tenant = { commerceCode: storedCode, name: 'Cache', status: 'active' }; // Placeholder name
-        } else {
-            // Fallback: Buscar solicitud aprobada
-            // Usamos el cliente del usuario, que debe tener permiso de leer su propia solicitud.
-            const { data: solicitudes } = await base44.entities.SolicitudComercio.filter({
-                user_id: user.id
+        if (!commerceCode) {
+            // Buscamos si tiene una solicitud aprobada vinculada
+            const queryUrl = `${URL_SOLICITUD}?user_id=${user.id}`;
+            const solRes = await fetch(queryUrl, {
+                headers: { 'api_key': API_KEY }
             });
 
-            if (solicitudes && solicitudes.length > 0) {
-                const solicitud = solicitudes[0];
-                // CRITICAL: Use commerce_code, not ID.
-                // If legacy data missing commerce_code, this might be undefined.
-                // We assume commerce_code exists as per new requirements.
-                if (solicitud.commerce_code) {
-                    tenant = {
-                        commerceCode: solicitud.commerce_code,
-                        name: solicitud.nombre,
-                        status: solicitud.status === 'aprobado' ? 'active' : 'pending'
-                    };
+            if (solRes.ok) {
+                const solicitudes = await solRes.json();
+                if (Array.isArray(solicitudes) && solicitudes.length > 0) {
+                    commerceCode = solicitudes[0].commerce_code;
                 }
             }
         }
 
-        // Block inactive tenants if strict mode (optional)
-        if (tenant && tenant.status !== 'active' && requiredRole === 'merchant') {
-            // Allow read-only or limited access? Or block?
-            // For now, we allow but warn.
-        }
-
-        const context: AuthenticatedContext = {
+        // 4. CONSTRUIR CONTEXTO Y LLAMAR AL HANDLER
+        const context = {
             user: {
                 id: user.id,
-                email: user.email || '',
+                email: user.email,
                 role: userRole,
-                commerceCode: tenant?.commerceCode
+                commerceCode: commerceCode
             },
-            tenant
+            tenant: commerceCode ? {
+                commerceCode: commerceCode,
+                status: 'active'
+            } : null
         };
 
         return await handler(context, req);
 
-    } catch (err) {
-        console.error("Middleware Auth Error:", err);
-        return Response.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error) {
+        console.error("Middleware withAuth Error:", error);
+        return Response.json({ error: 'Error interno en la verificación de autenticación' }, { status: 500 });
     }
 }

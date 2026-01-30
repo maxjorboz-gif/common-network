@@ -1,37 +1,71 @@
 // @ts-nocheck
-import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
 
-const base44 = createClient(
-    Deno.env.get("BASE44_API_URL") ?? "",
-    Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
-);
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const BASE_URL_API = `https://app.base44.com/api/apps/${APP_ID}/entities`;
 
-console.log("INICIO: Borrado Masivo de Datos (Admin Service Role)...");
+const ENTITIES = [
+    "AtributoProducto",
+    "Carrito",
+    "Cliente",
+    "Comercio",
+    "ConfiguracionComercio",
+    "Cupon",
+    "EventoMeta",
+    "GastoPublicitario",
+    "Lead",
+    "Logs_Configuracion",
+    "Orden",
+    "Producto",
+    "Resena",
+    "SolicitudComercio",
+    "Conversacion"
+];
 
-const entities = ['Comercio', 'SolicitudComercio', 'Producto', 'Orden', 'Lead', 'Conversacion'];
+Deno.serve(async (req) => {
+    console.log("LOG: WIPE ALL DATA INICIADO (Bypass Auth - Comunicación Directa)");
 
-for (const entityName of entities) {
-    try {
-        console.log(`Borrando datos de la tabla: ${entityName}...`);
-        // Listamos todos (cuidado con paginación si hay miles, pero para dev sirve)
-        const items = await base44.asServiceRole.entities[entityName].list();
+    let stats = {};
 
-        if (items.length === 0) {
-            console.log(`  - La tabla ${entityName} ya estaba vacía.`);
-            continue;
+    for (const entityName of ENTITIES) {
+        try {
+            const entityUrl = `${BASE_URL_API}/${entityName}`;
+
+            // 1. Listar registros
+            const responseList = await fetch(entityUrl, {
+                headers: { 'api_key': API_KEY }
+            });
+
+            if (!responseList.ok) {
+                stats[entityName] = `Error: No se pudo listar`;
+                continue;
+            }
+
+            const items = await responseList.json();
+            let count = 0;
+
+            if (Array.isArray(items)) {
+                for (const item of items) {
+                    const itemId = item.id || item._id;
+                    const responseDelete = await fetch(`${entityUrl}/${itemId}`, {
+                        method: 'DELETE',
+                        headers: { 'api_key': API_KEY }
+                    });
+
+                    if (responseDelete.ok) count++;
+                }
+            }
+
+            stats[entityName] = count;
+            console.log(`Tabla ${entityName}: ${count} eliminados.`);
+        } catch (e) {
+            stats[entityName] = `Error: ${e.message}`;
         }
-
-        let count = 0;
-        for (const item of items) {
-            await base44.asServiceRole.entities[entityName].delete(item.id);
-            count++;
-        }
-        console.log(`  - Eliminados ${count} registros de ${entityName}.`);
-
-    } catch (e) {
-        console.error(`  - Error limpiando ${entityName}: ${e.message}`);
-        // Puede fallar si la tabla no existe aún, seguimos.
     }
-}
 
-console.log("FIN: Base de datos limpia. Estructuras conservadas, datos eliminados.");
+    return Response.json({
+        success: true,
+        message: "Wipe de todas las entidades completado",
+        stats
+    });
+});

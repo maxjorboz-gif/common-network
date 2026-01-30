@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
 /**
  * UTILS CRYPTO - Basado en Leyes de Meta y Privacidad
@@ -16,7 +15,6 @@ export const sha256Hash = async (string) => {
   return hashHex;
 };
 
-// 2. Generador de event_id Único
 // 2. Generador de event_id Único (Flexible)
 export const generateEventId = (prefix = 'event', uniqueId = '') => {
   return `${prefix}_${uniqueId || Math.random().toString(36).substr(2, 9)}_${Date.now()}`;

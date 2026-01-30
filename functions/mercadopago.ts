@@ -1,26 +1,32 @@
 // @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+const APP_ID = "6967728aba18db08a32d56fd";
+const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
+const URL_ORDEN = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Orden";
+const URL_EVENTO_META = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/EventoMeta";
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    if (req.method === 'OPTIONS') return new Response("OK");
+
     const { ordenId } = await req.json();
 
     if (!ordenId) {
       return Response.json({ error: 'ordenId requerido' }, { status: 400 });
     }
 
-    // 1. OBTENER ORDEN (Usamos filter para ser specs-compliant)
-    // Ya tiene todo lo necesario embebido gracias a finalizarCompra.ts
-    const ordenes = await base44.asServiceRole.entities.Orden.filter({ id: ordenId }, '-created_date', 1);
-    const orden = ordenes[0];
+    // 1. OBTENER ORDEN (URL Directa)
+    const responseOrden = await fetch(`${URL_ORDEN}/${ordenId}`, {
+      headers: { 'api_key': API_KEY }
+    });
 
-    if (!orden) return Response.json({ error: 'Orden no encontrada' }, { status: 404 });
+    if (!responseOrden.ok) {
+      return Response.json({ error: 'Orden no encontrada' }, { status: 404 });
+    }
+    const orden = await responseOrden.json();
 
-    // 2. EXTRAER DATOS (Usa lo que ya guardó finalizarCompra)
-    // Fallback seguro si faltan datos
+    // 2. EXTRAER DATOS
     const cliente = orden.cliente || {};
-    const envio = orden.logistica || orden.datos_envio || {};
     const hashes = orden.hashes_generados || {};
 
     // 3. MERCADO PAGO PREFERENCE
@@ -32,20 +38,19 @@ Deno.serve(async (req) => {
     const mpItems = orden.items.map((item) => ({
       title: item.titulo,
       quantity: Number(item.cantidad),
-      unit_price: Number(item.precio_unitario || item.pNum),
+      unit_price: Number(item.precio_unitario || item.precio_estandar),
       currency_id: 'ARS'
     }));
 
     const preferenceBody = {
       items: mpItems,
       back_urls: {
-        // Rutas normalizadas a minúsculas
-        success: `${origin}/checkout?payment=success&external_reference=${orden.numero_orden || orden.id}`,
+        success: `${origin}/checkout?payment=success&external_reference=${orden.numero_orden || orden.id || orden._id}`,
         failure: `${origin}/checkout?payment=failure`,
         pending: `${origin}/checkout?payment=pending`
       },
       auto_return: 'approved',
-      external_reference: orden.numero_orden || orden.id, // ID Linkeado para webhook
+      external_reference: orden.numero_orden || orden.id || orden._id,
       payer: {
         name: cliente.nombre_completo || 'Cliente',
         email: cliente.email || 'guest@email.com',
@@ -54,14 +59,12 @@ Deno.serve(async (req) => {
           number: cliente.telefono_whatsapp?.replace(/\D/g, '') || ''
         }
       },
-      statement_descriptor: 'TIENDA PARRILLAS',
       metadata: {
-        orden_id: orden.id,
+        orden_id: orden.id || orden._id,
         comercio_id: orden.commerce_code || orden.id_comercio
       }
     };
 
-    // Llamada a Mercado Pago
     const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -77,43 +80,38 @@ Deno.serve(async (req) => {
       throw new Error('No se pudo crear preferencia MP');
     }
 
-    // 4. META EVENTO (InitiateCheckout)
-    // Usamos los hashes YA calculados en finalizarCompra
-    // No bloqueamos el flujo principal si Meta falla
+    // 4. REGISTRAR EVENTO META (Iniciado Checkout en MercadoPago)
     try {
-      const META_DATASET_ID = Deno.env.get('META_DATASET_ID');
-      const META_ACCESS_TOKEN = Deno.env.get('META_ACCESS_TOKEN');
-
-      if (META_DATASET_ID && META_ACCESS_TOKEN) {
-        const eventId = `init_chk_mp_${orden.id}_${Date.now()}`;
-        const metaPayload = {
-          data: [{
-            event_name: 'InitiateCheckout',
-            event_time: Math.floor(Date.now() / 1000),
-            event_id: eventId,
-            action_source: 'website',
-            user_data: {
-              em: hashes.emH ? [hashes.emH] : [],
-              ph: hashes.phH ? [hashes.phH] : [],
-              fbp: orden.fbp,
-              fbc: orden.fbc,
-              client_user_agent: orden.userAgent
-            },
-            custom_data: {
-              content_ids: orden.items.map((i) => i.id_producto),
-              value: Number(orden.resumen_economico?.total_final || orden.total),
-              currency: 'ARS'
-            }
-          }]
-        };
-
-        await fetch(`https://graph.facebook.com/v18.0/${META_DATASET_ID}/events?access_token=${META_ACCESS_TOKEN}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(metaPayload)
-        });
-      }
-    } catch (e) { console.warn('Meta Warning:', e); }
+      const eventId = `init_chk_mp_${orden.id || orden._id}_${Date.now()}`;
+      await fetch(URL_EVENTO_META, {
+        method: 'POST',
+        headers: {
+          'api_key': API_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          event_id: eventId,
+          event_name: 'InitiateCheckout',
+          id_comercio: orden.commerce_code || orden.id_comercio,
+          user_data: {
+            em: hashes.emH ? [hashes.emH] : [],
+            ph: hashes.phH ? [hashes.phH] : [],
+            fbp: orden.fbp,
+            fbc: orden.fbc,
+            client_user_agent: orden.userAgent
+          },
+          custom_data: {
+            content_ids: orden.items?.map((i) => i.id_producto),
+            value: Number(orden.resumen_economico?.total_final || orden.total),
+            currency: 'ARS'
+          },
+          action_source: 'website',
+          event_time: Math.floor(Date.now() / 1000)
+        })
+      });
+    } catch (e) {
+      console.warn('Error registrando EventoMeta en MP:', e);
+    }
 
     return Response.json({
       preference_id: preference.id,
