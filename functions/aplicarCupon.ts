@@ -1,36 +1,46 @@
-
 // @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
 Deno.serve(async (req) => {
     try {
-        if (req.method === 'OPTIONS') return new Response("OK");
+        const base44 = createClientFromRequest(req);
 
-        const { codigo, sessionId } = await req.json();
+        // RECIBIMOS id_comercio ESTANDARIZADO
+        const { carritoId, codigoCupon, commerce_code, id_comercio: legacyId } = await req.json();
 
-        // 1. Buscar Cupón
-        const cuponRes = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Cupon?codigo=${encodeURIComponent(codigo)}`, {
-            headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
-        });
+        const id_comercio_final = commerce_code || legacyId;
 
-        if (!cuponRes.ok) throw new Error("Error buscando cupón");
-        const cupones = await cuponRes.json();
-
-        if (!cupones || cupones.length === 0) {
-            return Response.json({ success: false, error: "Cupón no válido" });
+        if (!carritoId || !codigoCupon || !id_comercio_final) {
+            return Response.json({ error: 'Faltan datos (commerce_code requerido)' }, { status: 400 });
         }
+
+        // Buscar Cupón
+        const cupones = await base44.asServiceRole.entities.CuponNegociacion.filter({
+            codigo: codigoCupon,
+            commerce_code: id_comercio_final, // Updated to use commerce_code
+            usado: false
+        }, '-created_date', 1);
 
         const cupon = cupones[0];
 
-        // Validar activo/fechas si aplica
-        if (!cupon.activo) return Response.json({ success: false, error: "Cupón inactivo" });
+        if (!cupon) {
+            return Response.json({ error: 'Cupón inválido o expirado' }, { status: 404 });
+        }
 
-        // Retornar info para que el front aplique el descuento (o guardarlo en sesión si tenemos entity Sesion)
+        // Validar fecha
+        if (new Date(cupon.fecha_expiracion) < new Date()) {
+            return Response.json({ error: 'El cupón ha expirado' }, { status: 400 });
+        }
+
+        // Marcar como usado (si es de uso único)
+        // Ojo: Si quisiéramos que se use solo al FINALIZAR compra, no deberíamos marcarlo aquí,
+        // pero por ahora mantenemos la lógica simple de validación.
+        // Lo ideal sería solo retornarlo válido y que finalizarCompra lo queme.
+
         return Response.json({
             success: true,
-            cupon: {
-                codigo: cupon.codigo,
-                tipo: cupon.tipo, // porcentaje o fijo
-                valor: cupon.valor
-            }
+            descuento: cupon.descuento_porcentaje,
+            mensaje: `Descuento del ${cupon.descuento_porcentaje}% aplicado`
         });
 
     } catch (error) {

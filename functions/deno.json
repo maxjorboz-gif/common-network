@@ -5,5 +5,7 @@
             "deno.window"
         ]
     },
-    "imports": {}
+    "imports": {
+        "@base44/sdk": "npm:@base44/sdk@0.8.6"
+    }
 }

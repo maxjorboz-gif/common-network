@@ -1,29 +1,25 @@
-
 // @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
 Deno.serve(async (req) => {
     try {
-        if (req.method === 'OPTIONS') return new Response("OK");
+        const base44 = createClientFromRequest(req);
+        const { commerce_code, id_comercio: legacyId } = await req.json();
+        const idBusqueda = commerce_code || legacyId;
 
-        const { commerce_code } = await req.json();
+        if (!idBusqueda) return Response.json({ error: 'Falta ID Comercio' }, { status: 400 });
 
-        // PATRON FETCH List
-        const url = `https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Orden?commerce_code=${encodeURIComponent(commerceCode)}`;
+        // FILTRO COMERCIO
+        const filter = {};
+        if (idBusqueda.length > 20) {
+            filter.id_comercio = idBusqueda;
+        } else {
+            filter.commerce_code = idBusqueda;
+        }
 
-        const response = await fetch(url, {
-            headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
-        });
+        const ordenes = await base44.asServiceRole.entities.Orden.filter(filter, '-created_date', 100);
 
-        if (!response.ok) throw new Error("Error fetching Ordenes");
-
-        const ordenes = await response.json();
-
-        // Normalizamos
-        const ordenesNorm = ordenes.map(o => ({
-            ...o,
-            id: o._id || o.id
-        }));
-
-        return Response.json({ success: true, ordenes: ordenesNorm });
+        return Response.json({ success: true, ordenes });
 
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });

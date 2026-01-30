@@ -1,27 +1,28 @@
-
 // @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
 Deno.serve(async (req) => {
     try {
-        if (req.method === 'OPTIONS') return new Response("OK");
+        const base44 = createClientFromRequest(req);
+
+        // AUTH SIMPLE
+        const user = await base44.auth.me();
+        if (!user || user.user_metadata?.role !== 'admin') return Response.json({ error: 'Acceso denegado' }, { status: 403 });
 
         const { productoId } = await req.json();
+        if (!productoId) return Response.json({ error: 'ID requerido' }, { status: 400 });
 
-        if (!productoId) return Response.json({ error: "Falta ID" }, { status: 400 });
+        // ACCIÓN DIRECTA: Borrar sin preguntar
+        // Intentamos borrar atributos primero (limpieza)
+        try {
+            const attrs = await base44.asServiceRole.entities.AtributoProducto.filter({ id_producto: productoId });
+            for (const a of attrs) await base44.asServiceRole.entities.AtributoProducto.delete(a.id);
+        } catch (e) { }
 
-        // PATRON DELETE
-        const response = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto/${productoId}`, {
-            method: 'DELETE',
-            headers: {
-                'api_key': 'fb3a067ef3c44d8489059567b4206a91'
-            }
-        });
+        // Borrar producto
+        await base44.asServiceRole.entities.Producto.delete(productoId);
 
-        if (!response.ok) throw new Error("Error eliminando producto");
-
-        // También deberíamos eliminar atributos (limpieza), pero DELETE cascada no siempre es automático.
-        // Lo dejamos simple por ahora o implementamos delete loop si es crítico.
-
-        return Response.json({ success: true });
+        return Response.json({ success: true, mensaje: 'Producto eliminado' });
 
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });

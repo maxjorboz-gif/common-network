@@ -27,6 +27,7 @@ dist-ssr
 *.sln
 *.sw?
 
+.env
 # Entities
 functions/entities/
 src/api/entities/

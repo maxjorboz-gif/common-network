@@ -1,25 +1,47 @@
-
 // @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+// NUEVA LÓGICA V8: Verificación Directa
+// Usa el cliente del usuario para buscar sus propios registros.
+
 Deno.serve(async (req) => {
     try {
-        if (req.method === 'OPTIONS') return new Response("OK");
+        const base44 = createClientFromRequest(req);
 
-        const { id_solicitud } = await req.json();
+        // 1. Quién soy? (Soporte Nativo Híbrido)
+        // Opción A: Me mandan el ID explícitamente (Login Nativo recién hecho)
+        let body;
+        try { body = await req.json(); } catch { body = {}; }
 
-        // PATRON FETCH GET Single
-        const res = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Comercio/${id_solicitud}`, {
-            headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
+        let userId = body.user_id;
+
+        // Opción B: No mandan ID, intento sacar de sesión (Legacy/Google)
+        if (!userId) {
+            const { data: { user } } = await base44.auth.getUser();
+            if (user) userId = user.id;
+        }
+
+        if (!userId) return Response.json({ tiene_solicitud: false });
+
+        // 2. Buscar en mis solicitudes
+        const { data: solicitudes } = await base44.entities.SolicitudComercio.filter({
+            user_id: userId
         });
 
-        if (!res.ok) return Response.json({ status: 'not_found' });
+        if (solicitudes && solicitudes.length > 0) {
+            // Tomamos la más reciente o la primera
+            const sol = solicitudes[0];
+            return Response.json({
+                tiene_solicitud: true,
+                solicitud: {
+                    nombre_comercio: sol.nombre,
+                    numero_operacion: sol.comprobante,
+                    status: sol.status
+                }
+            });
+        }
 
-        const comercio = await res.json();
-
-        return Response.json({
-            status: comercio.estado_registro, // pendiente_pago, pendiente_aprobacion, activo
-            activo: comercio.activo,
-            commerce_code: comercio.commerce_code
-        });
+        return Response.json({ tiene_solicitud: false });
 
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });

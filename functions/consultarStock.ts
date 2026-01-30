@@ -1,26 +1,30 @@
-
 // @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
 Deno.serve(async (req) => {
     try {
-        if (req.method === 'OPTIONS') return new Response("OK");
+        const base44 = createClientFromRequest(req);
+        const body = await req.json().catch(() => ({}));
+        const { productoId } = body;
 
-        const { productoId } = await req.json();
+        if (!productoId) return Response.json({ error: 'Falta ID' }, { status: 400 });
 
-        const response = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto/${productoId}`, {
-            headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
-        });
+        // 1. Obtención Directa
+        const producto = await base44.asServiceRole.entities.Producto.get(productoId).catch(() => null);
 
-        if (!response.ok) return Response.json({ stock: 0 });
+        if (!producto) return Response.json({ error: 'No encontrado' }, { status: 404 });
 
-        const prod = await response.json();
+        // 2. Dato Crudo (Single Source of Truth)
+        const stock = Number(producto.stock_actual) || 0;
 
         return Response.json({
             success: true,
-            stock: prod.stock_actual || 0,
-            activo: prod.activo
+            stock: stock,
+            disponible: stock > 0,
+            titulo: producto.titulo
         });
 
     } catch (error) {
-        return Response.json({ stock: 0 });
+        return Response.json({ error: 'Error stock' }, { status: 500 });
     }
 });

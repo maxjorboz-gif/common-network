@@ -1,35 +1,40 @@
-
 // @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
 Deno.serve(async (req) => {
   try {
-    if (req.method === 'OPTIONS') return new Response("OK");
+    const base44 = createClientFromRequest(req);
+    const { idCliente, porcentajeDescuento, validezMinutos = 15, commerce_code, id_comercio: legacyId } = await req.json();
 
-    const { commerce_code, descuento, clienteId } = await req.json();
+    const id_comercio_final = commerce_code || legacyId;
 
-    const codigo = `OFF-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    if (!idCliente || !porcentajeDescuento || !id_comercio_final) {
+      return Response.json({
+        error: 'Faltan parámetros: idCliente, porcentajeDescuento, commerce_code'
+      }, { status: 400 });
+    }
 
-    // PATRON CREATE
-    const res = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Cupon`, {
-      method: 'POST',
-      headers: {
-        'api_key': 'fb3a067ef3c44d8489059567b4206a91',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        codigo: codigo,
-        tipo: 'porcentaje',
-        valor: descuento,
-        activo: true,
-        commerce_code: commerce_code,
-        uso_unico: true,
-        asignado_a: clienteId
-      })
+    // Calcula expiración
+    const expiracion = new Date();
+    expiracion.setMinutes(expiracion.getMinutes() + validezMinutos);
+
+    // Generar código único corto
+    const codigo = `OFF${porcentajeDescuento}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    const cupon = await base44.asServiceRole.entities.CuponNegociacion.create({
+      codigo,
+      id_cliente: idCliente,
+      commerce_code: id_comercio_final,
+      id_comercio: id_comercio_final, // Keep legacy field populated if possible/needed or rely on commerce_code being added to schema
+      descuento_porcentaje: porcentajeDescuento,
+      fecha_expiracion: expiracion.toISOString(),
+      usado: false
     });
 
-    if (!res.ok) throw new Error("Error creando cupón");
-    const cupon = await res.json();
-
-    return Response.json({ success: true, codigo: cupon.codigo });
+    return Response.json({
+      success: true,
+      cupon
+    });
 
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

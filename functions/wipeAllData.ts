@@ -1,31 +1,37 @@
-
 // @ts-nocheck
-Deno.serve(async (req) => {
+import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
+
+const base44 = createClient(
+    Deno.env.get("BASE44_API_URL") ?? "",
+    Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
+);
+
+console.log("INICIO: Borrado Masivo de Datos (Admin Service Role)...");
+
+const entities = ['Comercio', 'SolicitudComercio', 'Producto', 'Orden', 'Lead', 'Conversacion'];
+
+for (const entityName of entities) {
     try {
-        if (req.method === 'OPTIONS') return new Response("OK");
+        console.log(`Borrando datos de la tabla: ${entityName}...`);
+        // Listamos todos (cuidado con paginación si hay miles, pero para dev sirve)
+        const items = await base44.asServiceRole.entities[entityName].list();
 
-        // DANGER: NO AUTH? (Por seguridad debería tener, pero replico lo que hay con Fetch)
-        const entities = ['Producto', 'Comercio', 'Orden', 'Carrito', 'Cupon', 'ConfiguracionComercio', 'Lead', 'GastoPublicitario'];
-
-        for (const entity of entities) {
-            const listRes = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/${entity}`, {
-                headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
-            });
-
-            if (listRes.ok) {
-                const items = await listRes.json();
-                for (const item of items) {
-                    await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/${entity}/${item._id || item.id}`, {
-                        method: 'DELETE',
-                        headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
-                    });
-                }
-            }
+        if (items.length === 0) {
+            console.log(`  - La tabla ${entityName} ya estaba vacía.`);
+            continue;
         }
 
-        return Response.json({ success: true, message: "Wipe complete" });
+        let count = 0;
+        for (const item of items) {
+            await base44.asServiceRole.entities[entityName].delete(item.id);
+            count++;
+        }
+        console.log(`  - Eliminados ${count} registros de ${entityName}.`);
 
-    } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+    } catch (e) {
+        console.error(`  - Error limpiando ${entityName}: ${e.message}`);
+        // Puede fallar si la tabla no existe aún, seguimos.
     }
-});
+}
+
+console.log("FIN: Base de datos limpia. Estructuras conservadas, datos eliminados.");

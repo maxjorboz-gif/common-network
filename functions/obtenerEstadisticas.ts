@@ -1,35 +1,43 @@
-
 // @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
 Deno.serve(async (req) => {
     try {
-        if (req.method === 'OPTIONS') return new Response("OK");
+        const base44 = createClientFromRequest(req);
+        const { commerce_code, id_comercio: legacyId } = await req.json();
+        const idBusqueda = commerce_code || legacyId;
 
-        const { commerce_code } = await req.json();
+        if (!idBusqueda) return Response.json({ error: 'Falta ID Comercio' }, { status: 400 });
 
-        // 1. Fetch Ordenes (para ventas)
-        const ordRes = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Orden?commerce_code=${encodeURIComponent(commerce_code)}`, {
-            headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
-        });
-        const ordenes = ordRes.ok ? await ordRes.json() : [];
+        // 1. OBTENCION DE DATOS
+        const filter = {};
+        if (idBusqueda.length > 20) {
+            filter.id_comercio = idBusqueda;
+        } else {
+            filter.commerce_code = idBusqueda;
+        }
 
-        // 2. Fetch Productos (para stock)
-        const prodRes = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto?commerce_code=${encodeURIComponent(commerce_code)}`, {
-            headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
-        });
-        const productos = prodRes.ok ? await prodRes.json() : [];
+        const ordenes = await base44.asServiceRole.entities.Orden.filter(filter, '-created_date', 500);
 
-        // Calcular
-        const ventasTotales = ordenes.filter(o => o.estado_orden === 'pagado').reduce((acc, o) => acc + (o.total || 0), 0);
-        const ordenesPendientes = ordenes.filter(o => o.estado_orden === 'pendiente_pago').length;
-        const lowStock = productos.filter(p => p.stock_actual <= (p.stock_minimo_alerta || 5)).length;
+        const gastos = await base44.asServiceRole.entities.GastoPublicitario.filter(filter, '-fecha', 100);
+
+        const productos = await base44.asServiceRole.entities.Producto.filter(filter, '-created_date', 500);
+
+        // 2. CALCULOS
+        const totalVentas = ordenes
+            .filter(o => o.estado === 'PAGADA' || o.estado === 'ENTREGADA')
+            .reduce((sum, o) => sum + (Number(o.resumen_economico?.total_final) || 0), 0);
+
+        const totalGastoAds = gastos.reduce((sum, g) => sum + (g.monto || 0), 0);
 
         return Response.json({
             success: true,
-            stats: {
-                ventas_totales: ventasTotales,
-                ordenes_pendientes: ordenesPendientes,
-                productos_bajo_stock: lowStock,
-                total_productos: productos.length
+            estadisticas: {
+                totalVentas: Math.round(totalVentas),
+                totalOrdenes: ordenes.length,
+                totalGastoAds: Math.round(totalGastoAds),
+                roas: totalGastoAds > 0 ? (totalVentas / totalGastoAds).toFixed(2) : 0,
+                productosStockBajo: productos.filter(p => (Number(p.stock) || 0) <= 5).length
             }
         });
 

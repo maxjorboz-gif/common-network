@@ -1,53 +1,45 @@
-
 // @ts-nocheck
+import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
+
 Deno.serve(async (req) => {
     try {
-        if (req.method === 'OPTIONS') return new Response("OK");
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
 
-        const { productosIds, tipo, valor, modo } = await req.json(); // tipo: increase/decrease, modo: percentage/fixed
+        if (!user || user.role !== 'admin') return Response.json({ error: 'Auth' }, { status: 403 });
 
-        if (!productosIds || productosIds.length === 0) return Response.json({ actualizados: 0 });
+        const { productosIds, tipo, valor, modo } = await req.json();
 
-        let actualizados = 0;
+        // VALIDACIÓN MÍNIMA
+        if (!productosIds || !Array.isArray(productosIds)) return Response.json({ error: 'Ids Invalidos' }, { status: 400 });
 
-        // No hay "updateMany" en la API REST simple, así que iteramos (lento pero efectivo)
-        // 1. Fetch de productos para leer precio actual
-        // Optimización: Fetch all y filtrar en memoria si son muchos, o fetch individual. 
-        // Asumimos fetch individual por seguridad.
-
+        // UPDATE LOOP
+        let count = 0;
         for (const id of productosIds) {
-            // GET
-            const getRes = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto/${id}`, {
-                headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
-            });
+            try {
+                const p = await base44.asServiceRole.entities.Producto.get(id);
+                if (!p) continue;
 
-            if (getRes.ok) {
-                const prod = await getRes.json();
-                let nuevoPrecio = prod.precio_estandar;
-
-                const monto = parseFloat(valor);
+                let nuevo = p.precio_estandar;
+                const v = parseFloat(valor);
 
                 if (modo === 'percentage') {
-                    const factor = 1 + (monto / 100);
-                    nuevoPrecio = tipo === 'increase' ? nuevoPrecio * factor : nuevoPrecio / factor;
+                    // Porcentaje
+                    nuevo = tipo === 'increase' ? nuevo * (1 + v / 100) : nuevo * (1 - v / 100);
                 } else {
-                    nuevoPrecio = tipo === 'increase' ? nuevoPrecio + monto : nuevoPrecio - monto;
+                    // Fijo
+                    nuevo = tipo === 'increase' ? nuevo + v : nuevo - v;
                 }
 
-                // PUT Update
-                await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'api_key': 'fb3a067ef3c44d8489059567b4206a91',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ precio_estandar: parseFloat(nuevoPrecio.toFixed(2)) })
+                // Guardar sin reglas de redondeo complejas
+                await base44.asServiceRole.entities.Producto.update(id, {
+                    precio_estandar: Math.max(0, Math.round(nuevo))
                 });
-                actualizados++;
-            }
+                count++;
+            } catch (e) { }
         }
 
-        return Response.json({ success: true, actualizados });
+        return Response.json({ success: true, actualizados: count });
 
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
