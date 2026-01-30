@@ -412,7 +412,7 @@ export default function AdminConfiguracion({ comercio }) {
             />
           </div>
 
-          <TabsContent value="estadisticas"><AdminEstadisticas comercio={comercio} /></TabsContent>
+
           <div>
             <Label htmlFor="alias">Alias</Label>
             <Input
