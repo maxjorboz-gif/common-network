@@ -113,13 +113,13 @@ export default function AdminPanel() {
             <TabsTrigger value="ads" className="flex items-center gap-2 py-3"><Wallet className="w-4 h-4 text-purple-600" />Ads</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="estadisticas"><AdminDashboard /></TabsContent>
-          <TabsContent value="productos"><AdminProductos /></TabsContent>
-          <TabsContent value="ordenes"><AdminOrdenes /></TabsContent>
-          <TabsContent value="leads"><AdminLeads /></TabsContent>
-          <TabsContent value="conversaciones"><AdminConversaciones /></TabsContent>
+          <TabsContent value="estadisticas"><AdminEstadisticas comercio={comercio} /></TabsContent>
+          <TabsContent value="productos"><AdminProductos comercio={comercio} /></TabsContent>
+          <TabsContent value="ordenes"><AdminOrdenes comercio={comercio} /></TabsContent>
+          <TabsContent value="leads"><AdminLeads comercio={comercio} /></TabsContent>
+          <TabsContent value="conversaciones"><AdminConversaciones comercio={comercio} /></TabsContent>
           <TabsContent value="config"><AdminConfiguracion comercio={comercio} /></TabsContent>
-          <TabsContent value="sorteos"><AdminSorteos /></TabsContent>
+          <TabsContent value="sorteos"><AdminSorteos comercio={comercio} /></TabsContent>
           <TabsContent value="ads"><AdminAdWallet comercio={comercio} /></TabsContent>
         </Tabs>
       </main>
