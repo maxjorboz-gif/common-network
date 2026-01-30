@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useAuth } from '@/lib/AuthContext'; // Hook de Autenticación
 import {
   ShoppingBag,
   Users,
@@ -36,19 +35,25 @@ import AdminSorteos from '@/components/admin/AdminSorteos.jsx';
 import AdminAdWallet from '@/components/admin/AdminAdWallet.jsx';
 
 export default function AdminPanel() {
-  const { user, isLoadingAuth, logout } = useAuth();
+
   const [selectedTab, setSelectedTab] = useState('estadisticas');
   const [comercio, setComercio] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadCommerceData() {
-      // Si no hay usuario (y ya terminó de cargar auth), no hacemos nada (el render redirige)
-      if (!user) return;
+    async function loadData() {
+      const sessionRaw = localStorage.getItem('comercio_session') || localStorage.getItem('comercio_admin');
+
+      if (!sessionRaw) {
+        window.location.href = '/';
+        return;
+      }
 
       try {
-        // Consultamos la DATA FRESCA a la base de datos usando el código del usuario autenticado
-        const commerceCode = user.commerceCode || user.user_metadata?.commerce_code;
+        const session = JSON.parse(sessionRaw);
+
+        // Consultamos la DATA FRESCA a la base de datos usando el código del localStorage
+        const commerceCode = session.commerce_code || session.id_comercio;
 
         if (commerceCode) {
           const response = await base44.functions.invoke('obtenerDatosComercio', {
@@ -58,27 +63,27 @@ export default function AdminPanel() {
           if (response.data && response.data.comercio) {
             setComercio(response.data.comercio);
           } else {
-            // Fallback: Usamos los metadatos que ya tiene el usuario
-            setComercio(user.user_metadata || {});
+            // Fallback: Usamos lo que hay en localStorage si falla backend
+            setComercio(session);
           }
+        } else {
+          setComercio(session);
         }
       } catch (e) {
-        console.error("Error cargando datos frescos:", e);
+        console.error("Error cargando datos:", e);
+        // En caso de error, al menos mostramos lo que tenemos guardado
+        try {
+          setComercio(JSON.parse(sessionRaw));
+        } catch (err) { }
       } finally {
         setLoading(false);
       }
     }
 
-    if (!isLoadingAuth) {
-      if (!user) {
-        window.location.href = '/'; // Redirección si no hay sesión
-      } else {
-        loadCommerceData();
-      }
-    }
-  }, [user, isLoadingAuth]);
+    loadData();
+  }, []);
 
-  if (isLoadingAuth || loading) return null;
+  if (loading) return null;
   if (!comercio) return <div>Acceso no autorizado</div>;
 
   return (
@@ -125,7 +130,7 @@ export default function AdminPanel() {
           <Button variant="ghost" className="text-red-600 hover:text-red-700 font-bold" onClick={() => {
             localStorage.removeItem('comercio_session');
             localStorage.removeItem('comercio_admin');
-            logout();
+            window.location.href = '/';
           }}>
             <LogOut className="w-4 h-4 mr-2" /> Salir
           </Button>
