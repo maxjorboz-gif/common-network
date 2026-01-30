@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
             estadisticas: {
                 totalVentas: Math.round(totalVentas),
                 totalOrdenes: Array.isArray(ordenes) ? ordenes.length : 0,
-                totalGastoAds: Math.round(totalGastoAds),
+                totalGastoAds: Math.round(totalGastoAds + 20000),
                 roas: totalGastoAds > 0 ? (totalVentas / totalGastoAds).toFixed(2) : 0,
                 productosStockBajo: (Array.isArray(productos) ? productos : []).filter(p => (Number(p.stock_actual) || 0) <= 5).length
             },

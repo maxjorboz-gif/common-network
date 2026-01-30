@@ -12,7 +12,7 @@ import AdminEstadisticas from '@/components/admin/AdminEstadisticas.jsx';
 import AdminConfiguracion from '@/components/admin/AdminConfiguracion.jsx';
 import AdminConversaciones from '@/components/admin/AdminConversaciones.jsx';
 import AdminSorteos from '@/components/admin/AdminSorteos.jsx';
-import AdminAdWallet from '@/components/admin/AdminAdWallet.jsx';
+
 
 export default function AdminPanel() {
   const { commerce, isCommerceAuthenticated, isLoadingCommerce, logoutComercio } = useAuth();
@@ -79,7 +79,7 @@ export default function AdminPanel() {
             <TabsTrigger value="conversaciones" className="flex items-center gap-2 py-3">Chat</TabsTrigger>
             <TabsTrigger value="config" className="flex items-center gap-2 py-3">Config</TabsTrigger>
             <TabsTrigger value="sorteos" className="flex items-center gap-2 py-3">Sorteos</TabsTrigger>
-            <TabsTrigger value="ads" className="flex items-center gap-2 py-3">Ads</TabsTrigger>
+
           </TabsList>
 
           <TabsContent value="estadisticas"><AdminEstadisticas comercio={commerce} /></TabsContent>
@@ -89,7 +89,7 @@ export default function AdminPanel() {
           <TabsContent value="conversaciones"><AdminConversaciones comercio={commerce} /></TabsContent>
           <TabsContent value="config"><AdminConfiguracion comercio={commerce} /></TabsContent>
           <TabsContent value="sorteos"><AdminSorteos comercio={commerce} /></TabsContent>
-          <TabsContent value="ads"><AdminAdWallet comercio={commerce} /></TabsContent>
+
         </Tabs>
       </main>
     </div>
