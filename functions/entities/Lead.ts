@@ -1,0 +1,95 @@
+
+export const Lead = {
+    name: "Lead",
+    type: "object",
+    properties: {
+        id_comercio: {
+            type: "string"
+        },
+        id_cliente: {
+            type: "string"
+        },
+        id_producto_interes: {
+            type: "string",
+            description: "Producto que estaba viendo"
+        },
+        nombre: {
+            type: "string"
+        },
+        email: {
+            type: "string"
+        },
+        email_hash: {
+            type: "string",
+            description: "Email hasheado SHA256 (em) para Meta"
+        },
+        whatsapp: {
+            type: "string"
+        },
+        whatsapp_hash: {
+            type: "string",
+            description: "WhatsApp hasheado SHA256 (ph) para Meta"
+        },
+        origen: {
+            type: "string",
+            enum: [
+                "popup_salida",
+                "popup_precio",
+                "formulario",
+                "whatsapp_directo"
+            ],
+            description: "Origen de captura del lead"
+        },
+        trigger_activado: {
+            type: "string",
+            description: "Qu\u00e9 disparu00f3 el popup"
+        },
+        cupon_ofrecido: {
+            type: "string"
+        },
+        estado: {
+            type: "string",
+            enum: [
+                "nuevo",
+                "contactado",
+                "en_negociacion",
+                "convertido",
+                "perdido"
+            ],
+            default: "nuevo"
+        },
+        suppress_ads: {
+            type: "boolean",
+            default: true,
+            description: "Bloquear gasto en ads mientras se trabaja el lead"
+        },
+        fbp: {
+            type: "string",
+            description: "Facebook Browser ID para atribuciu00f3n"
+        },
+        fbc: {
+            type: "string",
+            description: "Facebook Click ID para atribuciu00f3n"
+        },
+        event_id_meta: {
+            type: "string",
+            description: "ID u00daNICO para deduplicaciu00f3n (ej: lead_ + whatsapp_hash + fecha)"
+        },
+        notas: {
+            type: "string"
+        },
+        fecha_ultimo_contacto: {
+            type: "string",
+            format: "date-time"
+        },
+        evento_lead_enviado: {
+            type: "boolean",
+            default: false
+        }
+    },
+    required: [
+        "id_comercio",
+        "whatsapp",
+        "event_id_meta"
+    ]
+};

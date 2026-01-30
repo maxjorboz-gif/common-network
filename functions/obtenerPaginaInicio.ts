@@ -1,77 +1,32 @@
-// @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
+// @ts-nocheck
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        
-        // 1. Obtener commerce_code desde la URL (query param)
-        const url = new URL(req.url);
-        const commerceCode = url.searchParams.get('commerce_code');
+        if (req.method === 'OPTIONS') return new Response("OK");
 
-        // 2. Validación mínima (solo para Home público)
-        if (!commerceCode) {
-            return Response.json(
-        { error: 'commerce_code requerido' },
-        { status: 400 }
-    );
-}
+        const { commerce_code } = await req.json();
 
-        // HEURÍSTICA DE COMPATIBILIDAD
-        // Si el ID es largo (> 20 chars), asumimos que es un UUID legacy (id_comercio)
-        // Si es corto, es un commerce_code nuevo
-        const isLegacyId = idBusqueda.length > 20;
-
-        // 1. Obtener CATEGORÍAS
-        const productFilter = { activo: true };
-        if (isLegacyId) {
-            productFilter.id_comercio = idBusqueda;
-        } else {
-            productFilter.commerce_code = idBusqueda;
-        }
-
-        const productos = await base44.asServiceRole.entities.Producto.filter(productFilter, '-created_date', 100);
-
-        const categoriasSet = new Set();
-        productos.forEach((p) => {
-            if (p.categoria) categoriasSet.add(p.categoria);
+        // 1. Fetch Productos
+        const prodRes = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto?commerce_code=${encodeURIComponent(commerce_code)}`, {
+            headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
         });
-        const categorias = Array.from(categoriasSet).map(c => ({
-            id: c.toLowerCase().replace(/\s+/g, '-'),
-            nombre: c
-        }));
 
-        // 2. Obtener PRODUCTOS DESTACADOS (ej. los más nuevos o más vendidos)
-        // Por ahora usamos los mismos productos recuperados arriba
-        const destacados = productos.slice(0, 8); // Top 8
+        if (!prodRes.ok) return Response.json({ destacados: [], nuevos: [] });
+        const productos = await prodRes.json();
 
-        // 3. Obtener CONFIGURACIÓN visual del comercio (si existe)
-        const configFilter = {};
-        if (isLegacyId) {
-            configFilter.id_comercio = idBusqueda;
-        } else {
-            configFilter.commerce_code = idBusqueda;
-        }
+        const activos = productos.filter(p => p.activo !== false);
 
-        const configs = await base44.asServiceRole.entities.ConfiguracionComercio.filter(configFilter, '-created_date', 1);
-
-        const configComercio = configs[0] || {
-            nombre_tienda: "Mi Tienda",
-            color_primario: "#ea580c", // Orange-600 default
-            banner_url: null
-        };
+        // Lógica de negocio simple
+        const destacados = activos.filter(p => p.destacado === true);
+        const nuevos = activos.slice(0, 5); // Simulación "nuevos" (últimos 5)
 
         return Response.json({
             success: true,
-            data: {
-                categorias,
-                destacados,
-                configuracion: configComercio
-            }
+            destacados: destacados,
+            nuevos: nuevos
         });
 
     } catch (error) {
-        console.error('Error obtenerPaginaInicio:', error);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });

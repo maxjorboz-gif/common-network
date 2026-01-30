@@ -1,14 +1,8 @@
-// @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
+// @ts-nocheck
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
-
-        if (!user || user.role !== 'admin') {
-            return Response.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        if (req.method === 'OPTIONS') return new Response('OK');
 
         const { productoId, productoData, atributos } = await req.json();
 
@@ -16,56 +10,60 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Parámetros incompletos' }, { status: 400 });
         }
 
-        // Obtener producto por ID para validar que existe
-        const productoActual = await base44.asServiceRole.entities.Producto.get(productoId);
-        if (!productoActual) {
-            return Response.json({ error: 'Producto no encontrado' }, { status: 404 });
-        }
+        // 1. UPDATE PRODUCTO (Pattern)
+        const updateResponse = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto/${productoId}`, {
+            method: 'PUT',
+            headers: {
+                'api_key': 'fb3a067ef3c44d8489059567b4206a91',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(productoData)
+        });
 
-        if (productoData.precio_estandar) {
-            // ADMIN POWER: Permitimos cualquier precio, incluso 0 o negativo si lo desea (ej. ajustes contables)
-            // NO calculamos precio_minimo automáticamente. Si el user no lo manda, queda como está o null.
-            productoData.precio_estandar = parseFloat(productoData.precio_estandar);
-        }
+        if (!updateResponse.ok) throw new Error('Error al actualizar producto en Base44');
 
-        if (productoData.categoria && productoData.categoria.trim() === '') {
-            return Response.json({ error: 'Categoría es obligatoria' }, { status: 400 });
-        }
+        const productoActualizado = await updateResponse.json();
 
-        // Actualizar producto
-        const dataActualizar = {
-            ...productoData,
-            stock_actual: productoData.stock_actual !== undefined ? parseInt(productoData.stock_actual) : productoActual.stock_actual,
-            costo_producto: productoData.costo_producto !== undefined ? parseFloat(productoData.costo_producto) : productoActual.costo_producto
-        };
-
-        await base44.asServiceRole.entities.Producto.update(productoId, dataActualizar);
-
-        // Actualizar atributos si existen
-        if (atributos && atributos.length > 0) {
-            // Eliminar atributos antiguos
-            const atributosAntiguos = await base44.asServiceRole.entities.AtributoProducto.filter({
-                id_producto: productoId
-            }, '-created_date', 100);
-
-            for (const attr of atributosAntiguos) {
-                // Usar filter en lugar de delete directo si es necesario
-                // Por ahora asumimos que podemos actualizar
+        // 2. UPDATE ATRIBUTOS (Get All, Filter, Delete Old, Create New)
+        // A) GetAll (to filter by product)
+        const getAttrs = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/AtributoProducto`, {
+            headers: {
+                'api_key': 'fb3a067ef3c44d8489059567b4206a91',
+                'Content-Type': 'application/json'
             }
+        });
 
-            // Crear nuevos atributos
-            const atributosParaCrear = atributos.map((attr, index) => ({
-                id_producto: productoId,
-                nombre_atributo: attr.nombre_atributo,
-                valor_atributo: attr.valor_atributo,
-                ia_weight: attr.ia_weight || 5,
-                orden: index
-            }));
+        if (getAttrs.ok) {
+            const allAttrs = await getAttrs.json();
+            const attrsToDelete = allAttrs.filter(a => a.id_producto === productoId);
 
-            await base44.asServiceRole.entities.AtributoProducto.bulkCreate(atributosParaCrear);
+            // Delete Old (Parallel)
+            const deletePromises = attrsToDelete.map(a =>
+                fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/AtributoProducto/${a._id || a.id}`, {
+                    method: 'DELETE',
+                    headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
+                })
+            );
+            await Promise.all(deletePromises);
         }
 
-        const productoActualizado = await base44.asServiceRole.entities.Producto.get(productoId);
+        // B) Create New
+        if (atributos && atributos.length > 0) {
+            const createPromises = atributos.map((attr, index) =>
+                fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/AtributoProducto`, {
+                    method: 'POST',
+                    headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id_producto: productoId,
+                        nombre_atributo: attr.nombre_atributo,
+                        valor_atributo: attr.valor_atributo,
+                        ia_weight: attr.ia_weight || 5,
+                        orden: index
+                    })
+                })
+            );
+            await Promise.all(createPromises);
+        }
 
         return Response.json({
             success: true,
@@ -74,7 +72,6 @@ Deno.serve(async (req) => {
         });
 
     } catch (error) {
-        console.error('Error actualizarProducto:', error);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });

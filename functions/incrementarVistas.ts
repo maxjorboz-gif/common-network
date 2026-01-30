@@ -1,33 +1,34 @@
-// @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
+// @ts-nocheck
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
+        if (req.method === 'OPTIONS') return new Response("OK");
 
         const { productoId } = await req.json();
 
-        if (!productoId) {
-            return Response.json({ error: 'Falta ID de producto' }, { status: 400 });
-        }
-
-        // Obtener producto
-        const productos = await base44.entities.Producto.filter({ id: productoId }, '-created_date', 1);
-        const producto = productos[0];
-
-        if (!producto) {
-            return Response.json({ error: 'Producto no encontrado' }, { status: 404 });
-        }
-
-        // Incrementar vistas
-        await base44.entities.Producto.update(productoId, {
-            vistas_totales: (producto.vistas_totales || 0) + 1
+        // 1. Get current
+        const getRes = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto/${productoId}`, {
+            headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
         });
+
+        if (getRes.ok) {
+            const prod = await getRes.json();
+            const nuevasVistas = (prod.vistas_totales || 0) + 1;
+
+            // 2. Put Update
+            await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto/${productoId}`, {
+                method: 'PUT',
+                headers: {
+                    'api_key': 'fb3a067ef3c44d8489059567b4206a91',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ vistas_totales: nuevasVistas })
+            });
+        }
 
         return Response.json({ success: true });
 
     } catch (error) {
-        console.error('Error incrementando vistas:', error);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });

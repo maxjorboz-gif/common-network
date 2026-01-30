@@ -1,24 +1,27 @@
-// @ts-nocheck
-import { createClientFromRequest } from 'https://esm.sh/@base44/sdk@0.8.6';
 
+// @ts-nocheck
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
-
-        if (!user || user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
+        if (req.method === 'OPTIONS') return new Response("OK");
 
         const { leadId, nuevoEstado } = await req.json();
 
-        // UPDATE DIRECTO
-        await base44.asServiceRole.entities.Lead.update(leadId, {
-            estado: nuevoEstado, // Confiamos en el input del admin
-            fecha_ultimo_contacto: new Date().toISOString()
+        // PATRON UPDATE
+        const response = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Lead/${leadId}`, {
+            method: 'PUT',
+            headers: {
+                'api_key': 'fb3a067ef3c44d8489059567b4206a91',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                estado_lead: nuevoEstado,
+                updated_at: new Date().toISOString()
+            })
         });
 
-        // Retornar lead actualizado
-        const lead = await base44.asServiceRole.entities.Lead.get(leadId);
-        return Response.json({ success: true, lead });
+        if (!response.ok) throw new Error("Error actualizando Lead");
+
+        return Response.json({ success: true });
 
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });

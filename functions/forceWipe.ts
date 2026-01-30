@@ -1,48 +1,30 @@
 // @ts-nocheck
-import { createClient } from 'https://esm.sh/@base44/sdk@0.8.6';
-
 Deno.serve(async (req) => {
-    // 1. SIN AUTH USER CHECK - EMERGENCIA
-    // Solo usamos el Service Role Admin
-    const base44Admin = createClient(
-        Deno.env.get("BASE44_API_URL") ?? "",
-        Deno.env.get("BASE44_SERVICE_ROLE_KEY") ?? ""
-    );
+    try {
+        if (req.method === 'OPTIONS') return new Response("OK");
 
-    console.log("LOG: FORCE WIPE INICIADO (Bypass Auth)");
+        const entities = ['Producto', 'Comercio', 'Orden', 'Carrito', 'Cupon', 'ConfiguracionComercio', 'Lead', 'GastoPublicitario', 'AtributoProducto', 'EventoMeta'];
 
-    const entities = [
-        'Orden',
-        'Lead',
-        'Conversacion',
-        'Producto',
-        'SolicitudComercio',
-        'SolicitudVenta',
-        'Comercio',
-        'Configuracion'
-    ];
+        for (const entity of entities) {
+            const listRes = await fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/${entity}`, {
+                headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
+            });
 
-    let stats = {};
-
-    for (const entity of entities) {
-        try {
-            if (!base44Admin.entities[entity]) continue;
-
-            const items = await base44Admin.entities[entity].list();
-            let count = 0;
-            for (const item of items) {
-                await base44Admin.entities[entity].delete(item.id);
-                count++;
+            if (listRes.ok) {
+                const items = await listRes.json();
+                const deletePromises = items.map(item =>
+                    fetch(`https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/${entity}/${item._id || item.id}`, {
+                        method: 'DELETE',
+                        headers: { 'api_key': 'fb3a067ef3c44d8489059567b4206a91' }
+                    })
+                );
+                await Promise.all(deletePromises);
             }
-            stats[entity] = count;
-        } catch (e) {
-            stats[entity] = `Error: ${e.message}`;
         }
-    }
 
-    return Response.json({
-        success: true,
-        message: "Wipe Forzado Completado",
-        stats
-    });
+        return Response.json({ success: true, message: "Force Wipe complete" });
+
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
+    }
 });
