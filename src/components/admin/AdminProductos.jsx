@@ -448,28 +448,39 @@ export default function AdminProductos({ comercio }) {
       )}
 
       <div>
-        <Label htmlFor="titulo">Título *</Label>
+        <Label htmlFor="titulo">Título (Concreto y Descriptivo) *</Label>
         <Input
           id="titulo"
           value={formData.titulo}
           onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-          placeholder="Nombre del producto"
+          placeholder="Ej: Parrilla Móvil Acero Inox 80x40 con Brasero"
         />
+        <p className="text-xs text-gray-500 mt-1">Usado por la IA para categorizar y titular en Meta Ads.</p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <Label htmlFor="descripcion_tecnica" className="text-blue-900 font-bold">1. Especificaciones Técnicas (Materia Prima para IA)</Label>
-          <p className="text-xs text-blue-700 mb-2">
-            💡 Sé lo más detallista posible. Incluí peso, medidas, materiales, compatibilidad. La IA usa esto para negociar.
-          </p>
+          <Label htmlFor="descripcion_tecnica" className="text-blue-900 font-bold">1. Especificaciones Técnicas (Fuente de Verdad IA)</Label>
+          <div className="bg-blue-50 p-2 rounded border border-blue-200 mb-2">
+            <p className="text-xs text-blue-800 font-medium">
+              ⚠️ IMPORTANTE: La IA leerá esto para generar automáticamente:
+            </p>
+            <ul className="text-xs text-blue-700 list-disc list-inside ml-1">
+              <li>Los <b>Atributos/Filtros</b> (Peso, Medidas, Material).</li>
+              <li>La <b>Categoría de Meta</b> (DPA).</li>
+              <li>La <b>Descripción Comercial</b> y argumentos de venta.</li>
+            </ul>
+            <p className="text-[10px] text-blue-600 mt-1 italic">
+              Sé lo más específico posible. Ejemplo: "Acero 3mm", "Ruedas reforzadas", "50kg".
+            </p>
+          </div>
           <Textarea
             id="descripcion_tecnica"
             value={formData.descripcion_tecnica}
             onChange={(e) => setFormData({ ...formData, descripcion_tecnica: e.target.value })}
-            placeholder="- Peso: 5kg&#10;- Material: Acero Inoxidable&#10;- Medidas: 50x30cm"
-            rows={5}
-            className="font-mono bg-blue-50/30"
+            placeholder="- Material: Hierro ángulo 1/8&#10;- Medidas: 80x50x110 cm&#10;- Incluye: Pala y atizador&#10;- Peso: 25kg"
+            rows={6}
+            className="font-mono bg-white"
           />
         </div>
 
