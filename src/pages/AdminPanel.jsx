@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import {
   Package, ShoppingBag, Users, Settings,
-  TrendingUp, MessageCircle, ShieldAlert
+  TrendingUp, MessageCircle, ShieldAlert, Trophy
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import AdminLeads from '@/components/admin/AdminLeads.jsx';
 import AdminEstadisticas from '@/components/admin/AdminEstadisticas.jsx';
 import AdminConfiguracion from '@/components/admin/AdminConfiguracion.jsx';
 import AdminConversaciones from '@/components/admin/AdminConversaciones.jsx';
+import AdminSorteos from '@/components/admin/AdminSorteos.jsx';
 
 export default function AdminPanel() {
   const [selectedTab, setSelectedTab] = useState('estadisticas');
@@ -181,6 +182,10 @@ export default function AdminPanel() {
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">Config</span>
             </TabsTrigger>
+            <TabsTrigger value="sorteos" className="flex items-center gap-2 py-3">
+              <Trophy className="w-4 h-4" />
+              <span className="hidden sm:inline">Sorteos</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* Contenidos de los Paneles */}
@@ -206,6 +211,10 @@ export default function AdminPanel() {
 
           <TabsContent value="config" className="mt-0 focus-visible:ring-0">
             <AdminConfiguracion comercio={comercio} />
+          </TabsContent>
+
+          <TabsContent value="sorteos" className="mt-0 focus-visible:ring-0">
+            <AdminSorteos comercio={comercio} />
           </TabsContent>
         </Tabs>
       </div>

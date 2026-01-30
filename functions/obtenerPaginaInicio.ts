@@ -5,19 +5,22 @@ const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 
 const URL_PRODUCTO = `https://app.base44.com/api/apps/${APP_ID}/entities/Producto`;
 const URL_CONFIG = `https://app.base44.com/api/apps/${APP_ID}/entities/ConfiguracionComercio`;
+const URL_CLIENTE = `https://app.base44.com/api/apps/${APP_ID}/entities/Cliente`;
+const URL_SORTEO = `https://app.base44.com/api/apps/${APP_ID}/entities/Sorteo`;
 
 Deno.serve(async (req) => {
     try {
         if (req.method === 'OPTIONS') return new Response("OK");
 
-        // 1. Obtener commerce_code (puede venir por URL o por body)
         const url = new URL(req.url);
         let commerceCode = url.searchParams.get('commerce_code');
+        let customerId = null;
 
+        const body = await req.json().catch(() => ({}));
         if (!commerceCode) {
-            const body = await req.json().catch(() => ({}));
             commerceCode = body.commerce_code || body.id_comercio;
         }
+        customerId = body.id_cliente;
 
         if (!commerceCode) {
             return Response.json({ error: 'commerce_code requerido' }, { status: 400 });
@@ -25,16 +28,29 @@ Deno.serve(async (req) => {
 
         const filterParam = commerceCode.length > 20 ? `id_comercio=${commerceCode}` : `commerce_code=${commerceCode}`;
 
-        // 2. Fetch de datos en paralelo (Producto y Configuración)
-        const [resProductos, resConfig] = await Promise.all([
+        // 1. FETCH EN PARALELO (Todo lo necesario para la Landing Page)
+        const fetchPromises = [
             fetch(`${URL_PRODUCTO}?${filterParam}&activo=true`, { headers: { 'api_key': API_KEY } }),
-            fetch(`${URL_CONFIG}?${filterParam}`, { headers: { 'api_key': API_KEY } })
-        ]);
+            fetch(`${URL_CONFIG}?${filterParam}`, { headers: { 'api_key': API_KEY } }),
+            fetch(`${URL_SORTEO}?${filterParam}&activo=true`, { headers: { 'api_key': API_KEY } })
+        ];
 
-        const productos = await resProductos.json().catch(() => []);
-        const configs = await resConfig.json().catch(() => []);
+        if (customerId) {
+            fetchPromises.push(fetch(`${URL_CLIENTE}/${customerId}`, { headers: { 'api_key': API_KEY } }));
+        }
 
-        // 3. PROCESAMIENTO
+        const responses = await Promise.all(fetchPromises);
+
+        const productos = await responses[0].json().catch(() => []);
+        const configs = await responses[1].json().catch(() => []);
+        const sorteos = await responses[2].json().catch(() => []);
+        let clienteData = null;
+
+        if (customerId && responses[3] && responses[3].ok) {
+            clienteData = await responses[3].json().catch(() => null);
+        }
+
+        // 2. PROCESAMIENTO
         const categoriasSet = new Set();
         (Array.isArray(productos) ? productos : []).forEach((p) => {
             if (p.categoria) categoriasSet.add(p.categoria);
@@ -53,12 +69,29 @@ Deno.serve(async (req) => {
             banner_url: null
         };
 
+        const sorteoActivo = Array.isArray(sorteos) && sorteos.length > 0 ? sorteos[0] : null;
+
+        // 3. IDENTIDAD
+        let mensaje_personalizado = null;
+        if (clienteData && clienteData.nombre_completo) {
+            const primerNombre = clienteData.nombre_completo.split(' ')[0];
+            mensaje_personalizado = `¡Qué bueno verte de nuevo, ${primerNombre}!`;
+        }
+
         return Response.json({
             success: true,
             data: {
                 categorias,
                 destacados,
-                configuracion: configComercio
+                configuracion: configComercio,
+                sorteo: sorteoActivo, // Entregamos el sorteo solo aquí (Landing Page) para el cartel
+                identidad: {
+                    cliente: clienteData ? {
+                        id: customerId,
+                        nombre: clienteData.nombre_completo,
+                        mensaje: mensaje_personalizado
+                    } : null
+                }
             }
         });
 
