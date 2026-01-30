@@ -39,10 +39,7 @@ Deno.serve(async (req) => {
             return Response.json({
                 success: true,
                 commerce_code: miComercio.commerce_code,
-                comercio: {
-                    ...miComercio,
-                    activo: miComercio.activo
-                }
+                comercio: miComercio
             });
         }
 

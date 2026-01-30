@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext'; // Hook de Autenticación
 import {
   ShoppingBag,
   Users,
@@ -9,17 +10,13 @@ import {
   LogOut,
   Trophy,
   Zap,
-  Wallet,
-  ShieldAlert,
-  MessageCircle,
-  TrendingUp,
-  Package
+  Wallet
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-// Importación de sub-componentes administrativos (SOLO COMERCIO)
+// Importación de sub-componentes administrativos
 import AdminProductos from '@/components/admin/AdminProductos.jsx';
 import AdminOrdenes from '@/components/admin/AdminOrdenes.jsx';
 import AdminLeads from '@/components/admin/AdminLeads.jsx';
@@ -30,75 +27,50 @@ import AdminSorteos from '@/components/admin/AdminSorteos.jsx';
 import AdminAdWallet from '@/components/admin/AdminAdWallet.jsx';
 
 export default function AdminPanel() {
+  const { user, isLoadingAuth, logout } = useAuth();
   const [selectedTab, setSelectedTab] = useState('estadisticas');
   const [comercio, setComercio] = useState(null);
-  const [loadingComercio, setLoadingComercio] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function initSession() {
-      const sessionRaw = localStorage.getItem('comercio_session') || localStorage.getItem('comercio_admin');
-
-      if (!sessionRaw) {
-        window.location.href = '/';
-        return;
-      }
+    async function loadCommerceData() {
+      // Si no hay usuario (y ya terminó de cargar auth), no hacemos nada (el render redirige)
+      if (!user) return;
 
       try {
-        const session = JSON.parse(sessionRaw);
+        // Consultamos la DATA FRESCA a la base de datos usando el código del usuario autenticado
+        const commerceCode = user.commerceCode || user.user_metadata?.commerce_code;
 
-        // CONSULTA EN TIEMPO REAL A LA BASE DE DATOS
-        // No confiamos más en el 'activo' del carnet viejo del localstorage
-        const response = await base44.functions.invoke('obtenerDatosComercio', {
-          commerce_code: session.commerce_code
-        });
+        if (commerceCode) {
+          const response = await base44.functions.invoke('obtenerDatosComercio', {
+            commerce_code: commerceCode
+          });
 
-        if (response.data && response.data.comercio) {
-          // Fusionamos la sesión guardada con los datos reales y frescos de la DB
-          const datosFrescos = { ...session, ...response.data.comercio };
-          setComercio(datosFrescos);
-        } else {
-          // Si el backend no devuelve nada, usamos lo que tenemos pero avisamos
-          setComercio(session);
+          if (response.data && response.data.comercio) {
+            setComercio(response.data.comercio);
+          } else {
+            // Fallback: Usamos los metadatos que ya tiene el usuario
+            setComercio(user.user_metadata || {});
+          }
         }
       } catch (e) {
-        console.error("Error cargando sesión real:", e);
+        console.error("Error cargando datos frescos:", e);
       } finally {
-        setLoadingComercio(false);
+        setLoading(false);
       }
     }
 
-    initSession();
-  }, []);
+    if (!isLoadingAuth) {
+      if (!user) {
+        window.location.href = '/'; // Redirección si no hay sesión
+      } else {
+        loadCommerceData();
+      }
+    }
+  }, [user, isLoadingAuth]);
 
-  if (loadingComercio) return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-      <div className="text-orange-600 animate-pulse font-bold uppercase tracking-widest text-sm">
-        Verificando Credenciales Reales...
-      </div>
-    </div>
-  );
-
+  if (isLoadingAuth || loading) return null;
   if (!comercio) return <div>Acceso no autorizado</div>;
-
-  // El cartel de revisión SOLO se muestra si el BACKEND dice que no está activo
-  if (!comercio.activo) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-950 p-4 text-white">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="w-20 h-20 bg-orange-500/10 rounded-[2rem] flex items-center justify-center mx-auto border border-orange-500/20">
-            <ShieldAlert className="w-10 h-10 text-orange-600 animate-pulse" />
-          </div>
-          <h2 className="text-3xl font-black italic uppercase tracking-tight">Cuenta en Revisión</h2>
-          <p className="text-neutral-400">
-            Tu tienda <span className="text-white font-bold">{comercio.nombre_comercio || comercio.nombre_tienda}</span> está esperando la aprobación de un administrador.
-          </p>
-          <Button variant="outline" onClick={() => window.location.href = '/'} className="border-neutral-800 text-neutral-400 hover:text-white">
-            Volver al Inicio
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-neutral-50/50">
@@ -117,12 +89,13 @@ export default function AdminPanel() {
               </Badge>
             </div>
           </div>
-          <Button variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => {
+
+          <Button variant="ghost" className="text-red-600 hover:text-red-700 font-bold" onClick={() => {
             localStorage.removeItem('comercio_session');
             localStorage.removeItem('comercio_admin');
             window.location.href = '/';
           }}>
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4 mr-2" /> Salir
           </Button>
         </div>
       </header>

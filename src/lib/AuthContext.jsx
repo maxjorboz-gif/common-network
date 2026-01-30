@@ -106,6 +106,33 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(false);
     } catch (error) {
       console.error('User auth check failed:', error);
+
+      // FALLBACK: Recuperar sesión legacy (comercio_session) si falla la auth del SDK
+      const legacySession = localStorage.getItem('comercio_session') || localStorage.getItem('comercio_admin');
+      if (legacySession) {
+        try {
+          const session = JSON.parse(legacySession);
+          // Reconstruir un objeto usuario compatible
+          const recoveredUser = {
+            id: session.user_id || session.id || 'legacy_user',
+            email: session.email,
+            user_metadata: {
+              ...session,
+              commerce_code: session.commerce_code,
+              id_comercio: session.id_comercio
+            },
+            commerceCode: session.commerce_code
+          };
+
+          setUser(recoveredUser);
+          setIsAuthenticated(true);
+          setIsLoadingAuth(false);
+          return;
+        } catch (e) {
+          console.error("Error recuperando sesión legacy:", e);
+        }
+      }
+
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
 
