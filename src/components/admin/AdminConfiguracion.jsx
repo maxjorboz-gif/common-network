@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Settings, DollarSign, TrendingDown, Shield, Truck, Plus, Trash2, Zap, Sparkles } from 'lucide-react';
+import { Settings, DollarSign, TrendingDown, Shield, Truck, Plus, Trash2, Zap, Sparkles, Upload, Eye, Palette } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function AdminConfiguracion({ comercio }) {
@@ -43,7 +43,16 @@ export default function AdminConfiguracion({ comercio }) {
     promo_flash_global_activa: false,
     promo_flash_global_product_id: '',
     promo_flash_global_descuento: 15,
-    promo_flash_global_delay: 20
+    promo_flash_global_product_id: '',
+    promo_flash_global_descuento: 15,
+    promo_flash_global_delay: 20,
+    // Visual Identity & IA
+    nombre_comercio_display: '',
+    descripcion_negocio: '', // Context for AI
+    logo_url: '',
+    destacar_medios_pago: true,
+    destacar_ofertas: true,
+    brand_color_primary: '#000000'
   });
 
   React.useEffect(() => {
@@ -69,7 +78,13 @@ export default function AdminConfiguracion({ comercio }) {
         promo_flash_global_activa: config.promo_flash_global_activa || false,
         promo_flash_global_product_id: config.promo_flash_global_product_id || '',
         promo_flash_global_descuento: config.promo_flash_global_descuento || 15,
-        promo_flash_global_delay: config.promo_flash_global_delay || 20
+        promo_flash_global_delay: config.promo_flash_global_delay || 20,
+        nombre_comercio_display: config.nombre_comercio_display || comercio.nombre_comercio || '',
+        descripcion_negocio: config.descripcion_negocio || '',
+        logo_url: config.logo_url || '',
+        destacar_medios_pago: config.destacar_medios_pago !== false,
+        destacar_ofertas: config.destacar_ofertas !== false,
+        brand_color_primary: config.brand_color_primary || '#000000'
       });
     }
   }, [config]);
@@ -132,6 +147,130 @@ export default function AdminConfiguracion({ comercio }) {
               Ver Tienda
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Identidad Visual & IA */}
+      <Card className="border-purple-200 bg-purple-50/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-purple-900">
+            <Palette className="w-5 h-5 text-purple-600" />
+            Identidad Visual & Contexto para IA
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="bg-purple-100 p-4 rounded-lg border border-purple-200 mb-4">
+            <p className="text-sm text-purple-800">
+              🤖 <b>El Agente Diseñador</b> usa esta información para armar tu tienda automáticamente.
+              Explicarle bien de qué trata tu negocio ayuda a elegir mejores textos, iconos y distribución.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Logo Upload */}
+            <div className="space-y-2">
+              <Label className="font-semibold">Logo del Comercio</Label>
+              <div className="flex items-center gap-4">
+                {formData.logo_url ? (
+                  <div className="relative w-24 h-24 border border-gray-200 rounded-lg overflow-hidden bg-white flex items-center justify-center p-2">
+                    <img src={formData.logo_url} alt="Logo" className="max-w-full max-h-full object-contain" />
+                    <button
+                      onClick={() => setFormData({ ...formData, logo_url: '' })}
+                      className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl shadow-sm hover:bg-red-600"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 text-gray-400">
+                    <span className="text-xs text-center">Sin Logo</span>
+                  </div>
+                )}
+
+                <div className="flex-1">
+                  <Label htmlFor="logo-upload" className="cursor-pointer">
+                    <div className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 px-4 py-2 rounded-md shadow-sm transition-colors w-max">
+                      <Upload className="w-4 h-4 text-gray-600" />
+                      <span className="text-sm text-gray-700 font-medium">Subir Logo</span>
+                    </div>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const toastId = toast.loading('Subiendo logo...');
+                          const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                          setFormData(prev => ({ ...prev, logo_url: file_url }));
+                          toast.dismiss(toastId);
+                          toast.success('Logo subido');
+                        } catch (err) {
+                          console.error(err);
+                          toast.error('Error al subir logo');
+                        }
+                      }}
+                    />
+                  </Label>
+                  <p className="text-[10px] text-gray-500 mt-2">Recomendado: PNG sin fondo (Transparente).</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Basic Info */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="nombre_display">Nombre Visible del Comercio</Label>
+                <Input
+                  id="nombre_display"
+                  value={formData.nombre_comercio_display}
+                  onChange={(e) => setFormData({ ...formData, nombre_comercio_display: e.target.value })}
+                  placeholder="Ej: La Parrilla de Maxi"
+                  className="border-purple-200"
+                />
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="chk_pagos"
+                    checked={formData.destacar_medios_pago}
+                    onChange={(e) => setFormData({ ...formData, destacar_medios_pago: e.target.checked })}
+                    className="w-4 h-4 accent-purple-600"
+                  />
+                  <Label htmlFor="chk_pagos" className="text-sm cursor-pointer">Destacar Medios de Pago</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="chk_ofertas"
+                    checked={formData.destacar_ofertas}
+                    onChange={(e) => setFormData({ ...formData, destacar_ofertas: e.target.checked })}
+                    className="w-4 h-4 accent-purple-600"
+                  />
+                  <Label htmlFor="chk_ofertas" className="text-sm cursor-pointer">Destacar Ofertas</Label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <Label htmlFor="contexto_ia" className="text-purple-900 font-bold">Contexto del Negocio (Input para la IA)</Label>
+            <textarea
+              id="contexto_ia"
+              className="w-full min-h-[100px] p-3 rounded-md border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+              placeholder="Ej: Somos una empresa familiar dedicada a la fabricación de parrillas y asadores de alta calidad. Nuestro público valora la durabilidad, el diseño rústico pero moderno. Queremos transmitir confianza y tradición argentina."
+              value={formData.descripcion_negocio}
+              onChange={(e) => setFormData({ ...formData, descripcion_negocio: e.target.value })}
+            />
+            <p className="text-xs text-purple-600 text-right font-medium">
+              Cuanto más detalles des, mejor entenderá la IA qué priorizar en el diseño.
+            </p>
+          </div>
+
         </CardContent>
       </Card>
 
