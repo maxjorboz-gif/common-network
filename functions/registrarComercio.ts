@@ -67,12 +67,13 @@ Deno.serve(async (req) => {
             // Campos requeridos por tu Schema (user_id eliminado bajo supuesto de que ya es opcional)
             commerce_code: commerceCode,
 
-            // Valores por defecto
-            estado_registro: "pendiente_pago",
-            numero_operacion: "PENDIENTE",
-            activo: false,
+            // Valores por defecto: AHORA ACTIVOS POR DEFECTO (Estrategia de Cero Fricción)
+            estado_registro: "completado",
+            numero_operacion: "GRATIS_INICIAL",
+            activo: true,
             plan: "bronce",
-            configuracion_avanzada: {} // Limpio de parches
+            saldo_publicidad: 0, // Iniciamos billetera en 0
+            configuracion_avanzada: {}
         };
 
         // EL FETCH (Tal cual tu snippet, adaptado a POST)

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Settings, DollarSign, TrendingDown, Shield, Truck } from 'lucide-react';
+import { Settings, DollarSign, TrendingDown, Shield, Truck, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function AdminConfiguracion({ comercio }) {
@@ -35,7 +35,8 @@ export default function AdminConfiguracion({ comercio }) {
       alias: '',
       titular: ''
     },
-    marketing_red_activo: false
+    marketing_red_activo: false,
+    metodos_envio: []
   });
 
   React.useEffect(() => {
@@ -53,7 +54,8 @@ export default function AdminConfiguracion({ comercio }) {
           alias: '',
           titular: ''
         },
-        marketing_red_activo: config.marketing_red_activo || false
+        marketing_red_activo: config.marketing_red_activo || false,
+        metodos_envio: config.metodos_envio || []
       });
     }
   }, [config]);
@@ -192,57 +194,108 @@ export default function AdminConfiguracion({ comercio }) {
         </CardContent>
       </Card>
 
-      {/* Envío */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-blue-600" />
-            Configuración de Envío
+      {/* Configuración de Envíos - MATRIZ DE LOGÍSTICA */}
+      <Card className="overflow-hidden border-2 border-blue-100 shadow-sm transition-all hover:shadow-md">
+        <CardHeader className="bg-blue-50/50 border-b flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-blue-900">
+            <Truck className="w-5 h-5" />
+            Matriz de Logística Personalizada
           </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white font-bold"
+            onClick={() => {
+              const nuevosMetodos = [...(formData.metodos_envio || [])];
+              nuevosMetodos.push({ id: Date.now(), nombre: 'Nuevo Método', costo: 0, minimo_gratis: 0 });
+              setFormData({ ...formData, metodos_envio: nuevosMetodos });
+            }}
+          >
+            <Plus className="w-4 h-4 mr-1" /> Añadir Método
+          </Button>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="costo_envio">Costo de Envío ($)</Label>
-            <Input
-              id="costo_envio"
-              type="number"
-              value={formData.costo_envio_default}
-              onChange={(e) => setFormData({ ...formData, costo_envio_default: Number(e.target.value) })}
-              placeholder="0"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="envio_gratis">Mínimo para Envío Gratis ($)</Label>
-            <Input
-              id="envio_gratis"
-              type="number"
-              value={formData.envio_gratis_minimo}
-              onChange={(e) => setFormData({ ...formData, envio_gratis_minimo: Number(e.target.value) })}
-              placeholder="0"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              0 = envío gratis deshabilitado
+        <CardContent className="space-y-6 pt-6">
+          <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl mb-4">
+            <p className="text-xs text-orange-900 italic font-medium">
+              💡 <b>Flexibilidad Total:</b> Definí tus propios medios de entrega. Podés cobrar un fijo para motos, otro para correo, o dejar el "Retiro en Local" gratis.
             </p>
           </div>
 
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                id="envio_gratis_global"
-                checked={formData.habilitar_envio_gratis_global}
-                onChange={(e) => setFormData({ ...formData, habilitar_envio_gratis_global: e.target.checked })}
-                className="w-5 h-5 mt-0.5 rounded"
-              />
-              <div className="flex-1">
-                <Label htmlFor="envio_gratis_global" className="text-green-900 font-semibold cursor-pointer">
-                  🚚 Mostrar "Envío Gratis" en todos los productos
-                </Label>
-                <p className="text-xs text-green-700 mt-1">
-                  Al activar esta opción, todos los productos de la tienda mostrarán un cartel de "Envío Gratis" independientemente de su precio.
-                </p>
+          <div className="space-y-4">
+            {(formData.metodos_envio || []).length === 0 && (
+              <div className="text-center py-10 border-2 border-dashed border-neutral-100 rounded-3xl">
+                <p className="text-neutral-400 text-sm italic">No tenés métodos configurados. Agregá uno para que tus clientes puedan elegir.</p>
               </div>
+            )}
+
+            {(formData.metodos_envio || []).map((metodo, index) => (
+              <div key={metodo.id} className="p-5 bg-white border border-neutral-200 rounded-[2rem] shadow-sm flex flex-col md:flex-row gap-4 items-end">
+                <div className="flex-1 space-y-2 w-full">
+                  <Label className="text-[10px] font-black uppercase text-neutral-400 italic">Nombre del Medio</Label>
+                  <Input
+                    value={metodo.nombre}
+                    className="h-12 rounded-xl"
+                    placeholder="Ej: Correo Argentino / Moto Local"
+                    onChange={(e) => {
+                      const list = [...formData.metodos_envio];
+                      list[index].nombre = e.target.value;
+                      setFormData({ ...formData, metodos_envio: list });
+                    }}
+                  />
+                </div>
+                <div className="w-full md:w-32 space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-neutral-400 italic">Costo ($)</Label>
+                  <Input
+                    type="number"
+                    value={metodo.costo}
+                    className="h-12 rounded-xl"
+                    onChange={(e) => {
+                      const list = [...formData.metodos_envio];
+                      list[index].costo = Number(e.target.value);
+                      setFormData({ ...formData, metodos_envio: list });
+                    }}
+                  />
+                </div>
+                <div className="w-full md:w-40 space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-neutral-400 italic">Gratis desde ($)</Label>
+                  <Input
+                    type="number"
+                    value={metodo.minimo_gratis}
+                    className="h-12 rounded-xl bg-green-50 border-green-200 text-green-700 font-bold"
+                    placeholder="Ej: 80000"
+                    onChange={(e) => {
+                      const list = [...formData.metodos_envio];
+                      list[index].minimo_gratis = Number(e.target.value);
+                      setFormData({ ...formData, metodos_envio: list });
+                    }}
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  className="h-12 text-red-500 hover:text-red-700 hover:bg-red-50 px-3 rounded-xl"
+                  onClick={() => {
+                    const list = formData.metodos_envio.filter((_, i) => i !== index);
+                    setFormData({ ...formData, metodos_envio: list });
+                  }}
+                >
+                  <Trash2 className="w-5 h-5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-4 border-t border-neutral-100">
+            <div className={`p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer ${formData.habilitar_envio_gratis_global ? 'border-green-500 bg-green-50' : 'border-neutral-100 bg-neutral-50 opacity-60'}`}
+              onClick={() => setFormData({ ...formData, habilitar_envio_gratis_global: !formData.habilitar_envio_gratis_global })}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-black italic uppercase text-sm text-green-800">Modo Full: Envío Gratis en TODO</span>
+                <div className={`w-10 h-5 rounded-full relative transition-colors ${formData.habilitar_envio_gratis_global ? 'bg-green-500' : 'bg-neutral-300'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${formData.habilitar_envio_gratis_global ? 'left-5.5' : 'left-0.5'}`} />
+                </div>
+              </div>
+              <p className="text-xs text-green-700 leading-relaxed font-bold italic">
+                Sobrescribí todos los costos y ofrecé "ENVÍO GRATIS" en cada producto de tu tienda. Es la táctica número 1 para forzar la decisión de compra.
+              </p>
             </div>
           </div>
         </CardContent>

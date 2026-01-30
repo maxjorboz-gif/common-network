@@ -36,9 +36,20 @@ export default function Checkout() {
         }
     }, [COMERCIO_ID, navigate]);
 
+    // 0. CARGAR CONFIGURACIÓN DEL COMERCIO
+    const [config, setConfig] = useState(null);
+    useEffect(() => {
+        if (COMERCIO_ID) {
+            base44.functions.invoke('obtenerConfiguracion', { commerce_code: COMERCIO_ID })
+                .then(res => setConfig(res.data.config))
+                .catch(err => console.error("Error loading config", err));
+        }
+    }, [COMERCIO_ID]);
+
     // 1. ESTADOS
     const [loading, setLoading] = useState(false);
     const [metodoPago, setMetodoPago] = useState('transferencia');
+    const [metodoEnvioId, setMetodoEnvioId] = useState(null); // ID del método seleccionado
     const [codigoCupon, setCodigoCupon] = useState('');
     const [comprobante, setComprobante] = useState('');
     const [tipoFactura, setTipoFactura] = useState('B');
@@ -51,6 +62,22 @@ export default function Checkout() {
     // 2. MEMORIA DE CÁLCULO
     const resumen = useMemo(() => {
         const numSubtotal = Number(total || 0);
+
+        // Lógica de Envío Dinámica basada en la SELECCIÓN del usuario
+        const todosLosMetodos = config?.metodos_envio || [];
+        const metodoSeleccionado = todosLosMetodos.find(m => m.id === metodoEnvioId) || todosLosMetodos[0];
+
+        // Si no hay métodos, fallback a 0
+        let costoEnvio = metodoSeleccionado?.costo || 0;
+        let esGratis = config?.habilitar_envio_gratis_global || false;
+
+        // Validar si este método particular es gratis por monto
+        if (!esGratis && metodoSeleccionado?.minimo_gratis > 0 && numSubtotal >= metodoSeleccionado.minimo_gratis) {
+            esGratis = true;
+        }
+
+        if (esGratis) costoEnvio = 0;
+
         const itemsValidados = (cartItems || []).map(item => {
             const precio = Number(item.precio_estandar) || 0;
             const cantidad = Number(item.cantidad) || 0;
@@ -63,16 +90,19 @@ export default function Checkout() {
         });
 
         const descuento = metodoPago === 'transferencia' ? numSubtotal * 0.1 : 0;
-        const totalFinal = (numSubtotal - descuento).toFixed(2);
+        const totalFinal = (numSubtotal - descuento + costoEnvio).toFixed(2);
 
         return {
             items: itemsValidados,
             subtotal: numSubtotal.toFixed(2),
             descuento: descuento.toFixed(2),
+            costoEnvio: costoEnvio,
+            esGratis: esGratis,
+            metodoEnvio: metodoSeleccionado,
             totalFinal: totalFinal,
             hayData: itemsValidados.length > 0
         };
-    }, [cartItems, total, metodoPago]);
+    }, [cartItems, total, metodoPago, config, metodoEnvioId]);
 
     // 3. TRACKING AUTOMÁTICO (AddToCart)
     // Dispara la función en Deno con action: 'track' cuando hay datos de contacto
@@ -97,7 +127,7 @@ export default function Checkout() {
             }, 2000);
             return () => clearTimeout(timer);
         }
-    }, [form.whatsapp, form.email]);
+    }, [form.whatsapp, form.email, cartItems, resumen.totalFinal]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -107,6 +137,11 @@ export default function Checkout() {
     const handleFinalizarCompra = async () => {
         const camposObligatorios = ['nombre', 'dni', 'whatsapp', 'calle', 'altura', 'ciudad', 'provincia', 'codigo_postal'];
         if (tipoFactura === 'A') camposObligatorios.push('cuit', 'razonSocial');
+
+        if (!resumen.metodoEnvio && (config?.metodos_envio || []).length > 0) {
+            toast.error("Por favor, seleccioná un método de envío");
+            return;
+        }
 
         if (metodoPago === 'transferencia' && !comprobante) {
             toast.error("Por favor, ingrese el número de comprobante");
@@ -145,11 +180,13 @@ export default function Checkout() {
                     provincia: form.provincia,
                     codigo_postal: form.codigo_postal,
                     notas_entrega: form.observaciones,
-                    tipo_envio: 'GRATIS_NACIONAL'
+                    tipo_envio: resumen.metodoEnvio?.nombre || 'ESTANDAR',
+                    costo_envio: resumen.costoEnvio
                 },
                 resumen_economico: {
                     subtotal_bruto: Number(resumen.subtotal),
                     descuento_metodo_pago: Number(resumen.descuento),
+                    costo_envio: Number(resumen.costoEnvio),
                     total_final: Number(resumen.totalFinal)
                 },
                 metodo_pago: metodoPago,
@@ -361,6 +398,48 @@ export default function Checkout() {
                                 </div>
                             </div>
 
+                            {/* SECCIÓN ENVÍO DINÁMICO */}
+                            {(config?.metodos_envio || []).length > 0 && (
+                                <div className="space-y-4 pt-4 border-t border-neutral-800">
+                                    <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                                        <Truck size={16} /> Opciones de Envío
+                                    </h3>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {(config.metodos_envio).map((m) => {
+                                            const isSelected = (metodoEnvioId === m.id) || (!metodoEnvioId && config.metodos_envio[0].id === m.id);
+                                            const subtotalNum = Number(total || 0);
+                                            const esGratisPorMonto = !config.habilitar_envio_gratis_global && m.minimo_gratis > 0 && subtotalNum >= m.minimo_gratis;
+                                            const gratisFinal = config.habilitar_envio_gratis_global || esGratisPorMonto;
+
+                                            return (
+                                                <div
+                                                    key={m.id}
+                                                    onClick={() => setMetodoEnvioId(m.id)}
+                                                    className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${isSelected ? 'border-blue-600 bg-blue-600/5' : 'border-neutral-800 bg-neutral-950/50'}`}
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`p-2 rounded-full ${isSelected ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-500'}`}>
+                                                            <Truck size={18} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-black uppercase text-xs italic text-white">{m.nombre}</p>
+                                                            {gratisFinal ? (
+                                                                <p className="text-[10px] text-green-500 font-black uppercase">¡Bonificado!</p>
+                                                            ) : (
+                                                                <p className="text-[10px] text-neutral-500 font-bold uppercase">Costo: ${m.costo}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-blue-600 bg-blue-600' : 'border-neutral-700'}`}>
+                                                        {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-4 pt-4 border-t border-neutral-800">
                                 <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500">Seleccioná tu pago</h3>
                                 <div className="space-y-3">
@@ -410,9 +489,13 @@ export default function Checkout() {
                                     <span>Subtotal Productos</span>
                                     <span className="text-white font-mono text-lg">${resumen.subtotal}</span>
                                 </div>
-                                <div className="flex justify-between items-center bg-green-900/10 p-3 rounded-lg text-green-500">
+                                <div className="flex justify-between items-center bg-blue-900/10 p-3 rounded-lg text-blue-500">
                                     <span className="font-black text-[10px] uppercase tracking-widest">Costo de Envío</span>
-                                    <span className="font-black text-xs uppercase italic tracking-widest">Bonificado 100%</span>
+                                    {resumen.esGratis ? (
+                                        <span className="font-black text-xs uppercase italic tracking-widest text-green-500">Bonificado 100%</span>
+                                    ) : (
+                                        <span className="font-mono text-lg text-white">${resumen.costoEnvio}</span>
+                                    )}
                                 </div>
                                 {metodoPago === 'transferencia' && (
                                     <div className="flex justify-between text-orange-500 font-black uppercase text-xs tracking-[0.1em]">
