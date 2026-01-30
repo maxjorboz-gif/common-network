@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
 import {
   Package,
   ShoppingBag,
@@ -7,133 +6,115 @@ import {
   Settings,
   TrendingUp,
   MessageCircle,
-  ShieldAlert,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import AdminProductos from "@/components/admin/AdminProductos.jsx";
-import AdminOrdenes from "@/components/admin/AdminOrdenes.jsx";
-import AdminLeads from "@/components/admin/AdminLeads.jsx";
-import AdminEstadisticas from "@/components/admin/AdminEstadisticas.jsx";
-import AdminConfiguracion from "@/components/admin/AdminConfiguracion.jsx";
-import AdminConversaciones from "@/components/admin/AdminConversaciones.jsx";
 import { Button } from "@/components/ui/button";
 
+import AdminProductos from "@/components/admin/AdminProductos";
+import AdminOrdenes from "@/components/admin/AdminOrdenes";
+import AdminLeads from "@/components/admin/AdminLeads";
+import AdminEstadisticas from "@/components/admin/AdminEstadisticas";
+import AdminConfiguracion from "@/components/admin/AdminConfiguracion";
+import AdminConversaciones from "@/components/admin/AdminConversaciones";
+
 export default function AdminPanel() {
-  const [selectedTab, setSelectedTab] = useState("estadisticas");
   const [comercio, setComercio] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("estadisticas");
 
   useEffect(() => {
-    async function fetchComercio() {
-      try {
-        const sessionRaw = localStorage.getItem("comercio_session");
-
-        if (!sessionRaw) {
-          window.location.href = "/";
-          return;
-        }
-
-        const session = JSON.parse(sessionRaw);
-
-        // Backend debe validar y devolver un comercio real
-        const { data, error } = await base44.functions.invoke("loginComercio", {
-          session_token: session.session_token,
-        });
-
-        if (error || !data?.comercio) {
-          window.location.href = "/";
-          return;
-        }
-
-        setComercio(data.comercio);
-      } catch (e) {
-        console.error("Error cargando comercio:", e);
-        window.location.href = "/";
-      } finally {
-        setLoading(false);
-      }
+    const raw = localStorage.getItem("comercio_session");
+    if (!raw) {
+      window.location.href = "/";
+      return;
     }
 
-    fetchComercio();
+    try {
+      setComercio(JSON.parse(raw));
+    } catch {
+      localStorage.removeItem("comercio_session");
+      window.location.href = "/";
+    }
   }, []);
 
-  const handleLogout = () => {
+  const logout = () => {
     localStorage.removeItem("comercio_session");
     window.location.href = "/";
   };
 
-  if (loading) {
+  if (!comercio) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="min-h-screen flex items-center justify-center">
         <p>Cargando panel...</p>
       </div>
     );
   }
 
-  if (!comercio?.activo) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center">
-        <ShieldAlert className="w-12 h-12 text-orange-600 mb-4" />
-        <h2 className="text-2xl font-bold">Cuenta en Revisión</h2>
-        <p className="mt-2 text-gray-600">
-          Tu comercio está en revisión o inactivo. Contactá soporte.
-        </p>
-        <Button onClick={handleLogout} variant="outline">
-          Volver al Inicio
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Panel de Administración
-          </h1>
-          <Button variant="destructive" onClick={handleLogout}>
-            Cerrar Sesión
+    <div className="min-h-screen bg-gray-50 py-6">
+      <div className="max-w-7xl mx-auto px-4 space-y-6">
+
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Panel de Administración</h1>
+            <p className="text-orange-600 font-medium">
+              {comercio.nombre_comercio}
+            </p>
+          </div>
+          <Button variant="outline" onClick={logout}>
+            Cerrar sesión
           </Button>
         </div>
 
-        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid grid-cols-6 gap-2">
+        {/* Tabs */}
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="grid grid-cols-3 md:grid-cols-6">
             <TabsTrigger value="estadisticas">
-              <TrendingUp className="w-4 h-4" /> Estadísticas
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Estadísticas
             </TabsTrigger>
             <TabsTrigger value="productos">
-              <Package className="w-4 h-4" /> Productos
+              <Package className="w-4 h-4 mr-2" />
+              Productos
             </TabsTrigger>
             <TabsTrigger value="ordenes">
-              <ShoppingBag class="w-4 h-4" /> Órdenes
+              <ShoppingBag className="w-4 h-4 mr-2" />
+              Órdenes
             </TabsTrigger>
             <TabsTrigger value="leads">
-              <Users className="w-4 h-4" /> Leads
+              <Users className="w-4 h-4 mr-2" />
+              Leads
             </TabsTrigger>
-            <TabsTrigger value="conversaciones">
-              <MessageCircle className="w-4 h-4" /> Chats
+            <TabsTrigger value="chats">
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Chats
             </TabsTrigger>
             <TabsTrigger value="config">
-              <Settings className="w-4 h-4" /> Configuración
+              <Settings className="w-4 h-4 mr-2" />
+              Config
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="estadisticas">
             <AdminEstadisticas comercio={comercio} />
           </TabsContent>
+
           <TabsContent value="productos">
             <AdminProductos comercio={comercio} />
           </TabsContent>
+
           <TabsContent value="ordenes">
             <AdminOrdenes comercio={comercio} />
           </TabsContent>
+
           <TabsContent value="leads">
             <AdminLeads comercio={comercio} />
           </TabsContent>
-          <TabsContent value="conversaciones">
+
+          <TabsContent value="chats">
             <AdminConversaciones comercio={comercio} />
           </TabsContent>
+
           <TabsContent value="config">
             <AdminConfiguracion comercio={comercio} />
           </TabsContent>
