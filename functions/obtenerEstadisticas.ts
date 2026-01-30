@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
     try {
         if (req.method === 'OPTIONS') return new Response("OK");
 
-        const { commerce_code, id_comercio: legacyId } = await req.json().catch(() => ({}));
+        const { commerce_code, id_comercio: legacyId, fecha_inicio, fecha_fin } = await req.json().catch(() => ({}));
         const idBusqueda = commerce_code || legacyId;
 
         if (!idBusqueda) {
@@ -31,21 +31,36 @@ Deno.serve(async (req) => {
             fetch(`${URL_LEAD}?${filterParam}&origen=sorteo`, { headers: { 'api_key': API_KEY } })
         ]);
 
-        const ordenes = await resOrdenes.json().catch(() => []);
-        const gastos = await resGastos.json().catch(() => []);
+        const ordenesAll = await resOrdenes.json().catch(() => []);
+        const gastosAll = await resGastos.json().catch(() => []);
         const productos = await resProductos.json().catch(() => []);
         const sorteosActivos = await resSorteos.json().catch(() => []);
         const leadsSorteo = await resLeads.json().catch(() => []);
 
+        // FILTRADO POR FECHA GLOBAL
+        const start = fecha_inicio ? new Date(fecha_inicio) : null;
+        const end = fecha_fin ? new Date(fecha_fin) : null;
+        if (end) end.setHours(23, 59, 59, 999); // Final del día
+
+        const filterDate = (item, dateField) => {
+            if (!start && !end) return true;
+            const d = new Date(item[dateField] || item.created_at);
+            if (start && d < start) return false;
+            if (end && d > end) return false;
+            return true;
+        };
+
+        const ordenes = Array.isArray(ordenesAll) ? ordenesAll.filter(o => filterDate(o, 'fecha_creacion')) : [];
+        const gastos = Array.isArray(gastosAll) ? gastosAll.filter(g => filterDate(g, 'fecha')) : [];
+
         // 2. CALCULOS DE VENTAS Y ADS
-        const totalVentas = (Array.isArray(ordenes) ? ordenes : [])
+        const totalVentas = ordenes
             .filter(o => o.estado === 'PAGADA' || o.estado === 'ENTREGADA')
             .reduce((sum, o) => sum + (Number(o.resumen_economico?.total_final) || 0), 0);
 
-        const totalGastoAds = (Array.isArray(gastos) ? gastos : [])
-            // Filtramos solicitudes pendientes o rechazadas. 
-            // Aceptamos: status='approved' o undefined (legacy)
-            .filter(g => !g.status || g.status === 'approved')
+        const totalGastoAds = gastos
+            // Filtramos solicitudes pendientes, rechazadas o ARCHIVADAS (Reset)
+            .filter(g => (!g.status || g.status === 'approved') && !g.archived)
             .reduce((sum, g) => sum + (Number(g.monto) || 0), 0);
 
         // 3. LOGICA DE SORTEO (Marketing Motivacional)

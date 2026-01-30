@@ -11,7 +11,26 @@ import { toast } from 'react-hot-toast';
 export default function AdminEstadisticas({ comercio }) {
   const queryClient = useQueryClient();
   const [showCreditModal, setShowCreditModal] = useState(false);
+
   const [creditForm, setCreditForm] = useState({ monto: '', transactionId: '', consumptionPref: '' });
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+
+  const resetGastosMutation = useMutation({
+    mutationFn: async () => {
+      return await base44.functions.invoke('resetGastoPublicitario', {
+        commerce_code: comercio.commerce_code
+      });
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(`Contador reiniciado. ${data.count || 0} registros archivados.`);
+        queryClient.invalidateQueries(['estadisticas-admin', comercio.commerce_code]);
+      } else {
+        toast.error(data.message || 'Error reiniciando');
+      }
+    },
+    onError: () => toast.error('Error de conexión')
+  });
   const requestMutation = useMutation({
     mutationFn: async (data) => {
       return await base44.functions.invoke('solicitarCreditoPublicitario', {
@@ -30,16 +49,24 @@ export default function AdminEstadisticas({ comercio }) {
   });
 
   // Obtener todas las estadísticas desde el backend
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ['estadisticas-admin', comercio.commerce_code || comercio.id_comercio],
+  const { data: stats, isLoading, refetch } = useQuery({
+    queryKey: ['estadisticas-admin', comercio.commerce_code, dateRange.start, dateRange.end],
     queryFn: async () => {
       const response = await base44.functions.invoke('obtenerEstadisticas', {
         commerce_code: comercio.commerce_code,
-        id_comercio: comercio.id_comercio // Legacy fallback
+        id_comercio: comercio.id_comercio,
+        fecha_inicio: dateRange.start || undefined,
+        fecha_fin: dateRange.end || undefined
       });
       return response.data;
     }
   });
+
+  const handleResetGastos = () => {
+    if (confirm("¿Seguro que deseas reiniciar el contador de Gasto Publicitario? Esto archivará los gastos actuales y el contador volverá a 0.")) {
+      resetGastosMutation.mutate();
+    }
+  };
 
   const estadisticas = stats?.estadisticas || {};
   const gastos = stats?.gastos || [];
@@ -58,6 +85,39 @@ export default function AdminEstadisticas({ comercio }) {
 
   return (
     <div className="space-y-6">
+      {/* Cards de métricas principales */}
+      {/* Filtros de Fecha */}
+      <div className="bg-white p-4 rounded-xl border flex flex-wrap items-center gap-4 justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Label className="text-xs font-bold text-gray-500 uppercase">Desde</Label>
+            <Input
+              type="date"
+              value={dateRange.start}
+              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              className="w-40"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs font-bold text-gray-500 uppercase">Hasta</Label>
+            <Input
+              type="date"
+              value={dateRange.end}
+              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              className="w-40"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setDateRange({ start: '', end: '' })}>
+            Limpiar
+          </Button>
+          <Button size="sm" onClick={() => refetch()}>
+            Generar Reporte
+          </Button>
+        </div>
+      </div>
+
       {/* Cards de métricas principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
@@ -86,12 +146,25 @@ export default function AdminEstadisticas({ comercio }) {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Gasto Ads</CardTitle>
-            <DollarSign className="w-5 h-5 text-red-600" />
+            <CardTitle className="text-sm font-medium text-gray-600">Gasto Publicitario</CardTitle>
+            <div className="flex gap-2">
+              <DollarSign className="w-5 h-5 text-red-600" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">${(estadisticas.totalGastoAds || 0).toLocaleString('es-AR')}</div>
-            <p className="text-xs text-gray-500 mt-1">Meta Ads</p>
+            <div className="flex justify-between items-center mt-1">
+              <p className="text-xs text-gray-500">Meta Ads</p>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={handleResetGastos}
+                className="h-5 text-[10px] text-red-400 hover:text-red-600 hover:bg-red-50 -mr-2 px-2"
+                title="Reiniciar Contador"
+              >
+                Reset
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

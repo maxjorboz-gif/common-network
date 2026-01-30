@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { useState, useEffect } from 'react';
 import {
     Wallet,
     TrendingUp,
@@ -35,6 +35,45 @@ export default function AdminAdWallet({ comercio }) {
             return response.data.comercio;
         }
     });
+
+    const { data: config, isLoadingConfig } = useQuery({
+        queryKey: ['config-admin', comercio.commerce_code],
+        queryFn: async () => {
+            const response = await base44.functions.invoke('obtenerConfiguracion', {
+                commerce_code: comercio.commerce_code
+            });
+            return response.data.config;
+        }
+    });
+
+    const [dailyLimit, setDailyLimit] = useState(0);
+
+    useEffect(() => {
+        if (config?.limite_diario_ads) {
+            setDailyLimit(config.limite_diario_ads);
+        }
+    }, [config]);
+
+    const updateConfigMutation = useMutation({
+        mutationFn: async (newLimit) => {
+            return await base44.functions.invoke('actualizarConfiguracion', {
+                commerce_code: comercio.commerce_code,
+                configData: { limite_diario_ads: newLimit }
+            });
+        },
+        onSuccess: () => {
+            toast.success("Límite diario actualizado");
+            queryClient.invalidateQueries(['config-admin']);
+        }
+    });
+
+    const handleLimitChange = (e) => {
+        setDailyLimit(parseInt(e.target.value));
+    };
+
+    const saveLimit = () => {
+        updateConfigMutation.mutate(dailyLimit);
+    };
 
     const saldoActual = datosComercio?.saldo_publicidad || 0;
 
@@ -108,6 +147,52 @@ export default function AdminAdWallet({ comercio }) {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* PANEL DE GASTO DIARIO REGULABLE */}
+            <Card className="bg-neutral-900 text-white border-neutral-800">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-white">
+                        <Clock className="w-5 h-5 text-orange-500" /> Control de Gasto Diario
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="flex flex-col md:flex-row gap-8 items-center">
+                        <div className="flex-1 w-full space-y-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-bold uppercase tracking-wider text-neutral-400">Presupuesto Objetivo / Día</span>
+                                <span className="text-2xl font-black italic text-orange-500">${dailyLimit.toLocaleString()} ARS</span>
+                            </div>
+
+                            <input
+                                type="range"
+                                min="0"
+                                max="100000"
+                                step="1000"
+                                value={dailyLimit}
+                                onChange={handleLimitChange}
+                                onMouseUp={saveLimit}
+                                onTouchEnd={saveLimit}
+                                className="w-full h-3 bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-orange-600 hover:accent-orange-500"
+                            />
+                            <div className="flex justify-between text-xs text-neutral-600 font-mono">
+                                <span>Pausado ($0)</span>
+                                <span>$100.000</span>
+                            </div>
+                        </div>
+
+                        <div className="md:w-1/3 bg-neutral-800/50 p-4 rounded-xl border border-neutral-700/50">
+                            <h5 className="flex items-center gap-2 text-xs font-bold uppercase text-neutral-300 mb-2">
+                                <Zap size={12} className="text-yellow-500" /> Inteligencia Artificial
+                            </h5>
+                            <p className="text-xs text-neutral-400 leading-relaxed italic">
+                                "La IA puede no gastar nada en un día de bajo tráfico, y gastar el doble en un día 'caliente', pero
+                                <span className="text-white font-bold not-italic"> NUNCA superará en 30 días el promedio establecido </span>
+                                (${(dailyLimit * 30).toLocaleString()} al mes)."
+                            </p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* COMPARATIVA CONTRA AGENCY/ADS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

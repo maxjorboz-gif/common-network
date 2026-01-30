@@ -104,6 +104,33 @@ export default function AdminConfiguracion({ comercio }) {
     }
   });
 
+  const generarDiseno = useMutation({
+    mutationFn: async (style = 'auto') => {
+      if (!formData.descripcion_negocio && style === 'auto') throw new Error("Escribí una descripción primero para el modo automático");
+      const res = await base44.functions.invoke('generarDisenoTienda', {
+        descripcion_negocio: formData.descripcion_negocio,
+        nombre_comercio: formData.nombre_comercio_display || comercio.nombre_comercio,
+        estilo: style
+      });
+      // Check if function wrapper returns success/data structure or direct data
+      // Based on other files, it seems to return { data: { success: true, data: ... } } usually via axion/client
+      // Let's assume standard base44 client response structure: response.data is the body
+      if (res.data.error) throw new Error(res.data.error);
+      return res.data.data;
+    },
+    onSuccess: (data) => {
+      setFormData(prev => ({
+        ...prev,
+        brand_color_primary: data.brand_color_primary,
+        lead_hook_titulo: data.lead_hook_titulo,
+        // If we want to accept other suggestions:
+        // nombre_comercio_display: prev.nombre_comercio_display || data.nombre_sugerido
+      }));
+      toast.success("¡Diseño generado! " + data.mensaje_agente, { duration: 5000 });
+    },
+    onError: (e) => toast.error(e.message)
+  });
+
   const handleSave = () => {
     updateConfig.mutate(formData);
   };
@@ -232,6 +259,26 @@ export default function AdminConfiguracion({ comercio }) {
                 />
               </div>
 
+              <div>
+                <Label htmlFor="brand_color">Color de Marca</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    type="color"
+                    id="brand_color_picker"
+                    value={formData.brand_color_primary}
+                    onChange={(e) => setFormData({ ...formData, brand_color_primary: e.target.value })}
+                    className="w-12 h-10 p-1 cursor-pointer"
+                  />
+                  <Input
+                    id="brand_color"
+                    value={formData.brand_color_primary}
+                    onChange={(e) => setFormData({ ...formData, brand_color_primary: e.target.value })}
+                    placeholder="#000000"
+                    className="border-purple-200 font-mono uppercase"
+                  />
+                </div>
+              </div>
+
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <input
@@ -258,18 +305,49 @@ export default function AdminConfiguracion({ comercio }) {
           </div>
 
           <div className="space-y-2 pt-2">
-            <Label htmlFor="contexto_ia" className="text-purple-900 font-bold">Contexto del Negocio (Input para la IA)</Label>
-            <textarea
-              id="contexto_ia"
-              className="w-full min-h-[100px] p-3 rounded-md border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-              placeholder="Ej: Somos una empresa familiar dedicada a la fabricación de parrillas y asadores de alta calidad. Nuestro público valora la durabilidad, el diseño rústico pero moderno. Queremos transmitir confianza y tradición argentina."
-              value={formData.descripcion_negocio}
-              onChange={(e) => setFormData({ ...formData, descripcion_negocio: e.target.value })}
-            />
-            <p className="text-xs text-purple-600 text-right font-medium">
-              Cuanto más detalles des, mejor entenderá la IA qué priorizar en el diseño.
-            </p>
+            <div className="flex flex-col gap-3">
+              <Label htmlFor="contexto_ia" className="text-purple-900 font-bold">Contexto del Negocio (Input para la IA)</Label>
+              <textarea
+                id="contexto_ia"
+                className="w-full min-h-[100px] p-3 rounded-md border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                placeholder="Ej: Somos una empresa familiar dedicada a la fabricación de parrillas y asadores de alta calidad. Nuestro público valora la durabilidad, el diseño rústico pero moderno. Queremos transmitir confianza y tradición argentina."
+                value={formData.descripcion_negocio}
+                onChange={(e) => setFormData({ ...formData, descripcion_negocio: e.target.value })}
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-purple-600 font-medium">
+                  Cuanto más detalles des, mejor entenderá la IA qué priorizar en el diseño.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-purple-500 text-purple-700 hover:bg-purple-50 hover:text-purple-900 gap-2"
+                  onClick={() => generarDiseno.mutate()}
+                  disabled={generarDiseno.isPending || !formData.descripcion_negocio}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {generarDiseno.isPending ? 'Analizando...' : 'Generar Identidad con IA'}
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mt-2 justify-end">
+                <span className="text-xs font-bold text-purple-900 mr-2 flex items-center">O elegí un estilo directo:</span>
+                <Button type="button" size="xs" variant="outline" onClick={() => generarDiseno.mutate('corporativo')} disabled={generarDiseno.isPending}>
+                  👔 Serio
+                </Button>
+                <Button type="button" size="xs" variant="outline" onClick={() => generarDiseno.mutate('minimalista')} disabled={generarDiseno.isPending}>
+                  ✨ Minimalista
+                </Button>
+                <Button type="button" size="xs" variant="outline" onClick={() => generarDiseno.mutate('llamativo')} disabled={generarDiseno.isPending} className="text-red-600 border-red-200 hover:bg-red-50">
+                  🔥 Oferta
+                </Button>
+                <Button type="button" size="xs" variant="outline" onClick={() => generarDiseno.mutate('natural')} disabled={generarDiseno.isPending} className="text-green-600 border-green-200 hover:bg-green-50">
+                  🌿 Natural
+                </Button>
+              </div>
+            </div>
           </div>
+
 
         </CardContent>
       </Card>
@@ -640,6 +718,6 @@ export default function AdminConfiguracion({ comercio }) {
       <Button onClick={handleSave} className="w-full" disabled={updateConfig.isPending}>
         {updateConfig.isPending ? 'Guardando...' : 'Guardar Configuración'}
       </Button>
-    </div>
+    </div >
   );
 }
