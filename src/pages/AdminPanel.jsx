@@ -41,46 +41,24 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadData() {
-      const sessionRaw = localStorage.getItem('comercio_session') || localStorage.getItem('comercio_admin');
-
-      if (!sessionRaw) {
-        window.location.href = '/';
-        return;
-      }
-
+    async function init() {
       try {
-        const session = JSON.parse(sessionRaw);
+        const response = await base44.functions.invoke('obtenerDatosComercio');
 
-        // Consultamos la DATA FRESCA a la base de datos usando el código del localStorage
-        const commerceCode = session.commerce_code || session.id_comercio;
-
-        if (commerceCode) {
-          const response = await base44.functions.invoke('obtenerDatosComercio', {
-            commerce_code: commerceCode
-          });
-
-          if (response.data && response.data.comercio) {
-            setComercio(response.data.comercio);
-          } else {
-            // Fallback: Usamos lo que hay en localStorage si falla backend
-            setComercio(session);
-          }
+        if (response.data && response.data.comercio) {
+          setComercio(response.data.comercio);
+          setLoading(false);
         } else {
-          setComercio(session);
+          window.location.href = '/';
         }
-      } catch (e) {
-        console.error("Error cargando datos:", e);
-        // En caso de error, al menos mostramos lo que tenemos guardado
-        try {
-          setComercio(JSON.parse(sessionRaw));
-        } catch (err) { }
-      } finally {
-        setLoading(false);
+
+      } catch (err) {
+        console.error("Error cargando panel:", err);
+        window.location.href = '/';
       }
     }
 
-    loadData();
+    init();
   }, []);
 
   if (loading) return null;
@@ -105,9 +83,8 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            <Button variant="ghost" className="text-red-600 hover:text-red-700 font-bold" onClick={() => {
-              localStorage.removeItem('comercio_session');
-              localStorage.removeItem('comercio_admin');
+            <Button variant="ghost" className="text-red-600 hover:text-red-700 font-bold" onClick={async () => {
+              await base44.auth.logout();
               window.location.href = '/';
             }}>
               <LogOut className="w-4 h-4 mr-2" /> Salir

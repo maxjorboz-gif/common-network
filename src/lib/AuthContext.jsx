@@ -107,31 +107,9 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('User auth check failed:', error);
 
-      // FALLBACK: Recuperar sesión legacy (comercio_session) si falla la auth del SDK
-      const legacySession = localStorage.getItem('comercio_session') || localStorage.getItem('comercio_admin');
-      if (legacySession) {
-        try {
-          const session = JSON.parse(legacySession);
-          // Reconstruir un objeto usuario compatible
-          const recoveredUser = {
-            id: session.user_id || session.id || 'legacy_user',
-            email: session.email,
-            user_metadata: {
-              ...session,
-              commerce_code: session.commerce_code,
-              id_comercio: session.id_comercio
-            },
-            commerceCode: session.commerce_code
-          };
+      // FALLBACK: Eliminado por solicitud del usuario (ya no se usa localStorage para esto)
+      // La autenticación depende 100% del SDK de base44
 
-          setUser(recoveredUser);
-          setIsAuthenticated(true);
-          setIsLoadingAuth(false);
-          return;
-        } catch (e) {
-          console.error("Error recuperando sesión legacy:", e);
-        }
-      }
 
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
