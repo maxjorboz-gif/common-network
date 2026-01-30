@@ -66,12 +66,45 @@ Deno.serve(async (req) => {
         const configComercio = (Array.isArray(configs) && configs.length > 0) ? configs[0] : {
             nombre_tienda: "Mi Tienda",
             color_primario: "#ea580c",
-            banner_url: null
+            banner_url: null,
+            marketing_red_activo: false
         };
 
         const sorteoActivo = Array.isArray(sorteos) && sorteos.length > 0 ? sorteos[0] : null;
 
-        // 3. IDENTIDAD
+        // 3. LÓGICA DE RED DE SOCIOS (Cross-Marketing)
+        let anunciosRed = [];
+        if (configComercio.marketing_red_activo) {
+            try {
+                // Buscamos productos de OTROS comercios (id_comercio != actual)
+                // Limitamos a 20 para hacer el filtrado manual más rápido
+                const resOtros = await fetch(`${URL_PRODUCTO}?activo=true&_limit=20`, {
+                    headers: { 'api_key': API_KEY }
+                });
+                const otrosProductos = await resOtros.json().catch(() => []);
+
+                if (Array.isArray(otrosProductos)) {
+                    const filtrados = otrosProductos.filter(p =>
+                        (p.commerce_code !== commerceCode && p.id_comercio !== commerceCode)
+                    );
+
+                    // Separar por "Similares" (Misma categoría de negocio o complementaria - simplificado por ahora) 
+                    // y "Aleatorios"
+                    const mimaCategoria = filtrados.filter(p => p.categoria_negocio === configComercio.categoria_negocio);
+                    const otrasCategorias = filtrados.filter(p => p.categoria_negocio !== configComercio.categoria_negocio);
+
+                    // Tomamos 3 de cada (o lo que haya disponible)
+                    const similares = mimaCategoria.sort(() => 0.5 - Math.random()).slice(0, 3);
+                    const aleatorios = otrasCategorias.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+                    anunciosRed = [...similares, ...aleatorios];
+                }
+            } catch (e) {
+                console.warn("Error cargando Red de Socios:", e);
+            }
+        }
+
+        // 4. IDENTIDAD
         let mensaje_personalizado = null;
         if (clienteData && clienteData.nombre_completo) {
             const primerNombre = clienteData.nombre_completo.split(' ')[0];
@@ -84,7 +117,8 @@ Deno.serve(async (req) => {
                 categorias,
                 destacados,
                 configuracion: configComercio,
-                sorteo: sorteoActivo, // Entregamos el sorteo solo aquí (Landing Page) para el cartel
+                sorteo: sorteoActivo,
+                anunciosRed, // Nuevos anuncios de la red cruzada
                 identidad: {
                     cliente: clienteData ? {
                         id: customerId,

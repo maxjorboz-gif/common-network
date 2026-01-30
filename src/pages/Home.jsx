@@ -7,6 +7,7 @@ import ProductCard from '@/components/store/ProductCard';
 import ReviewSlider from '@/components/store/ReviewSlider';
 import CartDrawerNew from '@/components/store/CartDrawerNew';
 import PopupLeadHook from '@/components/ui/PopupLeadHook';
+import PartnerNetworkAds from '@/components/ui/PartnerNetworkAds';
 import { motion } from 'framer-motion';
 import { useCart } from '@/components/CartContext';
 
@@ -42,7 +43,7 @@ export default function Home() {
     enabled: !!COMERCIO_ID, // Solo ejecutar si hay ID
   });
 
-  const { comercio, combos, destacados, productosPorCategoria, resenasDestacadas, sorteo, identidad } = paginaData || {};
+  const { comercio, combos, destacados, productosPorCategoria, resenasDestacadas, sorteo, identidad, anunciosRed } = paginaData || {};
 
   // 2. Exit Intent mejorado
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white selection:bg-orange-600/50">
+      <PartnerNetworkAds anuncios={anunciosRed} />
 
       {/* HERO SECTION */}
       <section className="relative h-[85vh] flex items-center justify-center overflow-hidden border-b border-white/5">

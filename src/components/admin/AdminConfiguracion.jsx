@@ -34,7 +34,8 @@ export default function AdminConfiguracion({ comercio }) {
       cbu: '',
       alias: '',
       titular: ''
-    }
+    },
+    marketing_red_activo: false
   });
 
   React.useEffect(() => {
@@ -51,7 +52,8 @@ export default function AdminConfiguracion({ comercio }) {
           cbu: '',
           alias: '',
           titular: ''
-        }
+        },
+        marketing_red_activo: config.marketing_red_activo || false
       });
     }
   }, [config]);
