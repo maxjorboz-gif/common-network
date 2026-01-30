@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
 
         // EL FETCH (Tal cual tu snippet, adaptado a POST)
         console.log("Enviando a Base44:", BASE44_URL);
+        console.log("PAYLOAD_DEBUG:", JSON.stringify(entityPayload));
 
         const response = await fetch(BASE44_URL, {
             method: 'POST',

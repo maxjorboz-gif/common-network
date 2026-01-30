@@ -59,7 +59,7 @@ const MerchantRegister = () => {
 
                 // Redirigir al inicio tras breve pausa
                 setTimeout(() => {
-                    navigate('/');
+                    window.location.href = '/';
                 }, 2000);
             } else {
                 toast({ title: "Error de Registro", description: response.error || "No se pudo crear la cuenta.", variant: "destructive" });
