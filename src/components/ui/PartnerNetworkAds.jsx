@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Sparkles, TrendingUp } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
 
 export default function PartnerNetworkAds({ anuncios }) {
     if (!anuncios || anuncios.length === 0) return null;
@@ -12,6 +13,19 @@ export default function PartnerNetworkAds({ anuncios }) {
     const AdCard = ({ ad, side }) => {
         // Calculamos una URL de tienda basada en el commerce_code del producto
         const storeUrl = `/tienda/${ad.commerce_code || ad.id_comercio}`;
+
+        const handleAdClick = () => {
+            const clienteId = localStorage.getItem('cliente_id');
+            if (clienteId) {
+                // Assuming 'base44' is globally available or imported elsewhere
+                // If not, you might need to import it or pass it as a prop
+                base44.functions.invoke('registrarInteres', {
+                    id_cliente: clienteId,
+                    interes: ad.categoria_negocio || 'Interés en Red',
+                    commerce_code: ad.commerce_code || ad.id_comercio
+                }).catch(err => console.warn('Error tracking ad click:', err));
+            }
+        };
 
         return (
             <motion.div
@@ -36,6 +50,7 @@ export default function PartnerNetworkAds({ anuncios }) {
                         </p>
                         <a
                             href={storeUrl}
+                            onClick={handleAdClick}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[9px] text-neutral-500 hover:text-white flex items-center gap-1 mt-1 transition-colors"

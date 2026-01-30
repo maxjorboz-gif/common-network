@@ -28,6 +28,18 @@ export default function Producto() {
     enabled: !!idProducto
   });
 
+  // Tracking de Intereses a nivel de ficha de producto
+  React.useEffect(() => {
+    const clienteId = localStorage.getItem('cliente_id');
+    if (clienteId && data?.producto) {
+      base44.functions.invoke('registrarInteres', {
+        id_cliente: clienteId,
+        interes: data.producto.categoria || 'Vista de Producto',
+        commerce_code: commerce_code
+      }).catch(err => console.warn('Error tracking interes:', err));
+    }
+  }, [data, commerce_code]);
+
   // --- LÓGICA DE ARCHIVOS ESTANDARIZADA ---
   const getFileUrl = (file) => {
     if (!file) return null;

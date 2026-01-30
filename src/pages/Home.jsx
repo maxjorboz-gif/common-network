@@ -45,6 +45,13 @@ export default function Home() {
 
   const { comercio, combos, destacados, productosPorCategoria, resenasDestacadas, sorteo, identidad, anunciosRed } = paginaData || {};
 
+  // Persistencia de Identidad para Tracking de Intereses
+  useEffect(() => {
+    if (identidad?.cliente?.id) {
+      localStorage.setItem('cliente_id', identidad.cliente.id);
+    }
+  }, [identidad]);
+
   // 2. Exit Intent mejorado
   useEffect(() => {
     const handleMouseLeave = (e) => {
