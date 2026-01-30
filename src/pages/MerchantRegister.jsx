@@ -31,16 +31,6 @@ const MerchantRegister = () => {
         confirmPassword: ''
     });
 
-    const [numOperacion, setNumOperacion] = useState('');
-    const [pendingId, setPendingId] = useState(null);
-
-    // Google validation check removed for native registration
-
-    const copyCBU = () => {
-        navigator.clipboard.writeText("0000003100000000000000");
-        toast({ title: "CBU Copiado", description: "Listo para transferir." });
-    };
-
     const handleNextStep = async (e) => {
         e.preventDefault();
         if (form.password !== form.confirmPassword) {
@@ -61,14 +51,16 @@ const MerchantRegister = () => {
             };
 
             const resultRaw = await base44.functions.invoke('registrarComercio', payload);
-            // Normalizar respuesta: El SDK puede devolver { data: {...} } o el objeto directo
             const response = resultRaw.data || resultRaw;
 
             if (response && response.success) {
-                setPendingId(response.id_solicitud);
                 setCreatedCommerceCode(response.commerce_code);
-                setStep(2);
-                toast({ title: "Cuenta Provisoria Creada", description: "Por favor procede al pago." });
+                toast({ title: "¡Cuenta Creada!", description: "Redirigiendo al inicio..." });
+
+                // Redirigir al inicio tras breve pausa
+                setTimeout(() => {
+                    navigate('/');
+                }, 2000);
             } else {
                 toast({ title: "Error de Registro", description: response.error || "No se pudo crear la cuenta.", variant: "destructive" });
             }
@@ -79,33 +71,6 @@ const MerchantRegister = () => {
             setLoading(false);
         }
     };
-
-    const handleFinalSubmit = async () => {
-        if (!numOperacion || !pendingId) return;
-        setLoading(true);
-        try {
-            const payload = {
-                action: 'update_payment',
-                id_solicitud: pendingId,
-                numero_operacion: numOperacion
-            };
-
-            const response = await base44.functions.invoke('registrarComercio', payload);
-
-            if (response.success) {
-                setStep(3);
-                toast({ title: "¡Todo Listo!", description: "Tu comercio será habilitado pronto." });
-            } else {
-                toast({ title: "Error", description: response.error || "No se pudo registrar el pago.", variant: "destructive" });
-            }
-        } catch (error) {
-            console.error("Error en pago:", error);
-            toast({ title: "Error", description: "Fallo al enviar el comprobante.", variant: "destructive" });
-        } finally {
-            setLoading(false);
-        }
-    };
-
 
     return (
         <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4 relative overflow-hidden">
@@ -125,152 +90,101 @@ const MerchantRegister = () => {
                 } />
             </div>
 
-            {step === 3 ? (
-                <div className="relative z-50 w-full max-w-xl animate-in fade-in zoom-in duration-500">
-                    <Card className="bg-neutral-900 border-neutral-800 shadow-2xl overflow-hidden rounded-[3rem]">
-                        <button
-                            onClick={() => navigate('/')}
-                            className="absolute top-6 right-6 text-neutral-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full z-10"
+            <div className="relative z-10 w-full max-w-xl animate-in slide-in-from-bottom duration-500">
+                <Card className="shadow-2xl bg-neutral-900 border-neutral-800 overflow-hidden rounded-[2.5rem]">
+                    <div className="bg-orange-600 py-3 px-6 text-center">
+                        <p className="text-white font-black italic uppercase text-xs tracking-widest">
+                            GRATIS DE POR VIDA • CRECÉS VOS, CRECEMOS TODOS
+                        </p>
+                    </div>
+
+                    <CardHeader className="text-center pt-8">
+                        <div className="mx-auto w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center mb-4 border border-orange-500/20">
+                            <Store className="w-8 h-8 text-orange-600" />
+                        </div>
+                        <CardTitle className="text-3xl font-black italic uppercase text-white tracking-tighter">
+                            Crea tu Marca
+                        </CardTitle>
+                        <p className="text-neutral-400 text-sm font-medium">
+                            Ingresa los datos para tu nuevo e-commerce y empezá a vender.
+                        </p>
+                    </CardHeader>
+
+                    <CardContent className="space-y-6 pt-4">
+                        <form id="step1" onSubmit={handleNextStep} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2 col-span-2">
+                                <label className="text-xs font-black uppercase text-neutral-500 italic">Nombre del comercio</label>
+                                <Input
+                                    className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
+                                    placeholder="Ej: Mi Parrilla Pro"
+                                    required
+                                    value={form.nombreComercio}
+                                    onChange={e => setForm({ ...form, nombreComercio: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase text-neutral-500 italic">Email Verificado (Google)</label>
+                                <Input
+                                    type="email"
+                                    className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
+                                    required
+                                    value={form.email}
+                                    onChange={e => setForm({ ...form, email: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase text-neutral-500 italic">WhatsApp</label>
+                                <Input
+                                    className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
+                                    required
+                                    value={form.whatsapp}
+                                    onChange={e => setForm({ ...form, whatsapp: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2 col-span-2">
+                                <label className="text-xs font-black uppercase text-neutral-500 italic">Usuario Admin</label>
+                                <Input
+                                    className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
+                                    required
+                                    value={form.usuario}
+                                    onChange={e => setForm({ ...form, usuario: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase text-neutral-500 italic">Contraseña</label>
+                                <Input
+                                    type="password"
+                                    className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
+                                    required
+                                    value={form.password}
+                                    onChange={e => setForm({ ...form, password: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black uppercase text-neutral-500 italic">Repetir</label>
+                                <Input
+                                    type="password"
+                                    className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
+                                    required
+                                    value={form.confirmPassword}
+                                    onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                                />
+                            </div>
+                        </form>
+                    </CardContent>
+
+                    <CardFooter className="pb-10 pt-4 px-10">
+                        <Button
+                            form="step1"
+                            type="submit"
+                            disabled={loading}
+                            className="w-full h-16 bg-orange-600 hover:bg-orange-700 text-white font-black italic uppercase rounded-2xl text-lg group"
                         >
-                            <X size={24} />
-                        </button>
-
-                        <div className="p-12 text-center space-y-8">
-                            <div className="w-24 h-24 bg-orange-500/10 rounded-[2.5rem] flex items-center justify-center mx-auto border border-orange-500/20">
-                                <CheckCircle2 className="w-12 h-12 text-green-500 animate-bounce" />
-                            </div>
-
-                            <div className="space-y-4">
-                                <h2 className="text-4xl font-black italic uppercase tracking-tighter text-white leading-none">
-                                    ¡Bienvenido a la <br />
-                                    <span className="text-orange-600">Common Network</span>
-                                </h2>
-                                <p className="text-neutral-400 font-medium text-lg leading-relaxed">
-                                    Tu tienda <span className="text-white font-bold">{createdCommerceCode}</span> ya está activa. <br />
-                                    Ya podés ingresar a tu panel de administración, cargar tus productos y empezar a crecer.
-                                </p>
-                            </div>
-
-                            <div className="bg-orange-600/10 border border-orange-500/20 rounded-[2rem] p-6 space-y-4">
-                                <p className="text-xs text-orange-500 font-black uppercase tracking-widest italic">Crecimiento Inmediato:</p>
-                                <p className="text-neutral-300 text-sm">
-                                    ¿Querés vender más rápido? Invertí en nuestra <b>Red de Socios</b> desde tu panel y aparecé en las mejores tiendas.
-                                </p>
-                                <LoginModal trigger={
-                                    <Button className="w-full bg-orange-600 text-white font-black italic uppercase h-14 rounded-xl">
-                                        Ingresar a Mi Panel
-                                    </Button>
-                                } />
-                            </div>
-
-                            <div className="pt-4">
-                                <button
-                                    onClick={() => window.location.href = '/'}
-                                    className="text-neutral-500 hover:text-white uppercase font-bold text-xs tracking-widest"
-                                >
-                                    Volver al inicio
-                                </button>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-            ) : (
-                <div className="relative z-10 w-full max-w-xl animate-in slide-in-from-bottom duration-500">
-                    <Card className="shadow-2xl bg-neutral-900 border-neutral-800 overflow-hidden rounded-[2.5rem]">
-                        <div className="bg-orange-600 py-3 px-6 text-center">
-                            <p className="text-white font-black italic uppercase text-xs tracking-widest">
-                                GRATIS DE POR VIDA • CRECÉS VOS, CRECEMOS TODOS
-                            </p>
-                        </div>
-
-                        <CardHeader className="text-center pt-8">
-                            <div className="mx-auto w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center mb-4 border border-orange-500/20">
-                                <Store className="w-8 h-8 text-orange-600" />
-                            </div>
-                            <CardTitle className="text-3xl font-black italic uppercase text-white tracking-tighter">
-                                Crea tu Marca
-                            </CardTitle>
-                            <p className="text-neutral-400 text-sm font-medium">
-                                Ingresa los datos para tu nuevo e-commerce y empezá a vender.
-                            </p>
-                        </CardHeader>
-
-                        <CardContent className="space-y-6 pt-4">
-                            <form id="step1" onSubmit={handleNextStep} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2 col-span-2">
-                                    <label className="text-xs font-black uppercase text-neutral-500 italic">Nombre del comercio</label>
-                                    <Input
-                                        className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
-                                        placeholder="Ej: Mi Parrilla Pro"
-                                        required
-                                        value={form.nombreComercio}
-                                        onChange={e => setForm({ ...form, nombreComercio: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-neutral-500 italic">Email Verificado (Google)</label>
-                                    <Input
-                                        type="email"
-                                        className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
-                                        required
-                                        value={form.email}
-                                        onChange={e => setForm({ ...form, email: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-neutral-500 italic">WhatsApp</label>
-                                    <Input
-                                        className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
-                                        required
-                                        value={form.whatsapp}
-                                        onChange={e => setForm({ ...form, whatsapp: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2 col-span-2">
-                                    <label className="text-xs font-black uppercase text-neutral-500 italic">Usuario Admin</label>
-                                    <Input
-                                        className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
-                                        required
-                                        value={form.usuario}
-                                        onChange={e => setForm({ ...form, usuario: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-neutral-500 italic">Contraseña</label>
-                                    <Input
-                                        type="password"
-                                        className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
-                                        required
-                                        value={form.password}
-                                        onChange={e => setForm({ ...form, password: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-black uppercase text-neutral-500 italic">Repetir</label>
-                                    <Input
-                                        type="password"
-                                        className="bg-neutral-800 border-neutral-700 text-white h-12 rounded-xl"
-                                        required
-                                        value={form.confirmPassword}
-                                        onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
-                                    />
-                                </div>
-                            </form>
-                        </CardContent>
-
-                        <CardFooter className="pb-10 pt-4 px-10">
-                            <Button
-                                form="step1"
-                                type="submit"
-                                disabled={loading}
-                                className="w-full h-16 bg-orange-600 hover:bg-orange-700 text-white font-black italic uppercase rounded-2xl text-lg group"
-                            >
-                                {loading ? <Loader2 className="animate-spin" /> : <>Finalizar Registro <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" /></>}
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                </div>
-            )}
+                            {loading ? <Loader2 className="animate-spin" /> : <>Finalizar Registro <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" /></>}
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </div>
         </div>
     );
 };

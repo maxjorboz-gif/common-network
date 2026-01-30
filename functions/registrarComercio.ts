@@ -13,28 +13,8 @@ Deno.serve(async (req) => {
         const body = await req.json();
         const { action, ...data } = body;
 
-        // --- MANEJO DE PAGO (SIMULADO / SIMPLE) ---
-        if (action === 'update_payment') {
-            const { id_registro, numero_operacion } = data;
-
-            if (id_registro) {
-                const updateUrl = `${BASE44_URL}/${id_registro}`;
-                await fetch(updateUrl, {
-                    method: 'PUT',
-                    headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        numero_operacion: numero_operacion, // Guardamos el numero real
-                        estado_registro: 'pendiente_aprobacion'
-                    })
-                });
-            }
-
-            return Response.json({
-                success: true,
-                step: 'payment_updated',
-                message: "¡Gracias! Tu pago ha sido informado. En breve procesaremos tu solicitud."
-            });
-        }
+        // --- MANEJO DE PAGO ELIMINADO ---
+        // La lógica de update_payment ha sido removida ya que el registro es directo.
 
         // --- MANEJO DE CREACIÓN (REAL) ---
 
@@ -55,6 +35,7 @@ Deno.serve(async (req) => {
         // 2. Generamos datos
         // Generamos datos requeridos por la DB
         const commerceCode = Math.random().toString(36).substring(2, 12).toUpperCase();
+        const newUserId = crypto.randomUUID(); // Generamos user_id único
 
         // Construimos el payload EXACTO para Base44
         const entityPayload = {
@@ -64,8 +45,9 @@ Deno.serve(async (req) => {
             password: data.password, // Guardamos contraseña para Login Propio
             whatsapp_negocio: data.whatsapp,
 
-            // Campos requeridos por tu Schema (user_id eliminado bajo supuesto de que ya es opcional)
+            // Campos de Identificación
             commerce_code: commerceCode,
+            user_id: newUserId, // ASIGNACIÓN DE USER_ID OBLIGATORIO
 
             // Valores por defecto: AHORA ACTIVOS POR DEFECTO (Estrategia de Cero Fricción)
             estado_registro: "completado",
