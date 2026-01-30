@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Menu, X, Flame } from 'lucide-react';
+import { Home, Menu, X, Flame, LayoutDashboard } from 'lucide-react';
 import CartDrawerNew from '@/components/store/CartDrawerNew';
 import CartButton from '@/components/CartButton';
 import { useAuth } from '@/lib/AuthContext';
@@ -19,10 +19,9 @@ export default function Layout({ children }) {
   const location = useLocation();
   const currentPageName = getPageNameFromPath(location.pathname);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // useAuth se mantiene por si se necesita en el futuro, pero limpiamos la variable no usada si no es necesaria para lógica oculta.
-  // Si no se usa en absoluto, podríamos borrar el hook, pero dejaré el import por si la lógica de auth se expande. 
-  // Eliminando la destructuración de 'user' que no se usaba.
-  const auth = useAuth();
+
+  // Consumo pasivo del contexto: solo leemos si hay comercio auth, no bloqueamos nada.
+  const { isCommerceAuthenticated, commerce } = useAuth();
 
   const isAdminPage = currentPageName === 'AdminPanel';
   const isLandingPage = currentPageName === 'Landing';
@@ -56,8 +55,18 @@ export default function Layout({ children }) {
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center gap-6">
 
+                {/* Si estamos autenticados como comercio, mostramos acceso directo al panel */}
+                {isCommerceAuthenticated && (
+                  <Link
+                    to="/adminpanel"
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral-800 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-neutral-700 transition-colors"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Mi Panel
+                  </Link>
+                )}
 
-                {isLandingPage && (
+                {isLandingPage && !isCommerceAuthenticated && (
                   <Link
                     to="/registro"
                     className={`px-4 py-2 rounded-xl text-sm font-black uppercase italic tracking-widest transition-all text-neutral-400 hover:text-white`}

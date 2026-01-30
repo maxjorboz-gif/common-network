@@ -1,10 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Rocket, Shield, Zap, ArrowRight, Store, Globe, Star, Users, Banknote, CreditCard, PieChart } from 'lucide-react';
+import { Rocket, Shield, Zap, ArrowRight, Store, Globe, Star, Users, Banknote, CreditCard, PieChart, LayoutDashboard } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function LandingPage() {
+    const { isCommerceAuthenticated } = useAuth();
 
     return (
         <div className="min-h-screen bg-neutral-950 text-white overflow-hidden relative">
@@ -42,11 +44,19 @@ export default function LandingPage() {
                         </p>
 
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                            <Link to="/registro">
-                                <Button size="lg" className="h-16 px-10 bg-orange-600 hover:bg-orange-700 text-white font-black italic uppercase rounded-2xl text-lg shadow-[0_0_40px_rgba(234,88,12,0.3)] group">
-                                    Empezar a Vender <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" />
-                                </Button>
-                            </Link>
+                            {isCommerceAuthenticated ? (
+                                <Link to="/adminpanel">
+                                    <Button size="lg" className="h-16 px-10 bg-green-600 hover:bg-green-700 text-white font-black italic uppercase rounded-2xl text-lg shadow-[0_0_40px_rgba(22,163,74,0.3)] group">
+                                        Ir a mi Panel <LayoutDashboard className="ml-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+                                    </Button>
+                                </Link>
+                            ) : (
+                                <Link to="/registro">
+                                    <Button size="lg" className="h-16 px-10 bg-orange-600 hover:bg-orange-700 text-white font-black italic uppercase rounded-2xl text-lg shadow-[0_0_40px_rgba(234,88,12,0.3)] group">
+                                        Empezar a Vender <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" />
+                                    </Button>
+                                </Link>
+                            )}
                         </div>
                     </motion.div>
                 </div>
@@ -109,11 +119,20 @@ export default function LandingPage() {
                         <p className="text-neutral-400 text-lg mb-12">
                             Únete a la red de emprendedores digitales más grande de la región.
                         </p>
-                        <Link to="/registro">
-                            <Button size="lg" className="h-16 px-12 bg-white text-black hover:bg-neutral-200 font-black italic uppercase rounded-2xl text-lg">
-                                Registrar mi Marca
-                            </Button>
-                        </Link>
+
+                        {isCommerceAuthenticated ? (
+                            <Link to="/adminpanel">
+                                <Button size="lg" className="h-16 px-12 bg-white text-black hover:bg-neutral-200 font-black italic uppercase rounded-2xl text-lg">
+                                    Ir a mi Panel
+                                </Button>
+                            </Link>
+                        ) : (
+                            <Link to="/registro">
+                                <Button size="lg" className="h-16 px-12 bg-white text-black hover:bg-neutral-200 font-black italic uppercase rounded-2xl text-lg">
+                                    Registrar mi Marca
+                                </Button>
+                            </Link>
+                        )}
                     </div>
                 </div>
             </section>
@@ -143,4 +162,5 @@ function StatItem({ count, label }) {
         </div>
     );
 }
+
 

@@ -1,125 +1,97 @@
-import React, { useEffect, useState } from "react";
-import {
-  Package,
-  ShoppingBag,
-  Users,
-  Settings,
-  TrendingUp,
-  MessageCircle,
-} from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/AuthContext';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
-import AdminProductos from "@/components/admin/AdminProductos";
-import AdminOrdenes from "@/components/admin/AdminOrdenes";
-import AdminLeads from "@/components/admin/AdminLeads";
-import AdminEstadisticas from "@/components/admin/AdminEstadisticas";
-import AdminConfiguracion from "@/components/admin/AdminConfiguracion";
-import AdminConversaciones from "@/components/admin/AdminConversaciones";
+// Importación de sub-componentes administrativos
+import AdminProductos from '@/components/admin/AdminProductos.jsx';
+import AdminOrdenes from '@/components/admin/AdminOrdenes.jsx';
+import AdminLeads from '@/components/admin/AdminLeads.jsx';
+import AdminEstadisticas from '@/components/admin/AdminEstadisticas.jsx';
+import AdminConfiguracion from '@/components/admin/AdminConfiguracion.jsx';
+import AdminConversaciones from '@/components/admin/AdminConversaciones.jsx';
+import AdminSorteos from '@/components/admin/AdminSorteos.jsx';
+import AdminAdWallet from '@/components/admin/AdminAdWallet.jsx';
 
 export default function AdminPanel() {
-  const [comercio, setComercio] = useState(null);
-  const [tab, setTab] = useState("estadisticas");
+  const { commerce, isCommerceAuthenticated, isLoadingCommerce, logoutComercio } = useAuth();
+  const [selectedTab, setSelectedTab] = useState('estadisticas');
 
+  // Protection Check
   useEffect(() => {
-    const raw = localStorage.getItem("comercio_session");
-    if (!raw) {
-      window.location.href = "/";
-      return;
+    if (!isLoadingCommerce && !isCommerceAuthenticated) {
+      window.location.href = '/';
     }
+  }, [isLoadingCommerce, isCommerceAuthenticated]);
 
-    try {
-      setComercio(JSON.parse(raw));
-    } catch {
-      localStorage.removeItem("comercio_session");
-      window.location.href = "/";
-    }
-  }, []);
-
-  const logout = () => {
-    localStorage.removeItem("comercio_session");
-    window.location.href = "/";
-  };
-
-  if (!comercio) {
+  if (isLoadingCommerce) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Cargando panel...</p>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-12 w-12 bg-gray-200 rounded-full mb-4"></div>
+          <div className="h-4 w-32 bg-gray-200 rounded"></div>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="max-w-7xl mx-auto px-4 space-y-6">
+  // Double check to prevent flash of content
+  if (!commerce) return null;
 
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Panel de Administración</h1>
-            <p className="text-orange-600 font-medium">
-              {comercio.nombre_comercio}
-            </p>
+  return (
+    <div className="min-h-screen bg-white">
+      <header className="bg-white border-b sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-600/20">
+              {commerce.logo ? (
+                <img src={commerce.logo} alt="Logo" className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <span className="text-white font-bold">{commerce.nombre?.[0] || 'A'}</span>
+              )}
+            </div>
+            <div>
+              <div>
+                <h1 className="font-black text-xl tracking-tighter uppercase italic">
+                  {commerce.nombre || 'Admin Panel'}
+                </h1>
+                <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 font-bold text-[10px] uppercase">
+                  {commerce.estado_registro || 'Activo'}
+                </Badge>
+              </div>
+            </div>
           </div>
-          <Button variant="outline" onClick={logout}>
-            Cerrar sesión
+
+          <Button variant="ghost" className="text-red-600 hover:text-red-700 font-bold" onClick={logoutComercio}>
+            Salir
           </Button>
         </div>
+      </header>
 
-        {/* Tabs */}
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid grid-cols-3 md:grid-cols-6">
-            <TabsTrigger value="estadisticas">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Estadísticas
-            </TabsTrigger>
-            <TabsTrigger value="productos">
-              <Package className="w-4 h-4 mr-2" />
-              Productos
-            </TabsTrigger>
-            <TabsTrigger value="ordenes">
-              <ShoppingBag className="w-4 h-4 mr-2" />
-              Órdenes
-            </TabsTrigger>
-            <TabsTrigger value="leads">
-              <Users className="w-4 h-4 mr-2" />
-              Leads
-            </TabsTrigger>
-            <TabsTrigger value="chats">
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Chats
-            </TabsTrigger>
-            <TabsTrigger value="config">
-              <Settings className="w-4 h-4 mr-2" />
-              Config
-            </TabsTrigger>
+      <main className="max-w-7xl mx-auto px-6 py-10">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+          <TabsList className="grid grid-cols-4 md:grid-cols-8 mb-8 bg-white border h-auto p-1 shadow-sm overflow-x-auto">
+            <TabsTrigger value="estadisticas" className="flex items-center gap-2 py-3">Stat</TabsTrigger>
+            <TabsTrigger value="productos" className="flex items-center gap-2 py-3">Prod</TabsTrigger>
+            <TabsTrigger value="ordenes" className="flex items-center gap-2 py-3">Ventas</TabsTrigger>
+            <TabsTrigger value="leads" className="flex items-center gap-2 py-3">Leads</TabsTrigger>
+            <TabsTrigger value="conversaciones" className="flex items-center gap-2 py-3">Chat</TabsTrigger>
+            <TabsTrigger value="config" className="flex items-center gap-2 py-3">Config</TabsTrigger>
+            <TabsTrigger value="sorteos" className="flex items-center gap-2 py-3">Sorteos</TabsTrigger>
+            <TabsTrigger value="ads" className="flex items-center gap-2 py-3">Ads</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="estadisticas">
-            <AdminEstadisticas comercio={comercio} />
-          </TabsContent>
-
-          <TabsContent value="productos">
-            <AdminProductos comercio={comercio} />
-          </TabsContent>
-
-          <TabsContent value="ordenes">
-            <AdminOrdenes comercio={comercio} />
-          </TabsContent>
-
-          <TabsContent value="leads">
-            <AdminLeads comercio={comercio} />
-          </TabsContent>
-
-          <TabsContent value="chats">
-            <AdminConversaciones comercio={comercio} />
-          </TabsContent>
-
-          <TabsContent value="config">
-            <AdminConfiguracion comercio={comercio} />
-          </TabsContent>
+          <TabsContent value="estadisticas"><AdminEstadisticas comercio={commerce} /></TabsContent>
+          <TabsContent value="productos"><AdminProductos comercio={commerce} /></TabsContent>
+          <TabsContent value="ordenes"><AdminOrdenes comercio={commerce} /></TabsContent>
+          <TabsContent value="leads"><AdminLeads comercio={commerce} /></TabsContent>
+          <TabsContent value="conversaciones"><AdminConversaciones comercio={commerce} /></TabsContent>
+          <TabsContent value="config"><AdminConfiguracion comercio={commerce} /></TabsContent>
+          <TabsContent value="sorteos"><AdminSorteos comercio={commerce} /></TabsContent>
+          <TabsContent value="ads"><AdminAdWallet comercio={commerce} /></TabsContent>
         </Tabs>
-      </div>
+      </main>
     </div>
   );
 }

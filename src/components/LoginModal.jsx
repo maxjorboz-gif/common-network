@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { base44 } from '@/api/base44Client';
 import { Loader2, User, KeyRound, Mail } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from '@/lib/AuthContext';
 
 export function LoginModal({ trigger }) {
     const [email, setEmail] = useState('');
@@ -22,40 +22,36 @@ export function LoginModal({ trigger }) {
     const [loading, setLoading] = useState(false);
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
+    const { loginComercio } = useAuth();
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            // BACKDOOR SECRETO: Acceso Directo
+            // BACKDOOR SECRETO: Acceso Directo (Mantenido bajo pedido)
+            // TODO: Eliminar en producción
             if (email === "putoboto@demierda.com" && password === "abriteporfavor") {
                 toast({ title: "ACCESO SUPREMO", description: "Entrando..." });
                 window.location.href = '/adminSupreme';
                 return;
             }
 
-            // LOGIN CUSTOM: Llamada a función backend que chequea tabla Comercio
-            const resultRaw = await base44.functions.invoke('loginComercio', {
-                email,
-                password
-            });
-            const result = resultRaw.data || resultRaw; // Normalizar respuesta
+            // Usar AuthContext para Login Unificado
+            const result = await loginComercio(email, password);
 
-            if (!result || !result.success) {
-                throw new Error(result?.error || "Credenciales inválidas");
+            if (!result.success) {
+                throw new Error(result.error || "Credenciales inválidas");
             }
 
-
-
-            toast({ title: "Bienvenido", description: `Hola, ${result.nombre_comercio}` });
+            toast({ title: "Bienvenido", description: "Iniciando sesión..." });
             setOpen(false);
 
-            // Redirigir al panel de administración (Ruta solicitada por usuario)
+            // Redirigir al panel de administración seguro
             window.location.href = '/adminpanel';
         } catch (error) {
             toast({
                 title: "Error de acceso",
-                description: error.message || "Credenciales inválidas",
+                description: error.message || "Verifique sus datos",
                 variant: "destructive"
             });
         } finally {

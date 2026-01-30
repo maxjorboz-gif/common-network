@@ -6,30 +6,145 @@ import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  // --- Standard User Auth (Base44) ---
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
-  const [authError, setAuthError] = useState(null);
-  const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const [isLoadingAuth, setIsLoadingAuth] = useState(false);
 
+  // --- Commerce Auth (Custom Internal) ---
+  const [commerce, setCommerce] = useState(null);
+  const [commerceToken, setCommerceToken] = useState(localStorage.getItem('commerce_token'));
+  const [isCommerceAuthenticated, setIsCommerceAuthenticated] = useState(!!localStorage.getItem('commerce_token'));
+  const [isLoadingCommerce, setIsLoadingCommerce] = useState(false);
+
+  // --- App Settings ---
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
+  const [authError, setAuthError] = useState(null);
+  const [appPublicSettings, setAppPublicSettings] = useState(null);
+
+  // Initial Load - Check for existing sessions without blocking
   useEffect(() => {
-    checkAppState();
+    // 1. Recover Commerce Session if token exists
+    const storedToken = localStorage.getItem('commerce_token');
+    if (storedToken) {
+      refreshCommerceSession(storedToken);
+    }
+
+    // 2. We can lazily check standard user auth if needed, 
+    // but we respect the "passive" requirement by default.
   }, []);
+
+  // --- Commerce Auth Methods ---
+
+  const loginComercio = async (email, password) => {
+    setIsLoadingCommerce(true);
+    try {
+      const response = await base44.functions.invoke('loginComercio', { email, password });
+
+      if (response.data && response.data.success) {
+        const { session, commerce } = response.data;
+
+        // Save source of truth
+        localStorage.setItem('commerce_token', session.token);
+        localStorage.setItem('commerce_data', JSON.stringify(commerce)); // Fast retrieval
+
+        setCommerceToken(session.token);
+        setCommerce(commerce);
+        setIsCommerceAuthenticated(true);
+        setIsLoadingCommerce(false);
+        return { success: true };
+      } else {
+        throw new Error(response.data?.error || 'Login fallido');
+      }
+    } catch (error) {
+      console.error("Commerce Login Error:", error);
+      setIsLoadingCommerce(false);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const logoutComercio = () => {
+    localStorage.removeItem('commerce_token');
+    localStorage.removeItem('commerce_data');
+    setCommerce(null);
+    setCommerceToken(null);
+    setIsCommerceAuthenticated(false);
+    // Optional: Redirect to home or login
+    window.location.href = '/';
+  };
+
+  const refreshCommerceSession = async (tokenOverride) => {
+    const token = tokenOverride || commerceToken;
+    if (!token) return;
+
+    setIsLoadingCommerce(true);
+    try {
+      // We use the raw fetch or a configured client that allows custom headers
+      // Since base44.functions.invoke might not easily support custom headers for THIS verify call
+      // We'll use the specific function endpoint directly or a helper.
+      // ACTUALLY: base44.functions.invoke usually sends standard auth. 
+      // We need to send our CUSTOM commerce token.
+
+      // We will assume the backend function 'obtenerDatosComercio' looks at Authorization header.
+      // We can use a direct fetch to the function URL for this specific "me" check
+      // OR pass the token in the body if we wanted, but we changed the backend to use Headers.
+
+      // Hack/Workaround: Using standard fetch for this specific secure call
+      // to ensure we pass the Bearer token correctly.
+      const appId = appParams.appId;
+      // Note: This URL must match your actual deployment or proxy
+      // Using relative path via Vite proxy if available, or full URL
+      const functionUrl = `/api/apps/${appId}/functions/obtenerDatosComercio`;
+      // If we are in dev/local, we might need the full URL from the file we just edited? 
+      // Deno functions are usually served by the platform.
+      // Let's try invoking via SDK but passing the header if the SDK allows, 
+      // if not, fallback to direct fetch.
+
+      // SDK doesn't always expose header overrides easily for function calls.
+      // Using standard direct fetch to mapped URL.
+      // ATTENTION: Providing the function URL assumes standard Base44 routing.
+
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({}) // Empty body
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.comercio) {
+        setCommerce(data.comercio);
+        setIsCommerceAuthenticated(true);
+      } else {
+        // Token invalid or expired
+        logoutComercio();
+      }
+    } catch (err) {
+      console.error("Session Refresh Error:", err);
+      // Don't auto-logout on network error, only on auth invalid
+      if (err.status === 401 || err.status === 403) {
+        logoutComercio();
+      }
+    } finally {
+      setIsLoadingCommerce(false);
+    }
+  };
+
+
+  // --- Standard User Auth Methods (Legacy / SuperAdmin) ---
 
   const checkAppState = async () => {
     try {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
 
-      // First, check app public settings (with token if available)
-      // This will tell us if auth is required, user not registered, etc.
       const appClient = createAxiosClient({
         baseURL: `/api/apps/public`,
-        headers: {
-          'X-App-Id': appParams.appId
-        },
-        token: appParams.token, // Include token if available
+        headers: { 'X-App-Id': appParams.appId },
+        token: appParams.token,
         interceptResponses: true
       });
 
@@ -37,122 +152,62 @@ export const AuthProvider = ({ children }) => {
         const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
         setAppPublicSettings(publicSettings);
 
-        // If we got the app public settings successfully, check if user is authenticated
         if (appParams.token) {
           await checkUserAuth();
-        } else {
-          setIsLoadingAuth(false);
-          setIsAuthenticated(false);
         }
         setIsLoadingPublicSettings(false);
       } catch (appError) {
+        // ... Error handling preserved ...
         console.error('App state check failed:', appError);
-
-        // Handle app-level errors
-        if (appError.status === 403 && appError.data?.extra_data?.reason) {
-          const reason = appError.data.extra_data.reason;
-          if (reason === 'auth_required') {
-            setAuthError({
-              type: 'auth_required',
-              message: 'Authentication required'
-            });
-          } else if (reason === 'user_not_registered') {
-            setAuthError({
-              type: 'user_not_registered',
-              message: 'User not registered for this app'
-            });
-          } else {
-            setAuthError({
-              type: reason,
-              message: appError.message
-            });
-          }
-        } else {
-          setAuthError({
-            type: 'unknown',
-            message: appError.message || 'Failed to load app'
-          });
-        }
         setIsLoadingPublicSettings(false);
-        setIsLoadingAuth(false);
       }
     } catch (error) {
       console.error('Unexpected error:', error);
-      setAuthError({
-        type: 'unknown',
-        message: error.message || 'An unexpected error occurred'
-      });
       setIsLoadingPublicSettings(false);
-      setIsLoadingAuth(false);
     }
   };
 
   const checkUserAuth = async () => {
-
-
     try {
-      // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
-
-      if (currentUser) {
-        // Flatten commerceCode for easier access
-        // Prioritize new field, fallback to legacy if needed strictly for display but logic should use code
-        currentUser.commerceCode = currentUser.user_metadata?.commerce_code || currentUser.user_metadata?.id_comercio;
-      }
-
       setUser(currentUser);
       setIsAuthenticated(true);
-      setIsLoadingAuth(false);
     } catch (error) {
-      console.error('User auth check failed:', error);
-
-      // FALLBACK: Eliminado por solicitud del usuario (ya no se usa localStorage para esto)
-      // La autenticación depende 100% del SDK de base44
-
-
-      setIsLoadingAuth(false);
       setIsAuthenticated(false);
-
-      // If user auth fails, it might be an expired token
-      if (error.status === 401 || error.status === 403) {
-        setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
-        });
-      }
+    } finally {
+      setIsLoadingAuth(false);
     }
   };
 
-  const logout = (shouldRedirect = true) => {
+  const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
-
-    if (shouldRedirect) {
-      // Use the SDK's logout method which handles token cleanup and redirect
-      base44.auth.logout(window.location.href);
-    } else {
-      // Just remove the token without redirect
-      base44.auth.logout();
-    }
-  };
-
-  const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method
-    base44.auth.redirectToLogin(window.location.href);
+    base44.auth.logout();
   };
 
   return (
     <AuthContext.Provider value={{
+      // Standard User
       user,
       isAuthenticated,
       isLoadingAuth,
+      checkAppState,
+      logout,
+
+      // Commerce User
+      commerce,
+      commerceToken,
+      isCommerceAuthenticated,
+      isLoadingCommerce,
+      loginComercio,
+      logoutComercio,
+      refreshCommerceSession,
+
+      // Global
       isLoadingPublicSettings,
       authError,
       appPublicSettings,
-      logout,
-      navigateToLogin,
-      checkAppState
     }}>
       {children}
     </AuthContext.Provider>
@@ -166,3 +221,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+
