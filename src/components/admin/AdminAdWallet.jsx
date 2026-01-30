@@ -25,18 +25,18 @@ export default function AdminAdWallet({ comercio }) {
     const [showBillingForm, setShowBillingForm] = useState(false);
     const [transactionId, setTransactionId] = useState('');
 
-    // 1. Obtener el saldo actual de la configuración del comercio
-    const { data: config, isLoading } = useQuery({
-        queryKey: ['config-wallet', comercio.commerce_code],
+    // 1. Obtener los datos reales del comercio (donde vive el saldo)
+    const { data: datosComercio, isLoading } = useQuery({
+        queryKey: ['comercio-wallet', comercio.commerce_code],
         queryFn: async () => {
-            const response = await base44.functions.invoke('obtenerConfiguracion', {
+            const response = await base44.functions.invoke('obtenerDatosComercio', {
                 commerce_code: comercio.commerce_code
             });
-            return response.data.config;
+            return response.data.comercio;
         }
     });
 
-    const saldoActual = config?.saldo_publicidad || 0;
+    const saldoActual = datosComercio?.saldo_publicidad || 0;
 
     // 2. Mutación para solicitar recarga
     const requestReload = useMutation({

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Settings, DollarSign, TrendingDown, Shield, Truck, Plus, Trash2 } from 'lucide-react';
+import { Settings, DollarSign, TrendingDown, Shield, Truck, Plus, Trash2, Zap, Sparkles } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function AdminConfiguracion({ comercio }) {
@@ -36,7 +36,11 @@ export default function AdminConfiguracion({ comercio }) {
       titular: ''
     },
     marketing_red_activo: false,
-    metodos_envio: []
+    metodos_envio: [],
+    mercadopago_activo: false,
+    mercadopago_token: '',
+    lead_hook_activo: true,
+    lead_hook_titulo: '¡No te vayas sin tu regalo!'
   });
 
   React.useEffect(() => {
@@ -55,7 +59,11 @@ export default function AdminConfiguracion({ comercio }) {
           titular: ''
         },
         marketing_red_activo: config.marketing_red_activo || false,
-        metodos_envio: config.metodos_envio || []
+        metodos_envio: config.metodos_envio || [],
+        mercadopago_activo: config.mercadopago_activo || false,
+        mercadopago_token: config.mercadopago_token || '',
+        lead_hook_activo: config.lead_hook_activo !== undefined ? config.lead_hook_activo : true,
+        lead_hook_titulo: config.lead_hook_titulo || '¡No te vayas sin tu regalo!'
       });
     }
   }, [config]);
@@ -301,6 +309,74 @@ export default function AdminConfiguracion({ comercio }) {
         </CardContent>
       </Card>
 
+      {/* Pasarelas de Pago */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-blue-600" />
+            Pagos Online (Mercado Pago)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${formData.mercadopago_activo ? 'border-blue-500 bg-blue-50' : 'border-neutral-100 bg-neutral-50 opacity-60'}`}
+            onClick={() => setFormData({ ...formData, mercadopago_activo: !formData.mercadopago_activo })}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-black italic uppercase text-xs text-blue-800">Habilitar Mercado Pago</span>
+              <div className={`w-8 h-4 rounded-full relative transition-colors ${formData.mercadopago_activo ? 'bg-blue-500' : 'bg-neutral-300'}`}>
+                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${formData.mercadopago_activo ? 'left-4.5' : 'left-0.5'}`} />
+              </div>
+            </div>
+            <p className="text-[10px] text-blue-700 leading-relaxed font-medium">Permití que tus clientes paguen con tarjeta de crédito, débito o saldo en cuenta.</p>
+          </div>
+
+          <div>
+            <Label htmlFor="mp_token">Access Token de Mercado Pago</Label>
+            <Input
+              id="mp_token"
+              type="password"
+              value={formData.mercadopago_token}
+              onChange={(e) => setFormData({ ...formData, mercadopago_token: e.target.value })}
+              placeholder="APP_USR-..."
+              className="mt-1"
+            />
+            <p className="text-[10px] text-neutral-400 mt-1 italic">Obtenelo en el panel de desarrolladores de Mercado Pago.</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Marketing y Conversión */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-orange-600" />
+            Herramientas de Captura (Lead Hook)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${formData.lead_hook_activo ? 'border-orange-500 bg-orange-50' : 'border-neutral-100 bg-neutral-50 opacity-60'}`}
+            onClick={() => setFormData({ ...formData, lead_hook_activo: !formData.lead_hook_activo })}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-black italic uppercase text-xs text-orange-800">Pop-up de Salida (Exit Intent)</span>
+              <div className={`w-8 h-4 rounded-full relative transition-colors ${formData.lead_hook_activo ? 'bg-orange-500' : 'bg-neutral-300'}`}>
+                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${formData.lead_hook_activo ? 'left-4.5' : 'left-0.5'}`} />
+              </div>
+            </div>
+            <p className="text-[10px] text-orange-700 leading-relaxed font-medium">Muestra un sorteo o cupón cuando el usuario intenta cerrar la pestaña.</p>
+          </div>
+
+          <div>
+            <Label htmlFor="hook_title">Título del Gancho</Label>
+            <Input
+              id="hook_title"
+              value={formData.lead_hook_titulo}
+              onChange={(e) => setFormData({ ...formData, lead_hook_titulo: e.target.value })}
+              placeholder="¡No te vayas sin tu regalo!"
+              className="mt-1"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Datos de Transferencia */}
       <Card>
         <CardHeader>
@@ -336,6 +412,7 @@ export default function AdminConfiguracion({ comercio }) {
             />
           </div>
 
+          <TabsContent value="estadisticas"><AdminEstadisticas comercio={comercio} /></TabsContent>
           <div>
             <Label htmlFor="alias">Alias</Label>
             <Input

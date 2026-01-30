@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import AdminProductos from '@/components/admin/AdminProductos.jsx';
 import AdminOrdenes from '@/components/admin/AdminOrdenes.jsx';
 import AdminLeads from '@/components/admin/AdminLeads.jsx';
-import AdminDashboard from '@/components/admin/AdminDashboard.jsx';
+import AdminEstadisticas from '@/components/admin/AdminEstadisticas.jsx';
 import AdminConfiguracion from '@/components/admin/AdminConfiguracion.jsx';
 import AdminConversaciones from '@/components/admin/AdminConversaciones.jsx';
 import AdminSorteos from '@/components/admin/AdminSorteos.jsx';
