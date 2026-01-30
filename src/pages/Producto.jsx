@@ -7,6 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useCart } from '@/components/CartContext';
 import ReviewSlider from '@/components/store/ReviewSlider';
 import { useNavigate, useParams } from 'react-router-dom';
+import MarketingPromoToast from '@/components/ui/MarketingPromoToast';
 
 export default function Producto() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -150,6 +151,8 @@ export default function Producto() {
           </div>
         )}
       </div>
+
+      <MarketingPromoToast producto={producto} comercio={data?.comercio} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { Plus, Edit, Trash2, Check, X, Tag, Upload, DollarSign } from 'lucide-react';
+import { Plus, Edit, Trash2, Check, X, Tag, Upload, DollarSign, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +36,10 @@ export default function AdminProductos({ comercio }) {
     sku_taller_interno: '',
     stock_actual: '',
     imagen_principal: '',
-    activo: true
+    activo: true,
+    promo_flash_activa: false,
+    promo_flash_descuento: 15,
+    promo_flash_delay: 20
   });
 
   const [atributos, setAtributos] = useState([]);
@@ -91,7 +94,10 @@ export default function AdminProductos({ comercio }) {
         stock_actual: producto.stock_actual || '',
         imagen_principal: producto.imagen_principal || '',
         categoria: producto.categoria || '',
-        activo: producto.activo !== false
+        activo: producto.activo !== false,
+        promo_flash_activa: producto.promo_flash_activa || false,
+        promo_flash_descuento: producto.promo_flash_descuento || 15,
+        promo_flash_delay: producto.promo_flash_delay || 20
       });
 
       const attrs = todosAtributos.filter(a => a.id_producto === producto.id);
@@ -119,7 +125,10 @@ export default function AdminProductos({ comercio }) {
         stock_actual: '',
         imagen_principal: '',
         categoria: '',
-        activo: true
+        activo: true,
+        promo_flash_activa: false,
+        promo_flash_descuento: 15,
+        promo_flash_delay: 20
       });
       setAtributos([]);
       setMediaTemp({
@@ -487,6 +496,51 @@ export default function AdminProductos({ comercio }) {
                       <p className="text-gray-600">
                         ${formData.precio_estandar || '0'} → Oferta IA → ${formData.precio_minimo || '0'} (PISO)
                       </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
+                      <Zap className="w-4 h-4" /> Promoción Relámpago (Carrito Directo)
+                    </h4>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="promo_activa" className="text-orange-900">¿Activar Oferta Emergente?</Label>
+                        <input
+                          type="checkbox"
+                          id="promo_activa"
+                          checked={formData.promo_flash_activa}
+                          onChange={(e) => setFormData({ ...formData, promo_flash_activa: e.target.checked })}
+                          className="w-5 h-5 accent-orange-600"
+                        />
+                      </div>
+
+                      {formData.promo_flash_activa && (
+                        <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                          <div className="space-y-2">
+                            <Label className="text-xs">Descuento (%)</Label>
+                            <Input
+                              type="number"
+                              value={formData.promo_flash_descuento}
+                              onChange={(e) => setFormData({ ...formData, promo_flash_descuento: parseInt(e.target.value) })}
+                              placeholder="15"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Aparece a los (seg)</Label>
+                            <Input
+                              type="number"
+                              value={formData.promo_flash_delay}
+                              onChange={(e) => setFormData({ ...formData, promo_flash_delay: parseInt(e.target.value) })}
+                              placeholder="20"
+                            />
+                          </div>
+                          <p className="col-span-2 text-[10px] text-orange-700 italic">
+                            * El cartel aparecerá sutilmente después de los segundos marcados, ofreciendo el descuento y llevando al cliente directo al checkout.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

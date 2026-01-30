@@ -42,7 +42,7 @@ export default function Home() {
     enabled: !!COMERCIO_ID, // Solo ejecutar si hay ID
   });
 
-  const { comercio, combos, destacados, productosPorCategoria, resenasDestacadas } = paginaData || {};
+  const { comercio, combos, destacados, productosPorCategoria, resenasDestacadas, sorteo, identidad } = paginaData || {};
 
   // 2. Exit Intent mejorado
   useEffect(() => {
@@ -155,7 +155,12 @@ export default function Home() {
       </main>
 
       <CartDrawerNew />
-      <PopupLeadHook isOpen={popupOpen} onClose={() => setPopupOpen(false)} comercio={comercio} />
+      <PopupLeadHook
+        isOpen={popupOpen}
+        onClose={() => setPopupOpen(false)}
+        comercio={comercio}
+        sorteo={sorteo}
+      />
 
       {/* Floating CTA */}
       <a
