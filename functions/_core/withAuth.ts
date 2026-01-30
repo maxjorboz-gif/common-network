@@ -2,77 +2,78 @@
 
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const URL_SOLICITUD = `https://app.base44.com/api/apps/${APP_ID}/entities/SolicitudComercio`;
+const URL_COMERCIO = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
 
 /**
- * Middleware withAuth (Refactorizado sin SDK)
- * Verifica el JWT del usuario y resuelve su commerce_code asociado.
+ * Middleware withAuth (Refactorizado DB-First)
+ * Verifica el Token Custom de Comercio y valida contra la tabla Comercio.
  */
 export async function withAuth(req, handler, requiredRole) {
     try {
         const authHeader = req.headers.get('Authorization');
-        if (!authHeader) {
-            return Response.json({ error: 'No autorizado: Falta encabezado de autorización' }, { status: 401 });
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return Response.json({ error: 'No autorizado: Token requerido' }, { status: 401 });
         }
 
-        // 1. VERIFICAR USUARIO (Fetch directo a la API de Auth)
-        const userResponse = await fetch('https://app.base44.com/api/auth/me', {
-            headers: { 'Authorization': authHeader }
-        });
+        const token = authHeader.split(' ')[1];
 
-        if (!userResponse.ok) {
-            return Response.json({ error: 'Sesión expirada o token inválido' }, { status: 401 });
+        // 1. DECODIFICAR TOKEN (Formato: commerce_code:random:timestamp en Base64)
+        let commerceCode = null;
+        try {
+            const decoded = atob(token);
+            const parts = decoded.split(":");
+            if (parts.length < 3) throw new Error("Token malformado");
+            commerceCode = parts[0];
+        } catch (e) {
+            return Response.json({ error: 'Token inválido' }, { status: 403 });
         }
-
-        const { data: { user } } = await userResponse.json();
-
-        if (!user) {
-            return Response.json({ error: 'Usuario no encontrado' }, { status: 401 });
-        }
-
-        // 2. VALIDAR ROL
-        const userRole = user.user_metadata?.role || 'merchant';
-
-        if (requiredRole && userRole !== requiredRole && userRole !== 'admin') {
-            return Response.json({ error: 'Permisos insuficientes' }, { status: 403 });
-        }
-
-        // 3. RESOLVER COMMERCE_CODE (Tenant)
-        let commerceCode = user.user_metadata?.commerce_code;
 
         if (!commerceCode) {
-            // Buscamos si tiene una solicitud aprobada vinculada
-            const queryUrl = `${URL_SOLICITUD}?user_id=${user.id}`;
-            const solRes = await fetch(queryUrl, {
-                headers: { 'api_key': API_KEY }
-            });
-
-            if (solRes.ok) {
-                const solicitudes = await solRes.json();
-                if (Array.isArray(solicitudes) && solicitudes.length > 0) {
-                    commerceCode = solicitudes[0].commerce_code;
-                }
-            }
+            return Response.json({ error: 'Token inválido: Sin código de comercio' }, { status: 403 });
         }
 
-        // 4. CONSTRUIR CONTEXTO Y LLAMAR AL HANDLER
+        // 2. VALIDAR CONTRA BASE DE DATOS (Single Source of Truth)
+        const queryUrl = `${URL_COMERCIO}?commerce_code=${encodeURIComponent(commerceCode)}`;
+        const dbResponse = await fetch(queryUrl, {
+            headers: { 'api_key': API_KEY }
+        });
+
+        if (!dbResponse.ok) {
+            return Response.json({ error: 'Error al validar sesión' }, { status: 500 });
+        }
+
+        const resultados = await dbResponse.json();
+        const comercio = Array.isArray(resultados) ? resultados[0] : null;
+
+        if (!comercio) {
+            return Response.json({ error: 'Sesión inválida: Comercio no encontrado' }, { status: 401 });
+        }
+
+        if (comercio.activo === false) { // Chequeo explícito de suspensión
+            return Response.json({ error: 'Cuenta suspendida o inactiva' }, { status: 403 });
+        }
+
+        // 3. CONSTRUIR CONTEXTO DE EJECUCIÓN
         const context = {
             user: {
-                id: user.id,
-                email: user.email,
-                role: userRole,
-                commerceCode: commerceCode
+                id: comercio.user_id || 'legacy_no_id',
+                email: comercio.email_negocio,
+                role: 'admin_comercio', // Rol fijo por ahora
+                commerceCode: comercio.commerce_code
             },
-            tenant: commerceCode ? {
-                commerceCode: commerceCode,
-                status: 'active'
-            } : null
+            tenant: {
+                commerceCode: comercio.commerce_code,
+                id: comercio.id || comercio._id,
+                status: comercio.estado_registro
+            }
         };
 
+        // 4. EJECUTAR HANDLER
         return await handler(context, req);
 
     } catch (error) {
         console.error("Middleware withAuth Error:", error);
-        return Response.json({ error: 'Error interno en la verificación de autenticación' }, { status: 500 });
+        return Response.json({ error: 'Error interno de seguridad' }, { status: 500 });
     }
 }
+
