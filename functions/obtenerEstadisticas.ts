@@ -43,6 +43,9 @@ Deno.serve(async (req) => {
             .reduce((sum, o) => sum + (Number(o.resumen_economico?.total_final) || 0), 0);
 
         const totalGastoAds = (Array.isArray(gastos) ? gastos : [])
+            // Filtramos solicitudes pendientes o rechazadas. 
+            // Aceptamos: status='approved' o undefined (legacy)
+            .filter(g => !g.status || g.status === 'approved')
             .reduce((sum, g) => sum + (Number(g.monto) || 0), 0);
 
         // 3. LOGICA DE SORTEO (Marketing Motivacional)

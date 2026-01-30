@@ -3,7 +3,7 @@
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 
-const URL_SOLICITUD = `https://app.base44.com/api/apps/${APP_ID}/entities/SolicitudCredito`;
+const URL_GASTO = `https://app.base44.com/api/apps/${APP_ID}/entities/GastoPublicitario`;
 
 Deno.serve(async (req) => {
     try {
@@ -22,8 +22,8 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Faltan datos obligatorios' }, { status: 400 });
         }
 
-        // Crear Solicitud
-        const response = await fetch(URL_SOLICITUD, {
+        // Crear Solicitud (Usando entidad GastoPublicitario)
+        const response = await fetch(URL_GASTO, {
             method: 'POST',
             headers: {
                 'api_key': API_KEY,
@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
                 transaction_id,
                 consumo_preferencia: consumo_preferencia || 'A definir',
                 status: 'pending', // pending, approved, rejected
+                tipo: 'solicitud_carga',
                 plataforma: platform || 'Meta Ads',
                 created_at: new Date().toISOString()
             })
