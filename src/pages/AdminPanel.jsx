@@ -10,11 +10,20 @@ import {
   LogOut,
   Trophy,
   Zap,
-  Wallet
+  Wallet,
+  ChevronDown
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Importación de sub-componentes administrativos
 import AdminProductos from '@/components/admin/AdminProductos.jsx';
@@ -81,10 +90,33 @@ export default function AdminPanel() {
               <ShoppingBag className="text-white w-6 h-6" />
             </div>
             <div>
-              <h1 className="font-black text-xl tracking-tighter uppercase italic">
-                {comercio.nombre_tienda || comercio.nombre_comercio || 'Admin Panel'}
-              </h1>
-              <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 font-bold text-[10px] uppercase">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-auto p-0 hover:bg-transparent font-black text-xl tracking-tighter uppercase italic flex items-center gap-2 text-neutral-900">
+                    {comercio.nombre_tienda || comercio.nombre_comercio || 'Admin Panel'}
+                    <ChevronDown className="w-4 h-4 text-neutral-400" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64 p-2">
+                  <DropdownMenuLabel className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1">Cambiar Vista</DropdownMenuLabel>
+
+                  <DropdownMenuItem className="p-3 mb-1 bg-orange-50 focus:bg-orange-100 cursor-default rounded-md border border-orange-100">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-orange-900">Admin Panel</span>
+                      <span className="text-xs text-orange-700">Gestión Operativa (Actual)</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem className="p-3 cursor-pointer focus:bg-neutral-100 rounded-md" onClick={() => window.location.href = '/merchant'}>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-neutral-700">Merchant Dashboard</span>
+                      <span className="text-xs text-neutral-500">Visión Estratégica</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Badge variant="secondary" className="mt-1 bg-green-100 text-green-700 hover:bg-green-100 font-bold text-[10px] uppercase">
                 Activa
               </Badge>
             </div>
@@ -93,7 +125,7 @@ export default function AdminPanel() {
           <Button variant="ghost" className="text-red-600 hover:text-red-700 font-bold" onClick={() => {
             localStorage.removeItem('comercio_session');
             localStorage.removeItem('comercio_admin');
-            window.location.href = '/';
+            logout();
           }}>
             <LogOut className="w-4 h-4 mr-2" /> Salir
           </Button>

