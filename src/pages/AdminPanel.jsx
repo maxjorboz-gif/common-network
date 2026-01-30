@@ -71,15 +71,14 @@ export default function AdminPanel() {
 
       <main className="max-w-7xl mx-auto px-6 py-10">
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 md:grid-cols-8 mb-8 bg-white border h-auto p-1 shadow-sm overflow-x-auto">
-            <TabsTrigger value="estadisticas" className="flex items-center gap-2 py-3">Stat</TabsTrigger>
-            <TabsTrigger value="productos" className="flex items-center gap-2 py-3">Prod</TabsTrigger>
+          <TabsList className="grid grid-cols-4 md:grid-cols-7 mb-8 bg-white border h-auto p-1 shadow-sm overflow-x-auto">
+            <TabsTrigger value="estadisticas" className="flex items-center gap-2 py-3">Estadísticas</TabsTrigger>
+            <TabsTrigger value="productos" className="flex items-center gap-2 py-3">Productos</TabsTrigger>
             <TabsTrigger value="ordenes" className="flex items-center gap-2 py-3">Ventas</TabsTrigger>
-            <TabsTrigger value="leads" className="flex items-center gap-2 py-3">Leads</TabsTrigger>
+            <TabsTrigger value="leads" className="flex items-center gap-2 py-3">Clientes</TabsTrigger>
             <TabsTrigger value="conversaciones" className="flex items-center gap-2 py-3">Chat</TabsTrigger>
-            <TabsTrigger value="config" className="flex items-center gap-2 py-3">Config</TabsTrigger>
+            <TabsTrigger value="config" className="flex items-center gap-2 py-3">Configuración</TabsTrigger>
             <TabsTrigger value="sorteos" className="flex items-center gap-2 py-3">Sorteos</TabsTrigger>
-
           </TabsList>
 
           <TabsContent value="estadisticas"><AdminEstadisticas comercio={commerce} /></TabsContent>

@@ -23,9 +23,8 @@ export default function AdminConfiguracion({ comercio }) {
   });
 
   const [formData, setFormData] = useState({
-    descuento_base_transferencia: 10,
-    precio_minimo_piso_transferencia: 0,
-    precio_minimo_piso_tarjeta: 30,
+    descuento_1: 10,
+    descuento_2: 10,
     costo_envio_default: 0,
     envio_gratis_minimo: 0,
     habilitar_envio_gratis_global: false,
@@ -40,15 +39,18 @@ export default function AdminConfiguracion({ comercio }) {
     mercadopago_activo: false,
     mercadopago_token: '',
     lead_hook_activo: true,
-    lead_hook_titulo: '¡No te vayas sin tu regalo!'
+    lead_hook_titulo: '¡No te vayas sin tu regalo!',
+    promo_flash_global_activa: false,
+    promo_flash_global_product_id: '',
+    promo_flash_global_descuento: 15,
+    promo_flash_global_delay: 20
   });
 
   React.useEffect(() => {
     if (config) {
       setFormData({
-        descuento_base_transferencia: config.descuento_base_transferencia || 10,
-        precio_minimo_piso_transferencia: config.precio_minimo_piso_transferencia || 0,
-        precio_minimo_piso_tarjeta: config.precio_minimo_piso_tarjeta || 30,
+        descuento_1: config.descuento_1 || 10,
+        descuento_2: config.descuento_2 || 10,
         costo_envio_default: config.costo_envio_default || 0,
         envio_gratis_minimo: config.envio_gratis_minimo || 0,
         habilitar_envio_gratis_global: config.habilitar_envio_gratis_global || false,
@@ -63,7 +65,11 @@ export default function AdminConfiguracion({ comercio }) {
         mercadopago_activo: config.mercadopago_activo || false,
         mercadopago_token: config.mercadopago_token || '',
         lead_hook_activo: config.lead_hook_activo !== undefined ? config.lead_hook_activo : true,
-        lead_hook_titulo: config.lead_hook_titulo || '¡No te vayas sin tu regalo!'
+        lead_hook_titulo: config.lead_hook_titulo || '¡No te vayas sin tu regalo!',
+        promo_flash_global_activa: config.promo_flash_global_activa || false,
+        promo_flash_global_product_id: config.promo_flash_global_product_id || '',
+        promo_flash_global_descuento: config.promo_flash_global_descuento || 15,
+        promo_flash_global_delay: config.promo_flash_global_delay || 20
       });
     }
   }, [config]);
@@ -138,65 +144,116 @@ export default function AdminConfiguracion({ comercio }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div>
-            <Label htmlFor="descuento_base">Descuento Base Transferencia (%)</Label>
-            <Input
-              id="descuento_base"
-              type="number"
-              value={formData.descuento_base_transferencia}
-              onChange={(e) => setFormData({ ...formData, descuento_base_transferencia: Number(e.target.value) })}
-              placeholder="10"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Descuento inicial que verá el cliente al elegir transferencia
-            </p>
-          </div>
+
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
               <Shield className="w-4 h-4" />
-              Pisos de Negociación IA
+              Sistema de oferta controlado por IA
             </h4>
-            <p className="text-sm text-blue-800 mb-4">
-              Límites que la IA NO puede superar al negociar descuentos con clientes
-            </p>
+
+            <div className="bg-blue-100 border border-blue-300 p-3 rounded-lg mb-4">
+              <p className="text-xs text-blue-900 font-bold text-center">
+                ⚠️ RECORDATORIO: Los descuentos son acumulables. Para máxima efectividad del sistema, se recomienda tener 3 programados en distintos valores.
+              </p>
+            </div>
 
             <div className="space-y-4">
               <div>
-                <Label htmlFor="piso_transferencia" className="text-blue-900">
-                  Piso Transferencia
+                <Label htmlFor="descuento_1" className="text-blue-900 font-bold">
+                  Descuento 1 (%)
                 </Label>
                 <div className="flex items-center gap-2">
                   <Input
-                    id="piso_transferencia"
+                    id="descuento_1"
                     type="number"
-                    value={formData.precio_minimo_piso_transferencia}
-                    onChange={(e) => setFormData({ ...formData, precio_minimo_piso_transferencia: Number(e.target.value) })}
-                    placeholder="0"
-                    disabled
+                    value={formData.descuento_1}
+                    onChange={(e) => setFormData({ ...formData, descuento_1: Number(e.target.value) })}
+                    placeholder="10"
+                    className="border-blue-200"
                   />
-                  <span className="text-sm text-blue-700">= precio_minimo del producto</span>
+                  <span className="text-sm text-blue-700">Generalmente Transferencia</span>
                 </div>
-                <p className="text-xs text-blue-600 mt-1">
-                  La IA puede dar hasta el precio_minimo en transferencia
-                </p>
               </div>
 
               <div>
-                <Label htmlFor="piso_tarjeta" className="text-blue-900">
-                  Piso Tarjeta (% adicional sobre precio_minimo)
+                <Label htmlFor="descuento_2" className="text-blue-900 font-bold">
+                  Descuento 2 (%)
                 </Label>
-                <Input
-                  id="piso_tarjeta"
-                  type="number"
-                  value={formData.precio_minimo_piso_tarjeta}
-                  onChange={(e) => setFormData({ ...formData, precio_minimo_piso_tarjeta: Number(e.target.value) })}
-                  placeholder="30"
-                />
-                <p className="text-xs text-blue-600 mt-1">
-                  Ej: 30% = precio_minimo + 30%. La IA puede dar hasta este límite con tarjeta.
-                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="descuento_2"
+                    type="number"
+                    value={formData.descuento_2}
+                    onChange={(e) => setFormData({ ...formData, descuento_2: Number(e.target.value) })}
+                    placeholder="10"
+                    className="border-blue-200"
+                  />
+                  <span className="text-sm text-blue-700">Siguiente nivel de oferta</span>
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Global Flash Promo Section */}
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mt-6">
+            <h4 className="font-semibold text-orange-900 mb-3 flex items-center gap-2">
+              <Zap className="w-4 h-4" />
+              Estrategia Promoción Relámpago y IA
+            </h4>
+            <div className="bg-orange-100 p-3 rounded mb-4">
+              <p className="text-xs text-orange-800 italic">
+                Configurá aquí la "Oferta de Pánico" que aparecerá si la IA detecta dudas en el cliente.
+                Podés sugerir un "Producto Estrella" (el más vendido), pero la IA decidirá si usar ese o el que convenga según el historial del cliente.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="promo_flash_activa" className="text-orange-900 font-bold">Activar Promoción Relámpago Global</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="promo_flash_activa"
+                    checked={formData.promo_flash_global_activa}
+                    onChange={(e) => setFormData({ ...formData, promo_flash_global_activa: e.target.checked })}
+                    className="w-5 h-5 accent-orange-600"
+                  />
+                </div>
+              </div>
+
+              {formData.promo_flash_global_activa && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 border-t border-orange-200 pt-4">
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-bold text-orange-800">Producto Estrella Sugerido (ID / SKU)</Label>
+                    <Input
+                      value={formData.promo_flash_global_product_id}
+                      onChange={(e) => setFormData({ ...formData, promo_flash_global_product_id: e.target.value })}
+                      placeholder="Pegá aquí el ID del producto más vendido..."
+                      className="bg-white border-orange-200"
+                    />
+                    <p className="text-[10px] text-orange-600 mt-1">* La IA usará este como referencia principal.</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-bold text-orange-800">Descuento Agresivo (%)</Label>
+                    <Input
+                      type="number"
+                      value={formData.promo_flash_global_descuento}
+                      onChange={(e) => setFormData({ ...formData, promo_flash_global_descuento: Number(e.target.value) })}
+                      className="bg-white border-orange-200 font-bold text-lg"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-bold text-orange-800">Delay (segundos)</Label>
+                    <Input
+                      type="number"
+                      value={formData.promo_flash_global_delay}
+                      onChange={(e) => setFormData({ ...formData, promo_flash_global_delay: Number(e.target.value) })}
+                      className="bg-white border-orange-200"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
