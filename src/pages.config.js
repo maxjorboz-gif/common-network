@@ -21,7 +21,7 @@ import LandingPage from './pages/LandingPage';
 import __Layout from './Layout.jsx';
 
 import AdminSupremePanel from './pages/AdminSupremePanel';
-import MerchantDashboard from './pages/MerchantDashboard';
+
 
 export const PAGES = {
     "adminSupreme": AdminSupremePanel,
