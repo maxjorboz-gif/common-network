@@ -275,10 +275,11 @@ export default function AdminAdWallet({ comercio }) {
                         <div className="bg-neutral-100 p-6 rounded-2xl border-dashed border-2 border-neutral-300">
                             <p className="text-neutral-600 text-sm mb-4 font-bold uppercase tracking-tighter italic">Transferí Pesos (ARS) a nuestra cuenta oficial:</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-                                <div className="p-3 bg-white rounded-lg border"><b>CBU:</b> 0000003100000000000000</div>
-                                <div className="p-3 bg-white rounded-lg border"><b>Alias:</b> red.common.network</div>
-                                <div className="p-3 bg-white rounded-lg border"><b>Titular:</b> COMMON NETWORK S.A.</div>
+                                <div className="p-3 bg-white rounded-lg border"><b>CBU:</b> {configSuprema?.cbu || 'Consultar Admin'}</div>
+                                <div className="p-3 bg-white rounded-lg border"><b>Alias:</b> {configSuprema?.alias || 'Consultar Admin'}</div>
+                                <div className="p-3 bg-white rounded-lg border"><b>Banco:</b> {configSuprema?.banco || 'Consultar Admin'}</div>
                                 <div className="p-3 bg-white rounded-lg border font-bold text-orange-600"><b>Monto:</b> $ {selectedPlan?.precio.toLocaleString('es-AR')}</div>
+                                <div className="p-3 bg-white rounded-lg border md:col-span-2"><b>Titular:</b> {configSuprema?.titular || 'COMMON NETWORK S.A.'}</div>
                             </div>
                         </div>
 
