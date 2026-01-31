@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+// Admin Supreme Panel Implementation
 import { useAuth } from '@/lib/AuthContext';
 import { Shield, Activity, CheckCircle2, AlertCircle, Loader2, ExternalLink, Lock, DollarSign, Wallet, Store } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
