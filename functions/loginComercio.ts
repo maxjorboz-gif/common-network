@@ -1,4 +1,4 @@
-// @ts-nocheck
+// Login Logic
 // Lógica de Login Propio contra Entity Comercio
 // Recibe: { email, password }
 // Devuelve: { success, session, commerce }
@@ -90,9 +90,10 @@ Deno.serve(async (req) => {
             headers: { "Access-Control-Allow-Origin": "*" }
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("[Login] Exception:", error);
-        return Response.json({ success: false, error: "Error interno del servidor" }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return Response.json({ success: false, error: errorMessage }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
     }
 });
 

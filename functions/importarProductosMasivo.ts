@@ -1,5 +1,5 @@
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Eliminamos import obsoleto de std/http
+// import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91"; // Hardcoded por seguridad y consistencia
@@ -11,7 +11,7 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response(null, { headers: corsHeaders });
     }
@@ -32,7 +32,7 @@ serve(async (req) => {
         const resultados = {
             exitosos: 0,
             fallidos: 0,
-            errores: []
+            errores: [] as string[]
         };
 
         // Procesamos en paralelo para velocidad, pero con cuidado de rate limits si fuera necesario.
@@ -79,10 +79,11 @@ serve(async (req) => {
 
                 resultados.exitosos++;
 
-            } catch (error) {
+            } catch (error: unknown) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
                 console.error(`Error importando item ${index}:`, error);
                 resultados.fallidos++;
-                resultados.errores.push(`Item ${index + 1} (${prod.titulo}): ${error.message}`);
+                resultados.errores.push(`Item ${index + 1} (${prod.titulo}): ${errorMessage}`);
             }
         });
 
@@ -96,8 +97,9 @@ serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error general en importación:", error);
-        return new Response(JSON.stringify({ error: error.message }), { headers: corsHeaders, status: 500 });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return new Response(JSON.stringify({ error: errorMessage }), { headers: corsHeaders, status: 500 });
     }
 });

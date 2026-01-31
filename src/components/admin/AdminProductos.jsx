@@ -113,6 +113,10 @@ export default function AdminProductos({ comercio }) {
   const productos = productosData?.productos || [];
   const todosAtributos = productosData?.atributos || [];
 
+  const productosFiltrados = selectedCategoria
+    ? productos.filter(p => p.categoria === selectedCategoria)
+    : productos;
+
   const handleOpenDialog = async (producto = null) => {
     if (producto) {
       setEditingProduct(producto);
@@ -381,6 +385,7 @@ export default function AdminProductos({ comercio }) {
     const reader = new FileReader();
     reader.onload = async (e) => {
       const text = e.target.result;
+      if (typeof text !== 'string') return;
       const rows = text.split('\n').slice(1); // Skip header
       const productosParaImportar = rows
         .map(row => {
@@ -388,10 +393,10 @@ export default function AdminProductos({ comercio }) {
           if (cols.length < 2) return null; // Skip empty lines
           return {
             titulo: cols[0]?.trim(),
-            precio_estandar: parseFloat(cols[1]?.trim()),
+            precio_estandar: parseFloat(cols[1]?.trim() || '0'),
             descripcion: cols[2]?.trim(),
             categoria: cols[3]?.trim(),
-            stock_actual: parseInt(cols[4]?.trim() || 0),
+            stock_actual: parseInt(cols[4]?.trim() || '0'),
             imagen_principal: cols[5]?.trim(),
             sku_taller_interno: cols[6]?.trim()
           };
@@ -507,7 +512,7 @@ export default function AdminProductos({ comercio }) {
             </DialogTrigger>
 
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
+              <DialogHeader className="">
                 <DialogTitle>
                   {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
                 </DialogTitle>
@@ -928,7 +933,7 @@ export default function AdminProductos({ comercio }) {
 
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="">
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="w-6 h-6 text-green-600" />
               Herramienta de Importación Masiva
@@ -1042,7 +1047,7 @@ export default function AdminProductos({ comercio }) {
 
       <Dialog open={bulkActionDialogOpen} onOpenChange={setBulkActionDialogOpen}>
         <DialogContent>
-          <DialogHeader>
+          <DialogHeader className="">
             <DialogTitle>Cambiar Precio de {selectedProducts.length} Productos</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
@@ -1184,13 +1189,13 @@ export default function AdminProductos({ comercio }) {
                             />
                             <div className="absolute top-2 right-2 flex gap-2">
                               {!producto.activo && (
-                                <Badge variant="secondary">Inactivo</Badge>
+                                <Badge variant="secondary" className="">Inactivo</Badge>
                               )}
                               {sinStock && (
-                                <Badge className="bg-red-500">Sin stock</Badge>
+                                <Badge className="bg-red-500" variant="destructive">Sin stock</Badge>
                               )}
                               {stockBajo && !sinStock && (
-                                <Badge className="bg-orange-500">Stock bajo</Badge>
+                                <Badge className="bg-orange-500" variant="default">Stock bajo</Badge>
                               )}
                             </div>
                             <div className="absolute top-2 left-12">

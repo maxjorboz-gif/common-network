@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Rocket, Shield, Zap, ArrowRight, Store, Globe, Star, Users, Banknote, CreditCard, PieChart, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, Users, Banknote, CreditCard, PieChart, LayoutDashboard } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';

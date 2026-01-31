@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-check
 import { generateEventId } from './utilsCrypto.ts';
 
 const APP_ID = "6967728aba18db08a32d56fd";
@@ -110,8 +110,9 @@ Deno.serve(async (req) => {
 
         return Response.json({ success: true, orden: ordenFinal });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error confirmarPago:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return Response.json({ error: errorMessage }, { status: 500 });
     }
 });

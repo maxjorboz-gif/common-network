@@ -66,7 +66,7 @@ export function LoginModal({ trigger }) {
                 {trigger}
             </DialogTrigger>
             <DialogContent className="sm:max-w-md bg-neutral-900 border-neutral-800 text-white">
-                <DialogHeader>
+                <DialogHeader className="">
                     <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-2">
                         <User className="w-6 h-6 text-orange-600" />
                         Acceso Comercio

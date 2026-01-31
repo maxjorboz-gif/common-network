@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 const URL_COMERCIO = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
@@ -8,7 +6,21 @@ const URL_COMERCIO = `https://app.base44.com/api/apps/${APP_ID}/entities/Comerci
  * Middleware withAuth (Refactorizado DB-First)
  * Verifica el Token Custom de Comercio y valida contra la tabla Comercio.
  */
-export async function withAuth(req, handler, requiredRole) {
+interface AuthContext {
+    user: {
+        id: string;
+        email: string;
+        role: string;
+        commerceCode: string;
+    };
+    tenant: {
+        commerceCode: string;
+        id: string;
+        status: string;
+    };
+}
+
+export async function withAuth(req: Request, handler: (context: AuthContext, req: Request) => Promise<Response>, requiredRole?: string) {
     try {
         const authHeader = req.headers.get('Authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ')) {

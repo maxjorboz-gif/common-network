@@ -1,4 +1,4 @@
-// @ts-nocheck
+// Lógica Directa: Recibir datos -> Fetch a Base44 -> Responder
 // Lógica Directa: Recibir datos -> Fetch a Base44 -> Responder
 // Sin Auth, sin parches, sin lógica extra.
 
@@ -85,7 +85,8 @@ Deno.serve(async (req) => {
             commerce_code: commerceCode
         });
 
-    } catch (error) {
-        return Response.json({ success: false, error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return Response.json({ success: false, error: errorMessage }, { status: 500 });
     }
 });

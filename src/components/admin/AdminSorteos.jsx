@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -131,10 +139,10 @@ export default function AdminSorteos({ comercio }) {
 
             {showForm && (
                 <Card className="border-2 border-orange-500 shadow-2xl animate-in fade-in slide-in-from-top-4">
-                    <CardHeader>
+                    <DialogHeader className="">
                         <CardTitle>Configurá tu Sorteo</CardTitle>
                         <CardDescription>Elegí qué producto sortear y hasta cuándo dura la campaña.</CardDescription>
-                    </CardHeader>
+                    </DialogHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">

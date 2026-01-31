@@ -43,8 +43,6 @@ export default function AdminConfiguracion({ comercio }) {
     promo_flash_global_activa: false,
     promo_flash_global_product_id: '',
     promo_flash_global_descuento: 15,
-    promo_flash_global_product_id: '',
-    promo_flash_global_descuento: 15,
     promo_flash_global_delay: 20,
     // Visual Identity & IA
     nombre_comercio_display: '',

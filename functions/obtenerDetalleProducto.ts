@@ -1,10 +1,10 @@
-// @ts-nocheck
+// @ts-check
 
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 const URL_PRODUCTO = `https://app.base44.com/api/apps/${APP_ID}/entities/Producto`;
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
     try {
         if (req.method === 'OPTIONS') return new Response("OK");
 
@@ -26,7 +26,8 @@ Deno.serve(async (req) => {
             producto
         });
 
-    } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return Response.json({ error: errorMessage }, { status: 500 });
     }
 });

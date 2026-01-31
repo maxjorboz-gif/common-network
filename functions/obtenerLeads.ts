@@ -4,7 +4,7 @@ const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 const URL_LEAD = `https://app.base44.com/api/apps/${APP_ID}/entities/Lead`;
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
     try {
         if (req.method === 'OPTIONS') return new Response("OK");
 

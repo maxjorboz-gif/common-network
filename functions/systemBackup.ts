@@ -1,5 +1,5 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
@@ -19,7 +19,7 @@ const ENTITIES = [
     "ConfiguracionComercio"
 ];
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response(null, { headers: corsHeaders });
     }
@@ -39,13 +39,13 @@ serve(async (req) => {
         const backupData = {
             timestamp: new Date().toISOString(),
             app_id: APP_ID,
-            entities: {}
+            entities: {} as Record<string, any[]>
         };
 
         // Descargar todas las entidades en paralelo
         const promises = ENTITIES.map(async (entityName) => {
             const url = `https://app.base44.com/api/apps/${APP_ID}/entities/${entityName}`;
-            let allItems = [];
+            let allItems: any[] = [];
             let page = 1;
             let hasMore = true;
 
@@ -90,8 +90,9 @@ serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("Error crítico en Backup:", error);
-        return new Response(JSON.stringify({ error: error.message }), { headers: corsHeaders, status: 500 });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return new Response(JSON.stringify({ error: errorMessage }), { headers: corsHeaders, status: 500 });
     }
 });

@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-check
 
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
@@ -26,7 +26,8 @@ Deno.serve(async (req) => {
             productos: Array.isArray(productos) ? productos : []
         });
 
-    } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return Response.json({ error: errorMessage }, { status: 500 });
     }
 });

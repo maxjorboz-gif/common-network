@@ -1,6 +1,6 @@
 
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 Deno.serve(async (req) => {
     try {
@@ -92,8 +92,9 @@ Llevatelo hoy por solo ${priceStr}. ¡No te quedes sin el tuyo!`;
             }
         });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error generando descripciones:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return Response.json({ error: errorMessage }, { status: 500 });
     }
 });

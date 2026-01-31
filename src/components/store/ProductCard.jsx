@@ -4,7 +4,8 @@ import { ShoppingCart, Eye, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createPageUrl } from '@/utils';
 
-export default function ProductCard({ producto, onAddToCart }) {
+export default function ProductCard(props) {
+  const { producto, onAddToCart } = props;
   const precio = Number(producto.precio_estandar || producto.precio || 0);
   const tieneDescuento = producto.precio_oferta && producto.precio_oferta < precio;
 
