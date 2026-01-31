@@ -14,7 +14,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function AdminSupremePanel() {
     const navigate = useNavigate();
-    const { user } = useAuth(); // Solo para mostrar el email si está
+    // const { user } = useAuth(); // Eliminado para evitar dependencias
+    const user = { email: 'admin@supreme.com' }; // Mock user
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
