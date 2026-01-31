@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { useCart } from '@/components/CartContext';
 import { base44 } from '@/api/base44Client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,8 +13,7 @@ import {
     ArrowLeft, MapPin, Phone, User, CheckCircle,
     Ticket, CreditCard, Landmark, Fingerprint, Hash, ShoppingBasket, Truck, FileText, Info
 } from 'lucide-react';
-
-import { useSearchParams, useParams } from 'react-router-dom';
+import { trackEvent } from '@/lib/tracking';
 
 const COMERCIO_ID_FALLBACK = null; // Eliminado 000001
 
@@ -26,6 +25,8 @@ export default function Checkout() {
     const COMERCIO_ID = commerce_code || searchParams.get('code') || searchParams.get('id');
     const navigate = useNavigate();
     const { cartItems, total, clearCart } = useCart();
+
+    const [purchaseCompleted, setPurchaseCompleted] = useState(false);
 
     // Validar comercio existente
     useEffect(() => {
@@ -104,8 +105,44 @@ export default function Checkout() {
         };
     }, [cartItems, total, metodoPago, config, metodoEnvioId]);
 
-    // 3. TRACKING AUTOMÁTICO (AddToCart)
-    // Dispara la función en Deno con action: 'track' cuando hay datos de contacto
+    // TRACKING CHECKOUT START
+    useEffect(() => {
+        if (resumen.hayData) {
+            trackEvent({
+                event_type: 'conversion',
+                event_name: 'checkout_start',
+                commerce_code: COMERCIO_ID,
+                payload: {
+                    value: resumen.totalFinal,
+                    currency: 'ARS',
+                    items_count: resumen.items.length
+                }
+            });
+        }
+    }, [resumen.hayData, COMERCIO_ID, resumen.totalFinal, resumen.items.length]);
+
+    // TRACKING CHECKOUT ABANDON
+    useEffect(() => {
+        const handleUnload = () => {
+            if (!purchaseCompleted && resumen.hayData) {
+                trackEvent({
+                    event_type: 'termination',
+                    event_name: 'checkout_abandon',
+                    commerce_code: COMERCIO_ID,
+                    payload: { stage: 'checkout_form' }
+                });
+            }
+        };
+
+        window.addEventListener('beforeunload', handleUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleUnload);
+            handleUnload();
+        };
+    }, [purchaseCompleted, COMERCIO_ID, resumen.hayData]);
+
+
+    // 3. TRACKING AUTOMÁTICO (AddToCart / Lead)
     useEffect(() => {
         if (form.whatsapp.length > 8 || (form.email.includes('@') && form.email.length > 5)) {
             const timer = setTimeout(async () => {
@@ -204,6 +241,29 @@ export default function Checkout() {
             const response = await base44.functions.invoke('finalizarCompra', payload);
 
             if (response.success) {
+                setPurchaseCompleted(true);
+                // TRACK PURCHASE COMPLETED
+                trackEvent({
+                    event_type: 'conversion',
+                    event_name: 'purchase_completed',
+                    commerce_code: COMERCIO_ID,
+                    entity_type: 'order',
+                    entity_id: response.orden.id,
+                    payload: {
+                        transaction_id: response.orden.id,
+                        value: resumen.totalFinal,
+                        tax: 0,
+                        shipping: resumen.costoEnvio,
+                        currency: 'ARS',
+                        items: resumen.items.map(i => ({
+                            item_id: i.id,
+                            item_name: i.titulo,
+                            price: i.pNum,
+                            quantity: i.cNum
+                        }))
+                    }
+                });
+
                 // LÓGICA MERCADO PAGO
                 if (metodoPago === 'mercadopago') {
                     toast.loading("Conectando con Mercado Pago...");

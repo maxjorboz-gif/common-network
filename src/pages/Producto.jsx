@@ -8,6 +8,7 @@ import { useCart } from '@/components/CartContext';
 import ReviewSlider from '@/components/store/ReviewSlider';
 import { useNavigate, useParams } from 'react-router-dom';
 import MarketingPromoToast from '@/components/ui/MarketingPromoToast';
+import { trackEvent } from '@/lib/tracking';
 
 export default function Producto() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -31,6 +32,22 @@ export default function Producto() {
   // Tracking de Intereses a nivel de ficha de producto
   React.useEffect(() => {
     const clienteId = localStorage.getItem('cliente_id');
+
+    // TRACKING STANDARD
+    if (data?.producto) {
+      trackEvent({
+        event_type: 'navigation',
+        event_name: 'product_view',
+        entity_type: 'product',
+        entity_id: data.producto.id,
+        commerce_code: commerce_code,
+        payload: {
+          title: data.producto.titulo,
+          price: data.producto.precio_estandar
+        }
+      });
+    }
+
     if (clienteId && data?.producto) {
       base44.functions.invoke('registrarInteres', {
         id_cliente: clienteId,

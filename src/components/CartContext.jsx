@@ -1,9 +1,20 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { trackEvent } from '@/lib/tracking';
+import { useParams } from 'react-router-dom';
 
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
   // Obtener ID del comercio actual de la URL
+  // En Next.js o Router modernos usariamos useParams, pero esto es Context global. 
+  // Intentamos sacar commerce_code de la URL si es posible para el tracking preciso
+  const getCommerceCode = () => {
+    if (typeof window === 'undefined') return null;
+    const pathParts = window.location.pathname.split('/');
+    const idx = pathParts.indexOf('tienda');
+    return (idx !== -1 && pathParts[idx + 1]) ? pathParts[idx + 1] : null;
+  };
+
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const currentCommerceId = searchParams.get('id') || 'default';
 
@@ -28,6 +39,20 @@ export function CartProvider({ children }) {
   const closeDrawer = () => setIsDrawerOpen(false);
 
   const addItem = (producto) => {
+    // TRACKING
+    trackEvent({
+      event_type: 'conversion',
+      event_name: 'add_to_cart',
+      entity_type: 'product',
+      entity_id: producto.id,
+      commerce_code: getCommerceCode(),
+      payload: {
+        title: producto.titulo,
+        price: producto.precio_estandar || producto.precio,
+        currency: 'ARS'
+      }
+    });
+
     setCartItems((prev) => {
       const idActual = producto.id; // STRICT ID
       const existe = prev.find(item => item.id === idActual);
@@ -45,6 +70,22 @@ export function CartProvider({ children }) {
   };
 
   const removeItem = (id) => {
+    // TRACKING - Find item before deleting to track details
+    const itemToRemove = cartItems.find(i => i.id === id);
+    if (itemToRemove) {
+      trackEvent({
+        event_type: 'conversion',
+        event_name: 'remove_from_cart',
+        entity_type: 'product',
+        entity_id: id,
+        commerce_code: getCommerceCode(),
+        payload: {
+          title: itemToRemove.titulo,
+          price: itemToRemove.precio_estandar || itemToRemove.precio
+        }
+      });
+    }
+
     setCartItems((prev) => prev.filter(item => item.id !== id));
   };
 

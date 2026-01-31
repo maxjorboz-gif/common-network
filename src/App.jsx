@@ -105,6 +105,38 @@ const AuthenticatedApp = () => {
   );
 };
 
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { getClientId, trackEvent } from '@/lib/tracking';
+
+const PageTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    // 1. Ensure ID exists
+    getClientId();
+
+    // 2. Track Page View
+    // Intentamos deducir el commerce_code de la URL
+    const pathParts = location.pathname.split('/');
+    const commerceCodeIdx = pathParts.indexOf('tienda');
+    const commerce_code = commerceCodeIdx !== -1 && pathParts[commerceCodeIdx + 1] ? pathParts[commerceCodeIdx + 1] : null;
+
+    trackEvent({
+      event_type: 'navigation',
+      event_name: 'page_view',
+      commerce_code: commerce_code,
+      payload: {
+        path: location.pathname,
+        search: location.search
+      }
+    });
+
+  }, [location]);
+
+  return null;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -112,6 +144,7 @@ function App() {
         {/* El CartProvider envuelve al Router para que el Layout tenga acceso al carrito */}
         <CartProvider>
           <Router>
+            <PageTracker />
             <NavigationTracker />
             <AuthenticatedApp />
           </Router>
