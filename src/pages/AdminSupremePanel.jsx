@@ -12,61 +12,24 @@ import { base44 } from '@/api/base44Client';
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-// HARDCODED SUPER ADMIN ID (As per requirement)
-const SUPER_ADMIN_ID = "14349463-549c-4bf9-b223-95b058a7493a";
-const ADMIN_SECRET_CODE = "abriteporfavor"; // Clave de acceso manual
-
 export default function AdminSupremePanel() {
     const navigate = useNavigate();
-    const { user, loading } = useAuth();
+    const { user } = useAuth(); // Solo para mostrar el email si está
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
-    // Estado local para acceso manual
-    const [isManualAuth, setIsManualAuth] = useState(false);
-    const [secretInput, setSecretInput] = useState("");
-    const [showLogin, setShowLogin] = useState(true);
+    // Estado para el formulario CBU
     const [cbuForm, setCbuForm] = useState({ cbu: '', alias: '', banco: '', titular: '' });
 
-    // Verificar si ya tenemos acceso por sesión o previo ingreso
-    // const isSuperUser = user && (user.id === SUPER_ADMIN_ID || user.email?.toLowerCase() === "maxjorboz@gmail.com");
-    // const hasAccess = isSuperUser || isManualAuth;
-    const hasAccess = true; // BYPASS TEMPORAL PARA TESTING
-
-
-    useEffect(() => {
-        const storedAuth = localStorage.getItem('admin_supreme_auth');
-        if (storedAuth === ADMIN_SECRET_CODE) {
-            setIsManualAuth(true);
-            setShowLogin(false);
-        } else if (isSuperUser) {
-            setShowLogin(false);
-        }
-    }, [isSuperUser]);
-
-    const handleManualLogin = (e) => {
-        e.preventDefault();
-        if (secretInput === ADMIN_SECRET_CODE) {
-            setIsManualAuth(true);
-            setShowLogin(false);
-            localStorage.setItem('admin_supreme_auth', ADMIN_SECRET_CODE);
-            toast({ title: "Acceso Concedido", description: "Bienvenido, Supremo." });
-        } else {
-            toast({ title: "Acceso Denegado", description: "Código incorrecto.", variant: "destructive" });
-        }
-    };
-
-    // --- QUERIES ---
+    // --- QUERIES (Sin validaciones, directas al grano) ---
 
     // 1. OBTENER CONFIGURACION FINANCIERA (CBU)
     const { data: configFinanciera } = useQuery({
         queryKey: ['config-suprema'],
         queryFn: async () => {
-            if (!hasAccess) return null;
             const resp = await base44.functions.invoke('configuracionSuprema', { action: 'obtener' });
             return resp.data?.config || {};
-        },
-        enabled: hasAccess
+        }
     });
 
     useEffect(() => {
@@ -77,27 +40,23 @@ export default function AdminSupremePanel() {
     const { data: pagosPendientes, isLoading: loadingPagos } = useQuery({
         queryKey: ['pagos-publicidad', 'pendiente'],
         queryFn: async () => {
-            if (!hasAccess) return [];
+            // Ya no mandamos admin_secret porque el backend está libre
             const resp = await base44.functions.invoke('gestionarPagosPublicidad', {
                 action: 'listar',
-                estado: 'pendiente',
-                admin_secret: ADMIN_SECRET_CODE
+                estado: 'pendiente'
             });
             return resp.data?.pagos || [];
-        },
-        enabled: hasAccess
+        }
     });
 
     // 3. OBTENER SOLICITUDES / COMERCIOS (Unificado)
     const { data: solicitudes, isLoading: loadingSolicitudes } = useQuery({
         queryKey: ['admin-solicitudes'],
         queryFn: async () => {
-            if (!hasAccess) return [];
-            const payload = { action: 'list', admin_secret: ADMIN_SECRET_CODE };
+            const payload = { action: 'list' };
             const response = await base44.functions.invoke('gestionarSolicitudes', payload);
             return response.data?.solicitudes || [];
-        },
-        enabled: hasAccess
+        }
     });
 
     // --- MUTATIONS ---
@@ -107,8 +66,7 @@ export default function AdminSupremePanel() {
         mutationFn: async (nuevoConfig) => {
             const resp = await base44.functions.invoke('configuracionSuprema', {
                 action: 'guardar',
-                config: nuevoConfig,
-                admin_secret: ADMIN_SECRET_CODE
+                config: nuevoConfig
             });
             if (resp.error) throw new Error(resp.error.message);
             return resp.data;
@@ -122,8 +80,7 @@ export default function AdminSupremePanel() {
         mutationFn: async (id_pago) => {
             const resp = await base44.functions.invoke('gestionarPagosPublicidad', {
                 action: 'aprobar',
-                id_pago,
-                admin_secret: ADMIN_SECRET_CODE
+                id_pago
             });
             if (resp.error) throw new Error(resp.error.message || resp.data?.error);
             return resp.data;
@@ -131,7 +88,7 @@ export default function AdminSupremePanel() {
         onSuccess: (data) => {
             toast({ title: "Pago Aprobado", description: `Se acreditó el saldo. Nuevo saldo: $${data.nuevo_saldo}` });
             queryClient.invalidateQueries({ queryKey: ['pagos-publicidad'] });
-            queryClient.invalidateQueries({ queryKey: ['admin-solicitudes'] }); // Para actualizar saldos en tabla comercios si se mostraran
+            queryClient.invalidateQueries({ queryKey: ['admin-solicitudes'] });
         },
         onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" })
     });
@@ -143,8 +100,7 @@ export default function AdminSupremePanel() {
                 action: 'toggle_active',
                 id: id_registro,
                 commerce_code,
-                active,
-                admin_secret: ADMIN_SECRET_CODE
+                active
             };
             const response = await base44.functions.invoke('gestionarSolicitudes', payload);
             if (response.error) throw new Error(response.error.message || response.data?.error);
@@ -160,7 +116,7 @@ export default function AdminSupremePanel() {
     // D. APROBAR REGISTRO INICIAL
     const approveRegisterMutation = useMutation({
         mutationFn: async (id_registro) => {
-            const payload = { action: 'approve', id_registro, admin_secret: ADMIN_SECRET_CODE };
+            const payload = { action: 'approve', id_registro };
             const response = await base44.functions.invoke('gestionarSolicitudes', payload);
             if (response.error) throw new Error(response.error.message || response.data?.error);
             return response.data;
@@ -175,41 +131,7 @@ export default function AdminSupremePanel() {
 
     // --- RENDERS ---
 
-    if (loading) return null;
-
-    if (showLogin && !hasAccess) {
-        return (
-            <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4">
-                <Card className="w-full max-w-md bg-neutral-900 border-neutral-800">
-                    <CardHeader className="text-center">
-                        <div className="mx-auto bg-orange-500/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                            <Lock className="w-8 h-8 text-orange-500" />
-                        </div>
-                        <CardTitle className="text-white uppercase tracking-widest">Acceso Restringido</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleManualLogin} className="space-y-4">
-                            <Input
-                                type="password"
-                                placeholder="Ingresa el Código Maestro"
-                                value={secretInput}
-                                onChange={(e) => setSecretInput(e.target.value)}
-                                className="bg-black border-neutral-700 text-center tracking-widest font-mono text-white text-lg" // Added text-lg and text-white forced
-                            />
-                            <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 font-bold">
-                                INGRESAR AL PANEL
-                            </Button>
-                        </form>
-                        <Button variant="link" onClick={() => navigate('/')} className="w-full text-neutral-500 mt-4">
-                            Volver al Inicio
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
-    const displayEmail = user?.email || "Supremo (Acceso Manual)";
+    const displayEmail = user?.email || "Super Admin";
     const pendientesRegistro = solicitudes?.filter(s => s.aprobacion_pendiente) || [];
     const comerciosActivos = solicitudes?.filter(s => !s.aprobacion_pendiente) || [];
 
@@ -230,19 +152,6 @@ export default function AdminSupremePanel() {
                         <p className="text-sm font-bold text-white">{displayEmail}</p>
                         <p className="text-[10px] text-orange-600 uppercase font-black tracking-widest">Super Admin</p>
                     </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-500 hover:bg-red-950/20"
-                        onClick={() => {
-                            localStorage.removeItem('admin_supreme_auth');
-                            setIsManualAuth(false);
-                            setShowLogin(true);
-                            navigate('/');
-                        }}
-                    >
-                        Salir
-                    </Button>
                 </div>
             </header>
 
