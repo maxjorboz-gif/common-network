@@ -929,6 +929,9 @@ export default function AdminProductos({ comercio }) {
       <CategoriaFilter
         selectedCategoria={selectedCategoria}
         onFilterChange={setSelectedCategoria}
+        categorias={[...new Set(productos.map(p => p.categoria))]}
+        onDeleteCategory={handleDeleteCategory}
+        metaCategories={META_CATEGORIES}
       />
 
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
