@@ -47,15 +47,16 @@ export default function AdminAdWallet({ comercio }) {
     });
 
     // 1.b Obtener Configuración SUPREMA (Datos Bancarios del Admin)
-    const { data: configSuprema } = useQuery({
+    const { data: configSuprema, isLoading: loadingSuprema } = useQuery({
         queryKey: ['config-suprema-public'],
         queryFn: async () => {
-            // Usamos 'obtener' que ahora es público en backend (lo desbloqueamos antes)
             const response = await base44.functions.invoke('configuracionSuprema', {
                 action: 'obtener'
             });
+            console.log("Datos bancarios obtenidos:", response.data?.config);
             return response.data?.config || {};
-        }
+        },
+        refetchOnWindowFocus: true // Para asegurar que si cambias de pestaña se actualice
     });
 
     const [dailyLimit, setDailyLimit] = useState(0);
@@ -287,11 +288,21 @@ export default function AdminAdWallet({ comercio }) {
                         <div className="bg-neutral-100 p-6 rounded-2xl border-dashed border-2 border-neutral-300">
                             <p className="text-neutral-600 text-sm mb-4 font-bold uppercase tracking-tighter italic">Transferí Pesos (ARS) a nuestra cuenta oficial:</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-                                <div className="p-3 bg-white rounded-lg border"><b>CBU:</b> {configSuprema?.cbu || 'Consultar Admin'}</div>
-                                <div className="p-3 bg-white rounded-lg border"><b>Alias:</b> {configSuprema?.alias || 'Consultar Admin'}</div>
-                                <div className="p-3 bg-white rounded-lg border"><b>Banco:</b> {configSuprema?.banco || 'Consultar Admin'}</div>
-                                <div className="p-3 bg-white rounded-lg border font-bold text-orange-600"><b>Monto:</b> $ {selectedPlan?.precio.toLocaleString('es-AR')}</div>
-                                <div className="p-3 bg-white rounded-lg border md:col-span-2"><b>Titular:</b> {configSuprema?.titular || 'COMMON NETWORK S.A.'}</div>
+                                <div className="p-3 bg-white rounded-lg border">
+                                    <b>CBU:</b> {loadingSuprema ? <span className="animate-pulse">Cargando...</span> : (configSuprema?.cbu || 'Consultar Admin')}
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border">
+                                    <b>Alias:</b> {loadingSuprema ? <span className="animate-pulse">...</span> : (configSuprema?.alias || 'Consultar Admin')}
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border">
+                                    <b>Banco:</b> {loadingSuprema ? <span className="animate-pulse">...</span> : (configSuprema?.banco || 'Consultar Admin')}
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border font-bold text-orange-600">
+                                    <b>Monto:</b> $ {selectedPlan?.precio.toLocaleString('es-AR')}
+                                </div>
+                                <div className="p-3 bg-white rounded-lg border md:col-span-2">
+                                    <b>Titular:</b> {loadingSuprema ? <span className="animate-pulse">Cargando...</span> : (configSuprema?.titular || 'COMMON NETWORK S.A.')}
+                                </div>
                             </div>
                         </div>
 
