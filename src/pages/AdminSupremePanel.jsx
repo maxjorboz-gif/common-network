@@ -1,48 +1,73 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { Shield, Activity, CheckCircle2, AlertCircle, Loader2, ExternalLink, Download } from 'lucide-react';
+import { Shield, Activity, CheckCircle2, AlertCircle, Loader2, ExternalLink, Lock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { base44 } from '@/api/base44Client';
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 // HARDCODED SUPER ADMIN ID (As per requirement)
 const SUPER_ADMIN_ID = "14349463-549c-4bf9-b223-95b058a7493a";
+const ADMIN_SECRET_CODE = "abriteporfavor"; // Clave de acceso manual
 
 export default function AdminSupremePanel() {
     const navigate = useNavigate();
-    const { user, loading, hasAccess } = useAuth();
+    const { user, loading } = useAuth(); // Eliminamos hasAccess que no existe
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
-    React.useEffect(() => {
-        if (!loading) {
-            // Permitir si tiene bandera de acceso O si es el usuario autenticado correcto
-            const isSuperUser = user && (user.id === SUPER_ADMIN_ID || user.email?.toLowerCase() === "maxjorboz@gmail.com");
+    // Estado local para acceso manual
+    const [isManualAuth, setIsManualAuth] = useState(false);
+    const [secretInput, setSecretInput] = useState("");
+    const [showLogin, setShowLogin] = useState(true);
 
-            if (!hasAccess && !isSuperUser) {
-                navigate('/');
-            }
+    // Verificar si ya tenemos acceso por sesión o previo ingreso
+    const isSuperUser = user && (user.id === SUPER_ADMIN_ID || user.email?.toLowerCase() === "maxjorboz@gmail.com");
+    const hasAccess = isSuperUser || isManualAuth;
+
+    useEffect(() => {
+        // Chequeo de persistencia simple
+        const storedAuth = localStorage.getItem('admin_supreme_auth');
+        if (storedAuth === ADMIN_SECRET_CODE) {
+            setIsManualAuth(true);
+            setShowLogin(false);
+        } else if (isSuperUser) {
+            setShowLogin(false);
         }
-    }, [user, loading, navigate, hasAccess]);
+    }, [isSuperUser]);
 
-    // OBTENER SOLICITUDES (Usando Backdoor Secret si es necesario)
+    const handleManualLogin = (e) => {
+        e.preventDefault();
+        if (secretInput === ADMIN_SECRET_CODE) {
+            setIsManualAuth(true);
+            setShowLogin(false);
+            localStorage.setItem('admin_supreme_auth', ADMIN_SECRET_CODE);
+            toast({ title: "Acceso Concedido", description: "Bienvenido, Supremo." });
+        } else {
+            toast({ title: "Acceso Denegado", description: "Código incorrecto.", variant: "destructive" });
+        }
+    };
+
+    // OBTENER SOLICITUDES
     const { data: solicitudes, isLoading: loadingSolicitudes } = useQuery({
         queryKey: ['admin-solicitudes'],
         queryFn: async () => {
+            // Si no hay acceso validado, no hacemos fetch
+            if (!hasAccess) return [];
+
             const payload = {
                 action: 'list',
-                // Enviamos secreto solo si entramos por backdoor
-                admin_secret: hasAccess ? 'abriteporfavor' : undefined
+                admin_secret: ADMIN_SECRET_CODE // Enviamos el secreto para el backend
             };
 
             const response = await base44.functions.invoke('gestionarSolicitudes', payload);
             if (response.error) throw new Error(response.error.message);
             return response.data?.solicitudes || [];
         },
-        enabled: hasAccess || !!user // Ejecutar si tenemos acceso
+        enabled: hasAccess // Solo ejecutar si tenemos acceso
     });
 
     // APROBAR SOLICITUD
@@ -51,7 +76,7 @@ export default function AdminSupremePanel() {
             const payload = {
                 action: 'approve',
                 id_registro,
-                admin_secret: hasAccess ? 'abriteporfavor' : undefined
+                admin_secret: ADMIN_SECRET_CODE
             };
             const response = await base44.functions.invoke('gestionarSolicitudes', payload);
             if (response.error) throw new Error(response.error.message || response.data?.error);
@@ -66,7 +91,7 @@ export default function AdminSupremePanel() {
         }
     });
 
-    // TOGGLE STATUS (HABILITAR / DESHABILITAR)
+    // TOGGLE STATUS
     const toggleStatusMutation = useMutation({
         mutationFn: async ({ id_registro, active, commerce_code }) => {
             const payload = {
@@ -74,7 +99,7 @@ export default function AdminSupremePanel() {
                 id: id_registro,
                 commerce_code,
                 active,
-                admin_secret: hasAccess ? 'abriteporfavor' : undefined
+                admin_secret: ADMIN_SECRET_CODE
             };
             const response = await base44.functions.invoke('gestionarSolicitudes', payload);
             if (response.error) throw new Error(response.error.message || response.data?.error);
@@ -89,19 +114,42 @@ export default function AdminSupremePanel() {
         }
     });
 
-    if (loading && !hasAccess) {
+    // RENDER: PANTALLA DE BLOQUEO
+    if (loading) return null;
+
+    if (showLogin && !hasAccess) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <span className="text-orange-600 animate-pulse font-bold uppercase tracking-widest">
-                    Verificando Credenciales Supremas...
-                </span>
+            <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-4">
+                <Card className="w-full max-w-md bg-neutral-900 border-neutral-800">
+                    <CardHeader className="text-center">
+                        <div className="mx-auto bg-orange-500/10 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                            <Lock className="w-8 h-8 text-orange-500" />
+                        </div>
+                        <CardTitle className="text-white uppercase tracking-widest">Acceso Restringido</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleManualLogin} className="space-y-4">
+                            <Input
+                                type="password"
+                                placeholder="Ingresa el Código Maestro"
+                                value={secretInput}
+                                onChange={(e) => setSecretInput(e.target.value)}
+                                className="bg-black border-neutral-700 text-center tracking-widest font-mono"
+                            />
+                            <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 font-bold">
+                                INGRESAR AL PANEL
+                            </Button>
+                        </form>
+                        <Button variant="link" onClick={() => navigate('/')} className="w-full text-neutral-500 mt-4">
+                            Volver al Inicio
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
 
-    // Si entramos por backdoor y no hay user, mostramos datos dummy
-    const displayEmail = user?.email || "maxjorboz@gmail.com";
-
+    const displayEmail = user?.email || "Supremo (Acceso Manual)";
     const pendientes = solicitudes?.filter(s => s.aprobacion_pendiente) || [];
     const activos = solicitudes?.filter(s => !s.aprobacion_pendiente) || [];
 
@@ -122,14 +170,24 @@ export default function AdminSupremePanel() {
                         <p className="text-sm font-bold text-white">{displayEmail}</p>
                         <p className="text-xs text-orange-600 uppercase font-black tracking-widest">Super Admin</p>
                     </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:bg-red-950/20"
+                        onClick={() => {
+                            localStorage.removeItem('admin_supreme_auth');
+                            setIsManualAuth(false);
+                            setShowLogin(true);
+                            navigate('/');
+                        }}
+                    >
+                        Salir
+                    </Button>
                 </div>
-                <Button variant="outline" onClick={() => navigate('/')}>
-                    Volver al Sitio
-                </Button>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* SOLICITUDES PENDIENTES (Pagos a Validar) */}
+                {/* SOLICITUDES PENDIENTES */}
                 <Card className="bg-neutral-900 border-neutral-800 md:col-span-2">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-white font-black uppercase italic">
