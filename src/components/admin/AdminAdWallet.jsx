@@ -46,6 +46,18 @@ export default function AdminAdWallet({ comercio }) {
         }
     });
 
+    // 1.b Obtener Configuración SUPREMA (Datos Bancarios del Admin)
+    const { data: configSuprema } = useQuery({
+        queryKey: ['config-suprema-public'],
+        queryFn: async () => {
+            // Usamos 'obtener' que ahora es público en backend (lo desbloqueamos antes)
+            const response = await base44.functions.invoke('configuracionSuprema', {
+                action: 'obtener'
+            });
+            return response.data?.config || {};
+        }
+    });
+
     const [dailyLimit, setDailyLimit] = useState(0);
 
     useEffect(() => {
