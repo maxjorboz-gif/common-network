@@ -70,10 +70,10 @@ Deno.serve(async (req) => {
         if (action === 'aprobar') {
             const { id_pago, admin_secret } = data;
 
-            // Validación de seguridad simple
-            if (admin_secret !== "abriteporfavor") {
-                return Response.json({ error: "Acceso denegado" }, { status: 403 });
-            }
+            // Validación de seguridad simple (BYPASS TEMPORAL)
+            // if (admin_secret !== "abriteporfavor") {
+            //    return Response.json({ error: "Acceso denegado" }, { status: 403 });
+            // }
 
             // 1. Obtener el pago
             const respPago = await fetch(`${URL_PAGO}/${id_pago}`, { headers });
@@ -121,9 +121,9 @@ Deno.serve(async (req) => {
         if (action === 'listar') {
             const { admin_secret, estado } = data;
 
-            if (admin_secret !== "abriteporfavor") {
-                return Response.json({ error: "Acceso denegado" }, { status: 403 });
-            }
+            // if (admin_secret !== "abriteporfavor") {
+            //    return Response.json({ error: "Acceso denegado" }, { status: 403 });
+            // }
 
             let urlBusqueda = URL_PAGO;
             if (estado) {

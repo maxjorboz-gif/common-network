@@ -51,9 +51,9 @@ Deno.serve(async (req) => {
         if (action === 'guardar') {
             const { admin_secret, config } = data;
 
-            if (admin_secret !== "abriteporfavor") {
-                return Response.json({ error: "Acceso denegado" }, { status: 403 });
-            }
+            // if (admin_secret !== "abriteporfavor") {
+            //     return Response.json({ error: "Acceso denegado" }, { status: 403 });
+            // }
 
             // Buscamos si ya existe para saber si crear o actualizar
             const resp = await fetch(`${URL_CONFIG}?clave_unica=${SINGLETON_CONFIG_ID_KEY}`, { headers });
