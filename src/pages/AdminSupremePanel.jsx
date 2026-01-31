@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { Shield, Activity, CheckCircle2, AlertCircle, Loader2, ExternalLink, Lock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Shield, Activity, CheckCircle2, AlertCircle, Loader2, ExternalLink, Lock, DollarSign, Wallet, Store } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { base44 } from '@/api/base44Client';
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,7 +17,7 @@ const ADMIN_SECRET_CODE = "abriteporfavor"; // Clave de acceso manual
 
 export default function AdminSupremePanel() {
     const navigate = useNavigate();
-    const { user, loading } = useAuth(); // Eliminamos hasAccess que no existe
+    const { user, loading } = useAuth();
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
@@ -23,13 +25,13 @@ export default function AdminSupremePanel() {
     const [isManualAuth, setIsManualAuth] = useState(false);
     const [secretInput, setSecretInput] = useState("");
     const [showLogin, setShowLogin] = useState(true);
+    const [cbuForm, setCbuForm] = useState({ cbu: '', alias: '', banco: '', titular: '' });
 
     // Verificar si ya tenemos acceso por sesión o previo ingreso
     const isSuperUser = user && (user.id === SUPER_ADMIN_ID || user.email?.toLowerCase() === "maxjorboz@gmail.com");
     const hasAccess = isSuperUser || isManualAuth;
 
     useEffect(() => {
-        // Chequeo de persistencia simple
         const storedAuth = localStorage.getItem('admin_supreme_auth');
         if (storedAuth === ADMIN_SECRET_CODE) {
             setIsManualAuth(true);
@@ -51,47 +53,87 @@ export default function AdminSupremePanel() {
         }
     };
 
-    // OBTENER SOLICITUDES
+    // --- QUERIES ---
+
+    // 1. OBTENER CONFIGURACION FINANCIERA (CBU)
+    const { data: configFinanciera } = useQuery({
+        queryKey: ['config-suprema'],
+        queryFn: async () => {
+            if (!hasAccess) return null;
+            const resp = await base44.functions.invoke('configuracionSuprema', { action: 'obtener' });
+            return resp.data?.config || {};
+        },
+        enabled: hasAccess
+    });
+
+    useEffect(() => {
+        if (configFinanciera) setCbuForm(configFinanciera);
+    }, [configFinanciera]);
+
+    // 2. OBTENER PAGOS PENDIENTES
+    const { data: pagosPendientes, isLoading: loadingPagos } = useQuery({
+        queryKey: ['pagos-publicidad', 'pendiente'],
+        queryFn: async () => {
+            if (!hasAccess) return [];
+            const resp = await base44.functions.invoke('gestionarPagosPublicidad', {
+                action: 'listar',
+                estado: 'pendiente',
+                admin_secret: ADMIN_SECRET_CODE
+            });
+            return resp.data?.pagos || [];
+        },
+        enabled: hasAccess
+    });
+
+    // 3. OBTENER SOLICITUDES / COMERCIOS (Unificado)
     const { data: solicitudes, isLoading: loadingSolicitudes } = useQuery({
         queryKey: ['admin-solicitudes'],
         queryFn: async () => {
-            // Si no hay acceso validado, no hacemos fetch
             if (!hasAccess) return [];
-
-            const payload = {
-                action: 'list',
-                admin_secret: ADMIN_SECRET_CODE // Enviamos el secreto para el backend
-            };
-
+            const payload = { action: 'list', admin_secret: ADMIN_SECRET_CODE };
             const response = await base44.functions.invoke('gestionarSolicitudes', payload);
-            if (response.error) throw new Error(response.error.message);
             return response.data?.solicitudes || [];
         },
-        enabled: hasAccess // Solo ejecutar si tenemos acceso
+        enabled: hasAccess
     });
 
-    // APROBAR SOLICITUD
-    const approveMutation = useMutation({
-        mutationFn: async (id_registro) => {
-            const payload = {
-                action: 'approve',
-                id_registro,
+    // --- MUTATIONS ---
+
+    // A. GUARDAR CBU
+    const guardarConfigMutation = useMutation({
+        mutationFn: async (nuevoConfig) => {
+            const resp = await base44.functions.invoke('configuracionSuprema', {
+                action: 'guardar',
+                config: nuevoConfig,
                 admin_secret: ADMIN_SECRET_CODE
-            };
-            const response = await base44.functions.invoke('gestionarSolicitudes', payload);
-            if (response.error) throw new Error(response.error.message || response.data?.error);
-            return response.data;
+            });
+            if (resp.error) throw new Error(resp.error.message);
+            return resp.data;
+        },
+        onSuccess: () => toast({ title: "Configuración Guardada", description: "Tus datos bancarios han sido actualizados." }),
+        onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" })
+    });
+
+    // B. APROBAR PAGO PUBLICIDAD
+    const aprobarPagoMutation = useMutation({
+        mutationFn: async (id_pago) => {
+            const resp = await base44.functions.invoke('gestionarPagosPublicidad', {
+                action: 'aprobar',
+                id_pago,
+                admin_secret: ADMIN_SECRET_CODE
+            });
+            if (resp.error) throw new Error(resp.error.message || resp.data?.error);
+            return resp.data;
         },
         onSuccess: (data) => {
-            toast({ title: "Comercio Aprobado", description: `ID Asignado: ${data.new_id}` });
-            queryClient.invalidateQueries({ queryKey: ['admin-solicitudes'] });
+            toast({ title: "Pago Aprobado", description: `Se acreditó el saldo. Nuevo saldo: $${data.nuevo_saldo}` });
+            queryClient.invalidateQueries({ queryKey: ['pagos-publicidad'] });
+            queryClient.invalidateQueries({ queryKey: ['admin-solicitudes'] }); // Para actualizar saldos en tabla comercios si se mostraran
         },
-        onError: (err) => {
-            toast({ title: "Error", description: err.message, variant: "destructive" });
-        }
+        onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" })
     });
 
-    // TOGGLE STATUS
+    // C. TOGGLE STATUS (HABILITAR / DESHABILITAR COMERCIO)
     const toggleStatusMutation = useMutation({
         mutationFn: async ({ id_registro, active, commerce_code }) => {
             const payload = {
@@ -109,12 +151,27 @@ export default function AdminSupremePanel() {
             toast({ title: "Estado Actualizado", description: "El estado del comercio ha cambiado." });
             queryClient.invalidateQueries({ queryKey: ['admin-solicitudes'] });
         },
-        onError: (err) => {
-            toast({ title: "Error", description: err.message, variant: "destructive" });
-        }
+        onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" })
     });
 
-    // RENDER: PANTALLA DE BLOQUEO
+    // D. APROBAR REGISTRO INICIAL
+    const approveRegisterMutation = useMutation({
+        mutationFn: async (id_registro) => {
+            const payload = { action: 'approve', id_registro, admin_secret: ADMIN_SECRET_CODE };
+            const response = await base44.functions.invoke('gestionarSolicitudes', payload);
+            if (response.error) throw new Error(response.error.message || response.data?.error);
+            return response.data;
+        },
+        onSuccess: (data) => {
+            toast({ title: "Comercio Aprobado", description: `ID: ${data.new_id}` });
+            queryClient.invalidateQueries({ queryKey: ['admin-solicitudes'] });
+        },
+        onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" })
+    });
+
+
+    // --- RENDERS ---
+
     if (loading) return null;
 
     if (showLogin && !hasAccess) {
@@ -134,7 +191,7 @@ export default function AdminSupremePanel() {
                                 placeholder="Ingresa el Código Maestro"
                                 value={secretInput}
                                 onChange={(e) => setSecretInput(e.target.value)}
-                                className="bg-black border-neutral-700 text-center tracking-widest font-mono"
+                                className="bg-black border-neutral-700 text-center tracking-widest font-mono text-white text-lg" // Added text-lg and text-white forced
                             />
                             <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 font-bold">
                                 INGRESAR AL PANEL
@@ -150,25 +207,25 @@ export default function AdminSupremePanel() {
     }
 
     const displayEmail = user?.email || "Supremo (Acceso Manual)";
-    const pendientes = solicitudes?.filter(s => s.aprobacion_pendiente) || [];
-    const activos = solicitudes?.filter(s => !s.aprobacion_pendiente) || [];
+    const pendientesRegistro = solicitudes?.filter(s => s.aprobacion_pendiente) || [];
+    const comerciosActivos = solicitudes?.filter(s => !s.aprobacion_pendiente) || [];
 
     return (
         <div className="min-h-screen bg-neutral-950 text-white p-8">
-            <header className="mb-12 flex items-center justify-between border-b border-neutral-900 pb-8">
+            <header className="mb-8 flex items-center justify-between border-b border-neutral-900 pb-8">
                 <div>
-                    <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-2 flex items-center gap-3">
+                    <h1 className="text-3xl font-black uppercase italic tracking-tighter mb-2 flex items-center gap-3">
                         <Shield className="text-orange-600" size={32} />
                         Administrador Supremo
                     </h1>
-                    <p className="text-neutral-500 font-bold uppercase tracking-widest text-sm">
+                    <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs">
                         Gestión Global de la Plataforma
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="text-right">
+                    <div className="text-right hidden md:block">
                         <p className="text-sm font-bold text-white">{displayEmail}</p>
-                        <p className="text-xs text-orange-600 uppercase font-black tracking-widest">Super Admin</p>
+                        <p className="text-[10px] text-orange-600 uppercase font-black tracking-widest">Super Admin</p>
                     </div>
                     <Button
                         variant="ghost"
@@ -186,110 +243,223 @@ export default function AdminSupremePanel() {
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* SOLICITUDES PENDIENTES */}
-                <Card className="bg-neutral-900 border-neutral-800 md:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-white font-black uppercase italic">
-                            <AlertCircle className="text-orange-600" /> Pagos Pendientes de Aprobación ({pendientes.length})
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {loadingSolicitudes ? (
-                            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-orange-600" /></div>
-                        ) : pendientes.length === 0 ? (
-                            <div className="text-center p-8 text-neutral-500 italic">No hay pagos pendientes por validar</div>
-                        ) : (
-                            <div className="space-y-4">
-                                {pendientes.map((sol) => (
-                                    <div key={sol.id} className="bg-black/40 p-4 rounded-xl border border-neutral-800 flex flex-col md:flex-row items-center justify-between gap-4">
-                                        <div>
-                                            <h3 className="font-bold text-lg text-white">{sol.nombre_comercio}</h3>
-                                            <p className="text-sm text-neutral-400">{sol.email_admin} • {sol.whatsapp}</p>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <p className="text-xs bg-orange-900/30 text-orange-500 px-2 py-1 rounded font-mono">OP: {sol.numero_operacion}</p>
-                                                <p className="text-xs text-neutral-500 font-bold uppercase">Plan Inicial: $2.000 (Crédito)</p>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            onClick={() => approveMutation.mutate(sol.id_registro)}
-                                            disabled={approveMutation.isPending}
-                                            className="bg-green-600 hover:bg-green-700 font-bold uppercase italic"
-                                        >
-                                            {approveMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                                            Validar Pago y Activar
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+            <Tabs defaultValue="comercios" className="space-y-6">
+                <TabsList className="bg-neutral-900 border-neutral-800">
+                    <TabsTrigger value="comercios" className="data-[state=active]:bg-orange-600 data-[state=active]:text-white">
+                        <Store className="w-4 h-4 mr-2" /> Comercios
+                    </TabsTrigger>
+                    <TabsTrigger value="pagos" className="data-[state=active]:bg-orange-600 data-[state=active]:text-white">
+                        <DollarSign className="w-4 h-4 mr-2" /> Pagos ({pagosPendientes?.length || 0}) / Pendientes
+                    </TabsTrigger>
+                    <TabsTrigger value="finanzas" className="data-[state=active]:bg-orange-600 data-[state=active]:text-white">
+                        <Wallet className="w-4 h-4 mr-2" /> Mis Datos Bancarios
+                    </TabsTrigger>
+                </TabsList>
 
-                {/* COMERCIOS ACTIVOS */}
-                <Card className="bg-neutral-900 border-neutral-800 md:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-white font-black uppercase italic">
-                            <Activity className="text-blue-500" /> Comercios Activos ({activos.length})
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {loadingSolicitudes ? (
-                            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-blue-500" /></div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {activos.map((com) => (
-                                    <div key={com.id} className={`p-4 rounded-xl border transition-all ${com.activo ? 'bg-neutral-950 border-neutral-800' : 'bg-red-950/20 border-red-900/50'}`}>
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                <p className="font-bold text-white text-sm truncate pr-2">{com.nombre_comercio}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-xs text-neutral-500 font-mono">{com.commerce_code}</p>
-                                                    <a
-                                                        href={`/tienda/${com.commerce_code}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-orange-500 hover:text-orange-400"
-                                                        title="Ver tienda pública"
-                                                    >
-                                                        <ExternalLink size={12} />
-                                                    </a>
-                                                </div>
+                {/* --- TAB COMERCIOS (Gestión General) --- */}
+                <TabsContent value="comercios">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        {/* REGISTROS PENDIENTES */}
+                        <Card className="bg-neutral-900 border-neutral-800 md:col-span-2">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-white font-black uppercase italic text-sm">
+                                    <AlertCircle className="text-orange-600" size={16} /> Nuevos Registros ({pendientesRegistro.length})
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {loadingSolicitudes ? <Loader2 className="animate-spin text-orange-600 mx-auto" /> :
+                                    pendientesRegistro.length === 0 ? <p className="text-neutral-500 text-sm italic text-center">Sin registros pendientes</p> :
+                                        (
+                                            <div className="space-y-2">
+                                                {pendientesRegistro.map(sol => (
+                                                    <div key={sol.id} className="bg-black/40 p-3 rounded-lg border border-neutral-800 flex justify-between items-center text-sm">
+                                                        <div>
+                                                            <span className="font-bold text-white block">{sol.nombre_comercio}</span>
+                                                            <span className="text-neutral-500 text-xs">{sol.email_admin} | OP: {sol.numero_operacion}</span>
+                                                        </div>
+                                                        <Button size="sm" className="bg-green-600 hover:bg-green-700 h-7 text-xs" onClick={() => approveRegisterMutation.mutate(sol.id_registro)}>
+                                                            Validar y Activar
+                                                        </Button>
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <div className={`px-2 py-1 rounded text-[10px] uppercase font-bold flex items-center gap-1.5 ${com.activo ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${com.activo ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                                                {com.activo ? 'Activo' : 'Inactivo'}
-                                            </div>
-                                        </div>
+                                        )
+                                }
+                            </CardContent>
+                        </Card>
+                    </div>
 
-                                        <div className="flex gap-2 mt-4">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => toggleStatusMutation.mutate({
-                                                    id_registro: com.id_registro,
-                                                    active: !com.activo,
-                                                    commerce_code: com.commerce_code
-                                                })}
-                                                disabled={toggleStatusMutation.isPending}
-                                                className={`w-full text-xs font-bold uppercase italic h-8 ${com.activo ? 'hover:bg-red-900/20 hover:text-red-500 border-neutral-800' : 'bg-green-600 hover:bg-green-700 text-white border-transparent'}`}
-                                            >
-                                                {toggleStatusMutation.isPending ? (
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                ) : com.activo ? (
-                                                    "Deshabilitar"
-                                                ) : (
-                                                    "Habilitar"
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ))}
+                    {/* LISTADO MAESTRO */}
+                    <Card className="bg-neutral-900 border-neutral-800">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-white font-black uppercase italic text-sm">
+                                <Activity className="text-blue-500" size={16} /> Listado Maestro de Comercios
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="border-neutral-800 hover:bg-transparent">
+                                        <TableHead className="text-neutral-400">Comercio</TableHead>
+                                        <TableHead className="text-neutral-400">Código</TableHead>
+                                        <TableHead className="text-neutral-400">Saldo Publicidad</TableHead>
+                                        <TableHead className="text-neutral-400">Estado</TableHead>
+                                        <TableHead className="text-neutral-400 text-right">Acciones</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {loadingSolicitudes ? (
+                                        <TableRow><TableCell colSpan={5} className="text-center h-24"><Loader2 className="animate-spin mx-auto text-blue-500" /></TableCell></TableRow>
+                                    ) : comerciosActivos.map((com) => (
+                                        <TableRow key={com.id} className="border-neutral-800 hover:bg-neutral-800/50">
+                                            <TableCell className="font-bold text-white">{com.nombre_comercio}</TableCell>
+                                            <TableCell className="font-mono text-xs text-neutral-400">{com.commerce_code}</TableCell>
+                                            <TableCell className="font-mono text-green-500 font-bold">
+                                                ${com.saldo_publicidad?.toLocaleString() || '0'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold ${com.activo ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                    {com.activo ? 'Activo' : 'Pausado'}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-right flex justify-end gap-2">
+                                                <a href={`/tienda/${com.commerce_code}`} target="_blank" rel="noreferrer" className="p-2 bg-neutral-800 rounded hover:bg-neutral-700 text-neutral-300">
+                                                    <ExternalLink size={14} />
+                                                </a>
+                                                <Button
+                                                    size="sm"
+                                                    variant={com.activo ? "destructive" : "default"}
+                                                    className={`h-8 text-xs ${!com.activo && "bg-green-600 hover:bg-green-700"}`}
+                                                    onClick={() => toggleStatusMutation.mutate({ id_registro: com.id_registro, active: !com.activo, commerce_code: com.commerce_code })}
+                                                >
+                                                    {com.activo ? "Bloquear" : "Habilitar"}
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* --- TAB PAGOS (Aprobación) --- */}
+                <TabsContent value="pagos">
+                    <Card className="bg-neutral-900 border-neutral-800">
+                        <CardHeader>
+                            <CardTitle className="text-white font-black uppercase italic text-sm">
+                                Pagos de Publicidad Recibidos ({pagosPendientes?.length || 0})
+                            </CardTitle>
+                            <CardDescription className="text-neutral-500">
+                                Verifica el comprobante en tu banco antes de aprobar.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {loadingPagos ? <Loader2 className="animate-spin text-orange-600 mx-auto" /> :
+                                pagosPendientes.length === 0 ? <div className="p-8 text-center text-neutral-500 italic">No hay pagos pendientes de aprobación.</div> :
+                                    (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="border-neutral-800">
+                                                    <TableHead className="text-neutral-400">Fecha</TableHead>
+                                                    <TableHead className="text-neutral-400">Comercio</TableHead>
+                                                    <TableHead className="text-neutral-400">Monto</TableHead>
+                                                    <TableHead className="text-neutral-400">Comprobante</TableHead>
+                                                    <TableHead className="text-right text-neutral-400">Acción</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {pagosPendientes.map(pago => (
+                                                    <TableRow key={pago.id || pago._id} className="border-neutral-800">
+                                                        <TableCell className="text-neutral-300 text-xs">
+                                                            {new Date(pago.fecha_reporte).toLocaleDateString()}
+                                                        </TableCell>
+                                                        <TableCell className="font-bold text-white">{pago.nombre_comercio}</TableCell>
+                                                        <TableCell className="text-green-500 font-bold font-mono text-base">
+                                                            ${pago.monto?.toLocaleString()}
+                                                        </TableCell>
+                                                        <TableCell className="text-neutral-400 font-mono text-xs max-w-[200px] truncate" title={pago.comprobante}>
+                                                            {pago.comprobante}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-green-600 hover:bg-green-700 text-white font-bold h-8"
+                                                                onClick={() => aprobarPagoMutation.mutate(pago.id || pago._id)}
+                                                            >
+                                                                <CheckCircle2 size={14} className="mr-2" /> Confirmar
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    )
+                            }
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* --- TAB FINANZAS (Configuración CBU) --- */}
+                <TabsContent value="finanzas">
+                    <Card className="bg-neutral-900 border-neutral-800 max-w-2xl mx-auto">
+                        <CardHeader>
+                            <CardTitle className="text-white font-black uppercase italic text-sm">
+                                Tus Datos Bancarios
+                            </CardTitle>
+                            <CardDescription className="text-neutral-500">
+                                Estos datos serán visibles para todos los comercios cuando necesiten cargar saldo.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs text-neutral-400 font-bold uppercase">Banco / Billetera</label>
+                                    <Input
+                                        className="bg-black border-neutral-800 text-white"
+                                        placeholder="Ej: Mercado Pago, Banco Nación..."
+                                        value={cbuForm.banco}
+                                        onChange={e => setCbuForm({ ...cbuForm, banco: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs text-neutral-400 font-bold uppercase">Titular</label>
+                                    <Input
+                                        className="bg-black border-neutral-800 text-white"
+                                        placeholder="Nombre del Titular"
+                                        value={cbuForm.titular}
+                                        onChange={e => setCbuForm({ ...cbuForm, titular: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-xs text-neutral-400 font-bold uppercase">CBU / CVU</label>
+                                    <Input
+                                        className="bg-black border-neutral-800 text-white font-mono tracking-widest"
+                                        placeholder="0000000000000000000000"
+                                        value={cbuForm.cbu}
+                                        onChange={e => setCbuForm({ ...cbuForm, cbu: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
+                                    <label className="text-xs text-neutral-400 font-bold uppercase">Alias</label>
+                                    <Input
+                                        className="bg-black border-neutral-800 text-white font-bold uppercase"
+                                        placeholder="MI.ALIAS.MP"
+                                        value={cbuForm.alias}
+                                        onChange={e => setCbuForm({ ...cbuForm, alias: e.target.value })}
+                                    />
+                                </div>
                             </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
+                            <Button
+                                className="w-full bg-orange-600 hover:bg-orange-700 font-bold mt-4"
+                                onClick={() => guardarConfigMutation.mutate(cbuForm)}
+                            >
+                                Guardar Cambios
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div >
     );
 }
