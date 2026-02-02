@@ -15,10 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MerchantRegister = () => {
-    const { user } = useAuth();
-    const [step, setStep] = useState(1); // 1: Datos, 2: Pago, 3: Éxito
     const [loading, setLoading] = useState(false);
-    const [createdCommerceCode, setCreatedCommerceCode] = useState(null);
     const { toast } = useToast();
     const navigate = useNavigate();
 
@@ -33,6 +30,8 @@ const MerchantRegister = () => {
 
     const handleNextStep = async (e) => {
         e.preventDefault();
+        if (loading) return; // Prevención de doble submit
+
         if (form.password !== form.confirmPassword) {
             toast({ title: "Error", description: "Las contraseñas no coinciden.", variant: "destructive" });
             return;
@@ -50,22 +49,24 @@ const MerchantRegister = () => {
                 full_name: form.usuario
             };
 
-            const resultRaw = await base44.functions.invoke('registrarComercio', payload);
-            const response = resultRaw.data || resultRaw;
+            const { data, error } = await base44.functions.invoke('registrarComercio', payload);
 
-            if (response && response.success) {
-                setCreatedCommerceCode(response.commerce_code);
-                toast({ title: "¡Cuenta Creada!", description: "Redirigiendo al inicio..." });
-
-                // Redirigir al inicio tras breve pausa
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 2000);
-            } else {
-                toast({ title: "Error de Registro", description: response.error || "No se pudo crear la cuenta.", variant: "destructive" });
+            if (error) {
+                console.error(error);
+                toast({ title: "Error de Conexión", variant: "destructive" });
+                return;
             }
+
+            if (!data?.success) {
+                toast({ title: "Error de Registro", description: data?.error || "Error desconocido", variant: "destructive" });
+                return;
+            }
+
+            // Éxito
+            toast({ title: "¡Cuenta Creada!", description: "Bienvenido a la plataforma." });
+            navigate('/');
         } catch (error) {
-            console.error("Error en registro:", error);
+            console.error("Error invoke registrarComercio:", error);
             toast({ title: "Error de Conexión", description: "Intenta nuevamente.", variant: "destructive" });
         } finally {
             setLoading(false);

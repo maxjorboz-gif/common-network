@@ -1,11 +1,37 @@
+// @ts-nocheck
+import { crypto } from "jsr:@std/crypto";
+
+// --- CONFIGURACIÓN ESTRUCTURAL ---
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 
-const ENTITY_CONFIG = "ConfiguracionGlobal";
-const URL_CONFIG = `https://app.base44.com/api/apps/${APP_ID}/entities/${ENTITY_CONFIG}`;
+// Usamos una entidad única para configuraciones globales del sistema
+const URL_CONFIG_GLOBAL = `https://app.base44.com/api/apps/${APP_ID}/entities/ConfiguracionGlobal`;
 
-// Clave única para identificar el registro de configuración
-const SINGLETON_KEY = "finance_config_v1";
+// Clave Secreta para validar SuperAdmin (Escritura)
+const JWT_SECRET = "CLAVE_SECRETA_MUY_DIFICIL_DE_ADIVINAR_2026_CAMBIAME";
+
+// --- HELPER SEGURIDAD ---
+async function verifyAdminToken(req) {
+    try {
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader || !authHeader.startsWith("Bearer ")) return false;
+
+        const token = authHeader.split(" ")[1];
+        const decoded = atob(token);
+        const [payload, signature] = decoded.split(':');
+
+        const encoder = new TextEncoder();
+        const data = encoder.encode(payload + JWT_SECRET);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const expectedSignature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+        return signature === expectedSignature;
+    } catch (e) {
+        return false;
+    }
+}
 
 Deno.serve(async (req) => {
     // CORS
@@ -13,66 +39,82 @@ Deno.serve(async (req) => {
         return new Response("OK", {
             headers: {
                 "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "Content-Type",
-                "Access-Control-Allow-Methods": "POST, OPTIONS"
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
             }
         });
     }
 
     try {
         const body = await req.json();
-        const { action, ...data } = body;
-        const headers = { "Content-Type": "application/json", "api_key": API_KEY };
+        const { action, config } = body;
 
-        // ACCION: OBTENER
+        // 1. OBTENER CONFIGURACIÓN (Lectura Pública/Comercio)
+        // No requiere token de SuperAdmin, porque los comercios necesitan ver el CBU para pagar.
         if (action === 'obtener') {
-            // Buscamos por nuestra clave única
-            const resp = await fetch(`${URL_CONFIG}?clave_unica=${SINGLETON_KEY}`, { headers });
-            const resultados = await resp.json();
+            const resp = await fetch(`${URL_CONFIG_GLOBAL}?key=datos_bancarios`, {
+                headers: { 'api_key': API_KEY }
+            });
+            const data = await resp.json();
 
-            let config = null;
-            if (Array.isArray(resultados) && resultados.length > 0) {
-                config = resultados[0];
+            let configBancaria = {
+                cbu: "", alias: "", banco: "", titular: ""
+            };
+
+            if (Array.isArray(data) && data.length > 0) {
+                configBancaria = data[0].valor || configBancaria;
+            } else {
+                // Si no existe, devolvemos vacío limpio, NO hardcodeo.
+                // El frontend deberá manejar que no hay datos cargados.
             }
 
-            // Si no existe, devolvemos objeto vacío pero success true
-            return Response.json({
-                success: true,
-                config: config || { cbu: "", alias: "", banco: "", titular: "" }
-            }, { headers: { "Access-Control-Allow-Origin": "*" } });
+            return Response.json({ success: true, config: configBancaria }, { headers: { "Access-Control-Allow-Origin": "*" } });
         }
 
-        // ACCION: GUARDAR
+        // 2. GUARDAR CONFIGURACIÓN (Escritura Protegida)
+        // Solo el SuperAdmin puede cambiar el CBU destino.
         if (action === 'guardar') {
-            const { config } = data;
+            // A. Verificar Token
+            const isAdmin = await verifyAdminToken(req);
+            if (!isAdmin) {
+                return Response.json({ error: "Acceso Denegado. Solo SuperAdmin." }, { status: 401, headers: { "Access-Control-Allow-Origin": "*" } });
+            }
 
-            // 1. Buscar si existe
-            const resp = await fetch(`${URL_CONFIG}?clave_unica=${SINGLETON_KEY}`, { headers });
-            const resultados = await resp.json();
+            // B. Buscar si ya existe el registro
+            const checkResp = await fetch(`${URL_CONFIG_GLOBAL}?key=datos_bancarios`, {
+                headers: { 'api_key': API_KEY }
+            });
+            const existing = await checkResp.json();
 
-            if (Array.isArray(resultados) && resultados.length > 0) {
-                // UPDATE
-                const id = resultados[0]._id || resultados[0].id;
-                await fetch(`${URL_CONFIG}/${id}`, {
-                    method: 'PUT', // Usamos PUT para reemplazar o PATCH
-                    headers,
-                    body: JSON.stringify({ ...config, clave_unica: SINGLETON_KEY })
+            const payload = {
+                key: "datos_bancarios",
+                valor: config, // Guardamos el objeto entero {cbu, alias, ...}
+                updated_at: new Date().toISOString(),
+                updated_by: "SuperAdmin"
+            };
+
+            if (Array.isArray(existing) && existing.length > 0) {
+                // UPDATE (PATCH)
+                const id = existing[0].id || existing[0]._id;
+                await fetch(`${URL_CONFIG_GLOBAL}/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
             } else {
-                // CREATE
-                await fetch(URL_CONFIG, {
+                // CREATE (POST)
+                await fetch(URL_CONFIG_GLOBAL, {
                     method: 'POST',
-                    headers,
-                    body: JSON.stringify({ ...config, clave_unica: SINGLETON_KEY })
+                    headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
             }
 
-            return Response.json({ success: true }, { headers: { "Access-Control-Allow-Origin": "*" } });
+            return Response.json({ success: true, mensaje: "Datos bancarios actualizados." }, { headers: { "Access-Control-Allow-Origin": "*" } });
         }
 
-        return Response.json({ error: "Accion invalida" }, { status: 400, headers: { "Access-Control-Allow-Origin": "*" } });
+        return Response.json({ error: "Acción desconocida" }, { status: 400, headers: { "Access-Control-Allow-Origin": "*" } });
 
-    } catch (e) {
-        return Response.json({ error: e.message }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
     }
 });

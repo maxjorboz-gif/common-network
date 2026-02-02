@@ -1,137 +1,128 @@
 // @ts-nocheck
-// Gestión de Solicitudes y Comercios (Backend Puro V3)
-// Lee y gestiona la Entity 'Comercio' directamente.
+import { crypto } from "jsr:@std/crypto";
 
+// --- CONFIGURACIÓN ---
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
+const URL_COMERCIO = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
+
+// Clave Secreta (Debe coincidir con loginSuperAdmin.ts)
+const JWT_SECRET = "CLAVE_SECRETA_MUY_DIFICIL_DE_ADIVINAR_2026_CAMBIAME";
+
+// --- HELPER DE SEGURIDAD ---
+async function verifyAdminToken(req) {
+    try {
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader || !authHeader.startsWith("Bearer ")) return false;
+
+        const token = authHeader.split(" ")[1];
+        const decoded = atob(token);
+        const [payload, signature] = decoded.split(':'); // payload=id:timestamp
+
+        // Recrear firma
+        const encoder = new TextEncoder();
+        const data = encoder.encode(payload + JWT_SECRET);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const expectedSignature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+        return signature === expectedSignature;
+    } catch (e) {
+        return false;
+    }
+}
 
 Deno.serve(async (req) => {
+    // CORS
+    if (req.method === 'OPTIONS') {
+        return new Response("OK", {
+            headers: {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization"
+            }
+        });
+    }
+
     try {
-        if (req.method === 'OPTIONS') return new Response("OK");
-
-        let body;
-        try { body = await req.json(); } catch { body = {}; }
-        const { action, id_registro, commerce_code, active, id } = body;
-
-        console.log("GestionarSolicitudes Action:", action);
-
-        if (action === 'list') {
-            // Leemos TODOS los comercios
-            const response = await fetch(BASE44_URL, {
-                headers: { 'api_key': API_KEY }
-            });
-
-            if (!response.ok) throw new Error("Error leyendo comercios de Base44");
-            const allComercios = await response.json();
-
-            // Clasificamos para el Frontend
-            const listado = allComercios.map(c => {
-                const esPendiente = c.estado_registro !== 'activo' && c.estado_registro !== 'rechazado';
-                return {
-                    // Datos crudos
-                    ...c,
-
-                    // Adaptadores para UI vieja
-                    id_registro: c._id || c.id, // ID real de la entity
-                    nombre_comercio: c.nombre,
-                    email_admin: c.email_negocio,
-                    aprobacion_pendiente: esPendiente,
-                    activo: c.activo || (!esPendiente),
-                    id_comercio: c.commerce_code || "PENDIENTE",
-                    pago_confirmado: c.numero_operacion && c.numero_operacion !== 'PENDIENTE'
-                };
-            });
-
-            return Response.json({ success: true, solicitudes: listado });
+        // 1. BLINDAJE TOTAL: Esta función es SOLO para Admins
+        const isAdmin = await verifyAdminToken(req);
+        if (!isAdmin) {
+            return Response.json({ error: "Acceso Prohibido. Credenciales inválidas." }, { status: 401, headers: { "Access-Control-Allow-Origin": "*" } });
         }
 
+        const body = await req.json();
+        const { action, ...data } = body;
+
+        // 2. LISTAR COMERCIOS (Panel Maestro)
+        if (action === 'list') {
+            const response = await fetch(URL_COMERCIO, { headers: { 'api_key': API_KEY } });
+            const listado = await response.json();
+
+            // Saneamiento de datos (No devolvemos passwords ni datos sensibles irrelevantes)
+            const cleanList = Array.isArray(listado) ? listado.map(c => ({
+                id: c.id || c._id,
+                id_registro: c.id || c._id, // Backward comp
+                nombre_comercio: c.nombre_comercio || c.nombre,
+                email_admin: c.email_negocio || c.email,
+                commerce_code: c.commerce_code,
+                numero_operacion: c.numero_operacion,
+                estado_registro: c.estado_registro,
+                activo: c.activo,
+                saldo_publicidad: c.saldo_publicidad || 0,
+                // Lógica de "Pendiente": Si no está activo y se registró recientemente
+                aprobacion_pendiente: !c.activo && c.estado_registro === 'completado'
+            })) : [];
+
+            return Response.json({ success: true, solicitudes: cleanList }, { headers: { "Access-Control-Allow-Origin": "*" } });
+        }
+
+        // 3. APROBAR / ACTIVAR (Alta manual)
         if (action === 'approve') {
-            // Aprobar significa cambiar estado a 'activo'
-            const updateUrl = `${BASE44_URL}/${id_registro}`;
-            const response = await fetch(updateUrl, {
-                method: 'PUT',
+            const { id_registro } = data;
+            const updateUrl = `${URL_COMERCIO}/${id_registro}`;
+
+            await fetch(updateUrl, {
+                method: 'PATCH',
                 headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    activo: true,
                     estado_registro: 'activo',
-                    activo: true
+                    fecha_aprobacion: new Date().toISOString()
                 })
             });
 
-            const result = await response.json();
-            return Response.json({ success: true, data: result });
+            return Response.json({ success: true, new_id: id_registro }, { headers: { "Access-Control-Allow-Origin": "*" } });
         }
 
+        // 4. TOGGLE BLOQUEO (Kill Switch)
         if (action === 'toggle_active') {
-            // Necesitamos el ID para hacer update. Si viene commerce_code, hay que buscarlo primero.
-            // Para simplificar, asumimos que el frontend manda el ID real o que buscamos.
+            const { id, active } = data; // active viene como boolean deseado
 
-            // BUSQUEDA por commerce_code si no hay ID directo
-            let targetId = id;
-            if (!targetId && commerce_code) {
-                const search = await fetch(`${BASE44_URL}?commerce_code=${commerce_code}`, { headers: { 'api_key': API_KEY } });
-                const found = await search.json();
-                if (found && found.length > 0) targetId = found[0]._id || found[0].id;
-            }
-
-            if (!targetId) return Response.json({ error: "ID no encontrado" });
-
-            const updateUrl = `${BASE44_URL}/${targetId}`;
-            await fetch(updateUrl, {
-                method: 'PUT',
+            await fetch(`${URL_COMERCIO}/${id}`, {
+                method: 'PATCH',
                 headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ active: active }) // Ojo: Base44 usa 'active' o 'activo'? Entity definio 'activo'
+                body: JSON.stringify({
+                    activo: active,
+                    estado_registro: active ? 'activo' : 'suspendido'
+                })
             });
 
-            // Update correcto con nombre de campo correcto
-            await fetch(updateUrl, {
-                method: 'PUT',
-                headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ activo: active })
-            });
-
-            return Response.json({ success: true });
+            return Response.json({ success: true, status: active ? 'activated' : 'deactivated' }, { headers: { "Access-Control-Allow-Origin": "*" } });
         }
 
+        // 5. ELIMINAR (Danger Zone)
         if (action === 'delete') {
-            // Eliminar un comercio por ID
-            if (!id) return Response.json({ error: "Se requiere ID" }, { status: 400 });
-
-            const deleteUrl = `${BASE44_URL}/${id}`;
-            const response = await fetch(deleteUrl, {
+            const { id } = data;
+            await fetch(`${URL_COMERCIO}/${id}`, {
                 method: 'DELETE',
                 headers: { 'api_key': API_KEY }
             });
-
-            if (!response.ok) {
-                return Response.json({ success: false, error: "No se pudo eliminar el comercio" });
-            }
-
-            return Response.json({ success: true, message: "Comercio eliminado" });
+            return Response.json({ success: true }, { headers: { "Access-Control-Allow-Origin": "*" } });
         }
 
-        if (action === 'resetData') {
-            // DANGER: Borrar todo. Solo para admins locos.
-            // Fetch list -> Delete loop
-            const listResponse = await fetch(BASE44_URL, { headers: { 'api_key': API_KEY } });
-            const all = await listResponse.json();
-
-            let deletedCount = 0;
-            for (const item of all) {
-                await fetch(`${BASE44_URL}/${item._id || item.id}`, {
-                    method: 'DELETE',
-                    headers: { 'api_key': API_KEY }
-                });
-                deletedCount++;
-            }
-
-            return Response.json({ success: true, message: `Borrados ${deletedCount} registros.` });
-        }
-
-        return Response.json({ error: 'Accion desconocida' });
+        return Response.json({ error: "Acción no válida" }, { status: 400, headers: { "Access-Control-Allow-Origin": "*" } });
 
     } catch (error) {
-        console.error("Error Gestionar:", error);
-        return Response.json({ success: false, error: error.message });
+        return Response.json({ error: error.message }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
     }
 });

@@ -1,22 +1,25 @@
-// Lógica Directa: Recibir datos -> Fetch a Base44 -> Responder
-// Lógica Directa: Recibir datos -> Fetch a Base44 -> Responder
-// Sin Auth, sin parches, sin lógica extra.
+// @ts-nocheck
+import { crypto } from "jsr:@std/crypto";
 
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
 
+// Función Helper para Hashear (Igual que en SuperAdmin)
+async function hashPassword(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 Deno.serve(async (req) => {
     try {
-        if (req.method === 'OPTIONS') return new Response("OK"); // CORS
+        if (req.method === 'OPTIONS') return new Response("OK");
 
         const body = await req.json();
         const { action, ...data } = body;
-
-        // --- MANEJO DE PAGO ELIMINADO ---
-        // La lógica de update_payment ha sido removida ya que el registro es directo.
-
-        // --- MANEJO DE CREACIÓN (REAL) ---
 
         // 1. Validar Duplicados (Email)
         console.log(`Verificando existencia de: ${data.email}`);
@@ -26,67 +29,61 @@ Deno.serve(async (req) => {
 
         if (checkResponse.ok) {
             const existing = await checkResponse.json();
-            // Si data es un array y tiene elementos, ya existe
             if (Array.isArray(existing) && existing.length > 0) {
                 return Response.json({ success: false, error: "Este email ya está registrado. Por favor inicia sesión." }, { status: 400 });
             }
         }
 
-        // 2. Generamos datos
-        // Generamos datos requeridos por la DB
-        const commerceCode = Math.random().toString(36).substring(2, 12).toUpperCase();
-        const newUserId = crypto.randomUUID(); // Generamos user_id único
+        // 2. Seguridad: Hashear Password
+        const securePasswordHash = await hashPassword(data.password);
 
-        // Construimos el payload EXACTO para Base44
+        // 3. Generar Identificadores
+        const commerceCode = Math.random().toString(36).substring(2, 12).toUpperCase();
+        const newUserId = crypto.randomUUID();
+
+        // 4. Payload Profesional
         const entityPayload = {
-            nombre: data.nombre_comercio,
-            nombre_usuario: data.full_name, // NUEVO CAMPO
+            nombre: data.nombre_comercio || data.nombre,
+            nombre_usuario: data.full_name,
             email_negocio: data.email,
-            password: data.password, // Guardamos contraseña para Login Propio
+            // BLINDAJE: Guardamos hash, nunca texto plano
+            password_hash: securePasswordHash,
+            // Mantenemos campo legacy 'password' vacío o con placeholder para no romper esquemas viejos si los hubiera, 
+            // pero lo ideal es no enviarlo. Lo omitimos por seguridad.
             whatsapp_negocio: data.whatsapp,
 
-            // Campos de Identificación
             commerce_code: commerceCode,
-            user_id: newUserId, // ASIGNACIÓN DE USER_ID OBLIGATORIO
+            user_id: newUserId,
 
-            // Valores por defecto: AHORA ACTIVOS POR DEFECTO (Estrategia de Cero Fricción)
             estado_registro: "completado",
-            numero_operacion: "GRATIS_INICIAL",
             activo: true,
             plan: "bronce",
-            saldo_publicidad: 0, // Iniciamos billetera en 0
-            configuracion_avanzada: {}
+            saldo_publicidad: 0,
+            configuracion_avanzada: {},
+            created_at: new Date().toISOString()
         };
 
-        // EL FETCH (Tal cual tu snippet, adaptado a POST)
-        console.log("Enviando a Base44:", BASE44_URL);
-        console.log("PAYLOAD_DEBUG:", JSON.stringify(entityPayload));
-
+        // 5. Persistencia
         const response = await fetch(BASE44_URL, {
             method: 'POST',
-            headers: {
-                'api_key': API_KEY,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify(entityPayload)
         });
 
         const result = await response.json();
 
-        // Si Base44 devuelve error estructurado
         if (result.error || (result.code && result.message)) {
-            throw new Error(result.message || result.error || "Error Base44");
+            throw new Error(result.message || result.error || "Error al crear comercio en Base44");
         }
 
-        // Respuesta limpia al Frontend
+        // 6. Respuesta Limpia
         return Response.json({
             success: true,
             id_solicitud: result.id || result._id,
             commerce_code: commerceCode
         });
 
-    } catch (error: unknown) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return Response.json({ success: false, error: errorMessage }, { status: 500 });
+    } catch (error) {
+        return Response.json({ success: false, error: error.message }, { status: 500 });
     }
 });

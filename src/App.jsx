@@ -12,6 +12,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 // IMPORTANTE: El motor del carrito
 import { CartProvider } from "@/components/CartContext";
 
+
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
@@ -42,13 +43,23 @@ const AuthenticatedApp = () => {
     }
   }
 
+  // SECURITY IMPORTS
+  import AdminLogin from '@/pages/AdminLogin';
+  import { PrivateAdminRoute } from '@/components/PrivateAdminRoute';
+
   // Filtrar 'adminSupreme' y 'registro' para que no se generen automáticamente con el Layout estándar
   const standardPages = Object.entries(Pages).filter(([path]) => path !== 'adminSupreme' && path !== 'registro');
 
   return (
     <Routes>
-      {/* RUTA SUPREMA (Aislada, sin Layout de Tienda, Carga Rápida) */}
-      <Route path="/adminSupreme" element={<Pages.adminSupreme />} />
+      {/* RUTAS DE SUPER ADMINISTRADOR (BLINDADAS) */}
+      <Route path="/admin/login" element={<AdminLogin />} />
+
+      <Route path="/adminSupreme" element={
+        <PrivateAdminRoute>
+          <Pages.adminSupreme />
+        </PrivateAdminRoute>
+      } />
 
       {/* RUTAS DINÁMICAS DE TIENDA (SEO Friendly) */}
       <Route path="/tienda/:commerce_code" element={

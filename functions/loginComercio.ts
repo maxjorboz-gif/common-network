@@ -1,99 +1,92 @@
-// Login Logic
-// Lógica de Login Propio contra Entity Comercio
-// Recibe: { email, password }
-// Devuelve: { success, session, commerce }
+// @ts-nocheck
+import { crypto } from "jsr:@std/crypto";
 
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
 
+// SECRETO COMERCIOS (Diferente al de Admin, aislacion de roles)
+const JWT_SECRET_COMERCIO = "CLAVE_SECRETA_COMERCIOS_2026_BLINDADA";
+
+async function hashPassword(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 Deno.serve(async (req) => {
     try {
-        if (req.method === 'OPTIONS') {
-            return new Response(null, {
-                headers: {
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-                }
-            });
-        }
+        if (req.method === 'OPTIONS') return new Response("OK");
 
         const { email, password } = await req.json();
 
         if (!email || !password) {
-            return Response.json({ success: false, error: "Email y contraseña requeridos" }, { status: 400, headers: { "Access-Control-Allow-Origin": "*" } });
+            return Response.json({ error: "Email y contraseña requeridos" }, { status: 400 });
         }
 
-        console.log(`[Login] Intentando autenticación para: ${email}`);
-
-        // 1. Buscar comercio por email en la DB (Única Fuente de Verdad)
-        const queryUrl = `${BASE44_URL}?email_negocio=${encodeURIComponent(email)}`;
-        const response = await fetch(queryUrl, {
+        // 1. Buscar Comercio
+        const response = await fetch(`${BASE44_URL}?email_negocio=${encodeURIComponent(email)}`, {
             headers: { 'api_key': API_KEY }
         });
+        const comercios = await response.json();
 
-        if (!response.ok) {
-            console.error(`[Login] Error API Base44: ${response.status}`);
-            throw new Error(`Error de conexión con base de datos`);
+        if (!Array.isArray(comercios) || comercios.length === 0) {
+            await new Promise(r => setTimeout(r, 500)); // Anti-timing
+            return Response.json({ error: "Credenciales inválidas" }, { status: 401 });
         }
 
-        const results = await response.json();
+        const comercio = comercios[0];
 
-        // 2. Verificar existencia
-        if (!Array.isArray(results) || results.length === 0) {
-            console.warn(`[Login] Usuario no encontrado: ${email}`);
-            return Response.json({ success: false, error: "Credenciales inválidas" }, { status: 401, headers: { "Access-Control-Allow-Origin": "*" } });
-        }
-
-        const comercio = results[0];
-
-        // 3. Verificar contraseña 
-        // TODO: En el futuro, usar hash (bcrypt). Por ahora es comparación directa por legacy.
-        if (!comercio.password || comercio.password !== password) {
-            console.warn(`[Login] Password incorrecto para: ${email}`);
-            return Response.json({ success: false, error: "Credenciales inválidas" }, { status: 401, headers: { "Access-Control-Allow-Origin": "*" } });
-        }
-
-        // 4. Verificar estado del comercio (Activo vs Suspendido)
+        // 2. Verificar Estado
         if (comercio.estado_registro === 'suspendido' || comercio.estado_registro === 'banned') {
-            return Response.json({ success: false, error: "Cuenta suspendida. Contacte soporte." }, { status: 403, headers: { "Access-Control-Allow-Origin": "*" } });
+            return Response.json({ error: "Cuenta suspendida. Contacte soporte." }, { status: 403 });
         }
 
-        // 5. Generar Sesión Estructurada
-        // Creamos un token simple (en producción debería ser firmado/JWT).
-        // Usamos commerce_code como identificador principal.
-        const sessionToken = btoa(`${comercio.commerce_code}:${Date.now()}:${Math.random()}`);
-        const sessionExpiration = new Date();
-        sessionExpiration.setHours(sessionExpiration.getHours() + 24); // 24 horas
+        // 3. Verificar Contraseña (Soporte Híbrido mientras migramos)
+        let isValid = false;
 
-        const session = {
-            token: sessionToken,
-            commerce_code: comercio.commerce_code,
-            role: 'admin_comercio',
-            expires_at: sessionExpiration.toISOString(),
-            status: comercio.estado_registro || 'active'
-        };
+        if (comercio.password_hash) {
+            // A. Verificación Profesional (Hash)
+            const inputHash = await hashPassword(password);
+            isValid = (inputHash === comercio.password_hash);
+        } else if (comercio.password) {
+            // B. Legacy Fallback (Texto Plano - Para usuarios viejos)
+            // TODO: En el futuro, hacer migración automática aquí (hash on login)
+            isValid = (password === comercio.password);
+        }
 
-        // Devolvemos la "Verdad" completa para el AuthContext
+        if (!isValid) {
+            await new Promise(r => setTimeout(r, 500));
+            return Response.json({ error: "Credenciales inválidas" }, { status: 401 });
+        }
+
+        // 4. Generar Token Firmado (JWT-ish)
+        // Payload: commerce_code : user_id : timestamp
+        const payloadStr = `${comercio.commerce_code}:${comercio.user_id}:${Date.now()}`;
+
+        // Firma
+        const firmaData = new TextEncoder().encode(payloadStr + JWT_SECRET_COMERCIO);
+        const firmaBuffer = await crypto.subtle.digest("SHA-256", firmaData);
+        const firmaArray = Array.from(new Uint8Array(firmaBuffer));
+        const firmaHex = firmaArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+        const token = btoa(`${payloadStr}:${firmaHex}`);
+
+        // 5. Respuesta Exitosa
         return Response.json({
             success: true,
-            session: session,
+            token: token,
+            // Devolvemos datos minimos necesarios para UI inmediata
             commerce: {
-                id: comercio.id,
-                nombre: comercio.nombre_comercio || comercio.nombre_tienda || comercio.nombre,
-                email: comercio.email_negocio,
-                logo: comercio.logo_url,
-                commerce_code: comercio.commerce_code
+                nombre: comercio.nombre || comercio.nombre_comercio,
+                code: comercio.commerce_code,
+                logo: comercio.logo_url
             }
-        }, {
-            headers: { "Access-Control-Allow-Origin": "*" }
         });
 
-    } catch (error: unknown) {
-        console.error("[Login] Exception:", error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return Response.json({ success: false, error: errorMessage }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
+    } catch (error) {
+        return Response.json({ error: error.message }, { status: 500 });
     }
 });
-
