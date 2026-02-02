@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { base44 } from '@/api/base44Client';
+import { superAdminClient } from '@/api/superAdminClient';
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -28,8 +29,8 @@ export default function AdminSupremePanel() {
     const { data: configFinanciera } = useQuery({
         queryKey: ['config-suprema'],
         queryFn: async () => {
-            const resp = await base44.functions.invoke('configuracionSuprema', { action: 'obtener' });
-            return resp.data?.config || {};
+            const resp = await superAdminClient.post('configuracionSuprema', { action: 'obtener' });
+            return resp.config || {};
         }
     });
 
@@ -42,11 +43,11 @@ export default function AdminSupremePanel() {
         queryKey: ['pagos-publicidad', 'pendiente'],
         queryFn: async () => {
             // Ya no mandamos admin_secret porque el backend está libre
-            const resp = await base44.functions.invoke('gestionarPagosPublicidad', {
+            const resp = await superAdminClient.post('gestionarPagosPublicidad', {
                 action: 'listar',
                 estado: 'pendiente'
             });
-            return resp.data?.pagos || [];
+            return resp.pagos || [];
         }
     });
 
@@ -55,8 +56,8 @@ export default function AdminSupremePanel() {
         queryKey: ['admin-solicitudes'],
         queryFn: async () => {
             const payload = { action: 'list' };
-            const response = await base44.functions.invoke('gestionarSolicitudes', payload);
-            return response.data?.solicitudes || [];
+            const response = await superAdminClient.post('gestionarSolicitudes', payload);
+            return response.solicitudes || [];
         }
     });
 
@@ -65,12 +66,11 @@ export default function AdminSupremePanel() {
     // A. GUARDAR CBU
     const guardarConfigMutation = useMutation({
         mutationFn: async (nuevoConfig) => {
-            const resp = await base44.functions.invoke('configuracionSuprema', {
+            const resp = await superAdminClient.post('configuracionSuprema', {
                 action: 'guardar',
                 config: nuevoConfig
             });
-            if (resp.error) throw new Error(resp.error.message);
-            return resp.data;
+            return resp;
         },
         onSuccess: () => toast({ title: "Configuración Guardada", description: "Tus datos bancarios han sido actualizados." }),
         onError: (err) => toast({ title: "Error", description: err.message, variant: "destructive" })
@@ -79,12 +79,11 @@ export default function AdminSupremePanel() {
     // B. APROBAR PAGO PUBLICIDAD
     const aprobarPagoMutation = useMutation({
         mutationFn: async (id_pago) => {
-            const resp = await base44.functions.invoke('gestionarPagosPublicidad', {
+            const resp = await superAdminClient.post('gestionarPagosPublicidad', {
                 action: 'aprobar',
                 id_pago
             });
-            if (resp.error) throw new Error(resp.error.message || resp.data?.error);
-            return resp.data;
+            return resp;
         },
         onSuccess: (data) => {
             toast({ title: "Pago Aprobado", description: `Se acreditó el saldo. Nuevo saldo: $${data.nuevo_saldo}` });
@@ -118,9 +117,8 @@ export default function AdminSupremePanel() {
     const approveRegisterMutation = useMutation({
         mutationFn: async (id_registro) => {
             const payload = { action: 'approve', id_registro };
-            const response = await base44.functions.invoke('gestionarSolicitudes', payload);
-            if (response.error) throw new Error(response.error.message || response.data?.error);
-            return response.data;
+            const response = await superAdminClient.post('gestionarSolicitudes', payload);
+            return response;
         },
         onSuccess: (data) => {
             toast({ title: "Comercio Aprobado", description: `ID: ${data.new_id}` });

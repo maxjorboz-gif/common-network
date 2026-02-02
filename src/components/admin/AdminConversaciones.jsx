@@ -8,6 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'react-hot-toast';
 
+// EXCEPTION: Using base44 SDK directly for Agents API.
+// Typically we use commerceClient, but for Agents listing/chat we rely on the SDK methods
+// until a specific backend proxy is created for 'obtenerConversaciones'.
 const MessageBubble = ({ message }) => {
   const isUser = message.role === 'user';
 

@@ -8,10 +8,12 @@ const URL_SUPERADMIN = `https://app.base44.com/api/apps/${APP_ID}/entities/Super
 // SECRET KEY para firmar tokens. 
 // LO IDEAL ES QUE ESTO ESTÉ EN VAR DE ENTORNO. AQUI HARDCODE POR SIMPLICIDAD DE LA SOLUCIÓN.
 const JWT_SECRET = "CLAVE_SECRETA_MUY_DIFICIL_DE_ADIVINAR_2026_CAMBIAME";
+const PASSWORD_SALT = "v4_SUPER_SECRET_SALT_2026_PROTECT_BASE44_SYSTEM_#99282";
 
 async function hashPassword(password: string) {
     const encoder = new TextEncoder();
-    const data = encoder.encode(password);
+    // SALT aplicado
+    const data = encoder.encode(password + PASSWORD_SALT);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");

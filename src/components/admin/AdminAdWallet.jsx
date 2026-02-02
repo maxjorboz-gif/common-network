@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { commerceClient } from '@/api/commerceApiClient';
 import { useState, useEffect } from 'react';
 import {
     Wallet,
@@ -29,20 +30,20 @@ export default function AdminAdWallet({ comercio }) {
     const { data: datosComercio, isLoading } = useQuery({
         queryKey: ['comercio-wallet', comercio.commerce_code],
         queryFn: async () => {
-            const response = await base44.functions.invoke('obtenerDatosComercio', {
+            const response = await commerceClient.post('obtenerDatosComercio', {
                 commerce_code: comercio.commerce_code
             });
-            return response.data.comercio;
+            return response.comercio;
         }
     });
 
     const { data: config, isLoadingConfig } = useQuery({
         queryKey: ['config-admin', comercio.commerce_code],
         queryFn: async () => {
-            const response = await base44.functions.invoke('obtenerConfiguracion', {
+            const response = await commerceClient.post('obtenerConfiguracion', {
                 commerce_code: comercio.commerce_code
             });
-            return response.data.config;
+            return response.config;
         }
     });
 
@@ -50,11 +51,11 @@ export default function AdminAdWallet({ comercio }) {
     const { data: configSuprema, isLoading: loadingSuprema } = useQuery({
         queryKey: ['config-suprema-public'],
         queryFn: async () => {
-            const response = await base44.functions.invoke('configuracionSuprema', {
+            const response = await commerceClient.post('configuracionSuprema', {
                 action: 'obtener'
             });
-            console.log("Datos bancarios obtenidos:", response.data?.config);
-            return response.data?.config || {};
+            console.log("Datos bancarios obtenidos:", response?.config);
+            return response?.config || {};
         },
         refetchOnWindowFocus: true // Para asegurar que si cambias de pestaña se actualice
     });
@@ -69,7 +70,7 @@ export default function AdminAdWallet({ comercio }) {
 
     const updateConfigMutation = useMutation({
         mutationFn: async (newLimit) => {
-            return await base44.functions.invoke('actualizarConfiguracion', {
+            return await commerceClient.post('actualizarConfiguracion', {
                 commerce_code: comercio.commerce_code,
                 configData: { limite_diario_ads: newLimit }
             });
@@ -95,7 +96,7 @@ export default function AdminAdWallet({ comercio }) {
         mutationFn: async (plan) => {
             // Usamos trackEvent o una función de logs para registrar la intención de carga
             // Y enviamos un mensaje a las notas del comercio
-            return await base44.functions.invoke('agregarNotaLead', {
+            return await commerceClient.post('agregarNotaLead', {
                 id_comercio: comercio.commerce_code,
                 nota: `[SOLICITUD PUBLICIDAD] El comercio solicitó un reporte de carga de $${plan.precio} USD. Operación: ${transactionId}`,
                 tipo: 'facturacion'

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { commerceClient } from '@/api/commerceApiClient';
 import { Package, CheckCircle, Truck, Eye, Clock, XCircle, DollarSign } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
@@ -23,11 +24,13 @@ export default function AdminOrdenes({ comercio }) {
   const { data: ordenes = [], isLoading } = useQuery({
     queryKey: ['ordenes-admin', comercio.commerce_code || comercio.id_comercio],
     queryFn: async () => {
-      const response = await base44.functions.invoke('obtenerOrdenes', {
-        commerce_code: comercio.commerce_code, // Use code
-        id_comercio: comercio.id_comercio // Legacy fallback
-      });
-      return response.data.ordenes;
+      queryFn: async () => {
+        const response = await commerceClient.post('obtenerOrdenes', {
+          commerce_code: comercio.commerce_code, // Use code
+          id_comercio: comercio.id_comercio // Legacy fallback
+        });
+        return response.ordenes;
+      }
     }
   });
 
@@ -35,11 +38,11 @@ export default function AdminOrdenes({ comercio }) {
     try {
       toast.loading('Confirmando pago...');
 
-      const response = await base44.functions.invoke('confirmarPago', {
+      const response = await commerceClient.post('confirmarPago', {
         ordenId: orden.id
       });
 
-      if (response.data.success) {
+      if (response.success) {
         queryClient.invalidateQueries(['ordenes-admin']);
         queryClient.invalidateQueries(['estadisticas-admin']);
         toast.dismiss();
@@ -54,7 +57,7 @@ export default function AdminOrdenes({ comercio }) {
 
   const handleChangeEstado = async (ordenId, nuevoEstado) => {
     try {
-      await base44.functions.invoke('cambiarEstadoOrden', {
+      await commerceClient.post('cambiarEstadoOrden', {
         ordenId,
         nuevoEstado
       });

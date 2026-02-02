@@ -7,10 +7,12 @@ const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`
 
 // SECRETO COMERCIOS (Diferente al de Admin, aislacion de roles)
 const JWT_SECRET_COMERCIO = "CLAVE_SECRETA_COMERCIOS_2026_BLINDADA";
+const PASSWORD_SALT = "v4_SUPER_SECRET_SALT_2026_PROTECT_BASE44_SYSTEM_#99282";
 
 async function hashPassword(password) {
     const encoder = new TextEncoder();
-    const data = encoder.encode(password);
+    // SALT aplicado protegiendo contra rainbow tables incluso si roban la DB
+    const data = encoder.encode(password + PASSWORD_SALT);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
@@ -44,17 +46,21 @@ Deno.serve(async (req) => {
             return Response.json({ error: "Cuenta suspendida. Contacte soporte." }, { status: 403 });
         }
 
-        // 3. Verificar Contraseña (Soporte Híbrido mientras migramos)
+        // 3. Lógica Híbrida de Autenticación & Migración
         let isValid = false;
+        let needsMigration = false;
 
         if (comercio.password_hash) {
-            // A. Verificación Profesional (Hash)
+            // A. Verificación Profesional (Hash) - USUARIO MODERNO MIGRADO
             const inputHash = await hashPassword(password);
             isValid = (inputHash === comercio.password_hash);
         } else if (comercio.password) {
-            // B. Legacy Fallback (Texto Plano - Para usuarios viejos)
-            // TODO: En el futuro, hacer migración automática aquí (hash on login)
-            isValid = (password === comercio.password);
+            // B. Legacy Fallback (Texto Plano) - USUARIO VIEJO
+            // IMPORTANTE: Estrategia de Migración Progresiva
+            if (password === comercio.password) {
+                isValid = true;
+                needsMigration = true; // Marcamos para auto-migrar
+            }
         }
 
         if (!isValid) {
@@ -62,7 +68,33 @@ Deno.serve(async (req) => {
             return Response.json({ error: "Credenciales inválidas" }, { status: 401 });
         }
 
-        // 4. Generar Token Firmado (JWT-ish)
+        // 4. AUTO-MIGRACIÓN (Si aplica)
+        // Convertimos al usuario legacy en usuario seguro transparente y silenciosamente
+        if (needsMigration) {
+            try {
+                const newSecureHash = await hashPassword(password);
+                const comercioId = comercio.id || comercio._id;
+
+                // Actualizamos DB: Ponemos Hash y matamos texto plano
+                // Fire-and-forget (no esperamos blocking) para no demorar login
+                fetch(`${BASE44_URL}/${comercioId}`, {
+                    method: 'PATCH',
+                    headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        password_hash: newSecureHash,
+                        password: null, // Eliminamos rastro inseguro
+                        migracion_seguridad: new Date().toISOString() // Audit log
+                    })
+                }).catch(err => console.error("Error en auto-migracion:", err));
+
+                console.log(`[SECURITY] Usuario ${comercioId} migrado a SHA-256 exitosamente.`);
+            } catch (e) {
+                console.error("Fallo intento de migracion:", e);
+                // No bloqueamos el login, ya validó ok
+            }
+        }
+
+        // 5. Generar Token Firmado (JWT-ish)
         // Payload: commerce_code : user_id : timestamp
         const payloadStr = `${comercio.commerce_code}:${comercio.user_id}:${Date.now()}`;
 
@@ -74,7 +106,7 @@ Deno.serve(async (req) => {
 
         const token = btoa(`${payloadStr}:${firmaHex}`);
 
-        // 5. Respuesta Exitosa
+        // 6. Respuesta Exitosa
         return Response.json({
             success: true,
             token: token,

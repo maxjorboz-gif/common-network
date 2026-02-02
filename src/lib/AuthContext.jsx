@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
+import { commerceClient } from '@/api/commerceApiClient';
 
 const AuthContext = createContext();
 
@@ -79,47 +80,15 @@ export const AuthProvider = ({ children }) => {
 
     setIsLoadingCommerce(true);
     try {
-      // We use the raw fetch or a configured client that allows custom headers
-      // Since base44.functions.invoke might not easily support custom headers for THIS verify call
-      // We'll use the specific function endpoint directly or a helper.
-      // ACTUALLY: base44.functions.invoke usually sends standard auth. 
-      // We need to send our CUSTOM commerce token.
-
-      // We will assume the backend function 'obtenerDatosComercio' looks at Authorization header.
-      // We can use a direct fetch to the function URL for this specific "me" check
-      // OR pass the token in the body if we wanted, but we changed the backend to use Headers.
-
-      // Hack/Workaround: Using standard fetch for this specific secure call
-      // to ensure we pass the Bearer token correctly.
-      const appId = appParams.appId;
-      // Note: This URL must match your actual deployment or proxy
-      // Using relative path via Vite proxy if available, or full URL
-      const functionUrl = `/api/apps/${appId}/functions/obtenerDatosComercio`;
-      // If we are in dev/local, we might need the full URL from the file we just edited? 
-      // Deno functions are usually served by the platform.
-      // Let's try invoking via SDK but passing the header if the SDK allows, 
-      // if not, fallback to direct fetch.
-
-      // SDK doesn't always expose header overrides easily for function calls.
-      // Using standard direct fetch to mapped URL.
-      // ATTENTION: Providing the function URL assumes standard Base44 routing.
-
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({}) // Empty body
-      });
-
-      const data = await response.json();
+      // USANDO CLIENTE PROFESIONAL: commerceClient
+      // Centraliza headers, auth y manejo de errores.
+      const data = await commerceClient.post('obtenerDatosComercio', {});
 
       if (data.success && data.comercio) {
         setCommerce(data.comercio);
         setIsCommerceAuthenticated(true);
       } else {
-        // Token invalid or expired
+        // Token invalid 
         logoutComercio();
       }
     } catch (err) {

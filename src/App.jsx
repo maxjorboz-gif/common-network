@@ -43,10 +43,6 @@ const AuthenticatedApp = () => {
     }
   }
 
-  // SECURITY IMPORTS
-  import AdminLogin from '@/pages/AdminLogin';
-  import { PrivateAdminRoute } from '@/components/PrivateAdminRoute';
-
   // Filtrar 'adminSupreme' y 'registro' para que no se generen automáticamente con el Layout estándar
   const standardPages = Object.entries(Pages).filter(([path]) => path !== 'adminSupreme' && path !== 'registro');
 

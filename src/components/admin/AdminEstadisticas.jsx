@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { commerceClient } from '@/api/commerceApiClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, ShoppingBag, TrendingUp, Users, AlertTriangle, Package, Eye, PlusCircle, CreditCard, X, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ export default function AdminEstadisticas({ comercio }) {
 
   const resetGastosMutation = useMutation({
     mutationFn: async () => {
-      return await base44.functions.invoke('resetGastoPublicitario', {
+      return await commerceClient.post('resetGastoPublicitario', {
         commerce_code: comercio.commerce_code
       });
     },
@@ -33,7 +34,7 @@ export default function AdminEstadisticas({ comercio }) {
   });
   const requestMutation = useMutation({
     mutationFn: async (data) => {
-      return await base44.functions.invoke('solicitarCreditoPublicitario', {
+      return await commerceClient.post('solicitarCreditoPublicitario', {
         commerce_code: comercio.commerce_code,
         monto: data.monto,
         transaction_id: data.transactionId,
@@ -52,13 +53,13 @@ export default function AdminEstadisticas({ comercio }) {
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ['estadisticas-admin', comercio.commerce_code, dateRange.start, dateRange.end],
     queryFn: async () => {
-      const response = await base44.functions.invoke('obtenerEstadisticas', {
+      const response = await commerceClient.post('obtenerEstadisticas', {
         commerce_code: comercio.commerce_code,
         id_comercio: comercio.id_comercio,
         fecha_inicio: dateRange.start || undefined,
         fecha_fin: dateRange.end || undefined
       });
-      return response.data;
+      return response;
     }
   });
 

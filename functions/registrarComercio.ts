@@ -4,11 +4,13 @@ import { crypto } from "jsr:@std/crypto";
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
+const PASSWORD_SALT = "v4_SUPER_SECRET_SALT_2026_PROTECT_BASE44_SYSTEM_#99282";
 
-// Función Helper para Hashear (Igual que en SuperAdmin)
+// Función Helper para Hashear (Igual que en SuperAdmin y Login)
 async function hashPassword(password) {
     const encoder = new TextEncoder();
-    const data = encoder.encode(password);
+    // SALT aplicado
+    const data = encoder.encode(password + PASSWORD_SALT);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
@@ -38,7 +40,7 @@ Deno.serve(async (req) => {
         const securePasswordHash = await hashPassword(data.password);
 
         // 3. Generar Identificadores
-        const commerceCode = Math.random().toString(36).substring(2, 12).toUpperCase();
+        const commerceCode = [...crypto.getRandomValues(new Uint32Array(1))].map(v => v.toString(36).substring(2, 12).toUpperCase())[0];
         const newUserId = crypto.randomUUID();
 
         // 4. Payload Profesional

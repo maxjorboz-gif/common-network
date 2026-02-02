@@ -7,12 +7,15 @@ const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
 const URL_SUPERADMIN = `https://app.base44.com/api/apps/${APP_ID}/entities/SuperAdmin`;
 
 // CREDENCIALES INICIALES (CAMBIAR DESPUÉS SÍ O SÍ)
+// CREDENCIALES INICIALES (CAMBIAR DESPUÉS SÍ O SÍ)
 const INITIAL_EMAIL = "admin@plataforma.com";
 const INITIAL_PASSWORD = "admin12345CAMBIAME";
+const PASSWORD_SALT = "v4_SUPER_SECRET_SALT_2026_PROTECT_BASE44_SYSTEM_#99282";
 
 async function hashPassword(password: string) {
     const encoder = new TextEncoder();
-    const data = encoder.encode(password);
+    // SALT aplicado
+    const data = encoder.encode(password + PASSWORD_SALT);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");

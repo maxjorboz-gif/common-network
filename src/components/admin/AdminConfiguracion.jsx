@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { commerceClient } from '@/api/commerceApiClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,11 +15,11 @@ export default function AdminConfiguracion({ comercio }) {
   const { data: config, isLoading } = useQuery({
     queryKey: ['config', comercio.commerce_code || comercio.id_comercio],
     queryFn: async () => {
-      const response = await base44.functions.invoke('obtenerConfiguracion', {
+      const response = await commerceClient.post('obtenerConfiguracion', {
         commerce_code: comercio.commerce_code,
         id_comercio: comercio.id_comercio // Legacy fallback
       });
-      return response.data.config;
+      return response.config;
     }
   });
 
@@ -89,12 +90,12 @@ export default function AdminConfiguracion({ comercio }) {
 
   const updateConfig = useMutation({
     mutationFn: async (data) => {
-      const response = await base44.functions.invoke('actualizarConfiguracion', {
+      const response = await commerceClient.post('actualizarConfiguracion', {
         commerce_code: comercio.commerce_code, // PRIORITIZE
         id_comercio: comercio.id_comercio,     // LEGACY
         configData: data
       });
-      return response.data;
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['config'] });
@@ -105,16 +106,14 @@ export default function AdminConfiguracion({ comercio }) {
   const generarDiseno = useMutation({
     mutationFn: async (style = 'auto') => {
       if (!formData.descripcion_negocio && style === 'auto') throw new Error("Escribí una descripción primero para el modo automático");
-      const res = await base44.functions.invoke('generarDisenoTienda', {
+      const res = await commerceClient.post('generarDisenoTienda', {
         descripcion_negocio: formData.descripcion_negocio,
         nombre_comercio: formData.nombre_comercio_display || comercio.nombre_comercio,
         estilo: style
       });
-      // Check if function wrapper returns success/data structure or direct data
-      // Based on other files, it seems to return { data: { success: true, data: ... } } usually via axion/client
-      // Let's assume standard base44 client response structure: response.data is the body
-      if (res.data.error) throw new Error(res.data.error);
-      return res.data.data;
+
+      if (res.error) throw new Error(res.error);
+      return res.data;
     },
     onSuccess: (data) => {
       setFormData(prev => ({

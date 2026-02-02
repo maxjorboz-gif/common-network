@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { superAdminClient } from '@/api/superAdminClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,8 +22,8 @@ export default function SuperAdminSolicitudes() {
     const { data: solicitudes, isLoading } = useQuery({
         queryKey: ['solicitudes-comercio'],
         queryFn: async () => {
-            const response = await base44.functions.invoke('gestionarSolicitudes', { action: 'list' });
-            return response.data.solicitudes || [];
+            const response = await superAdminClient.post('gestionarSolicitudes', { action: 'list' });
+            return response.solicitudes || [];
         }
     });
 
@@ -71,7 +72,7 @@ export default function SuperAdminSolicitudes() {
 
     const handleToggleStatus = async (commerceCode, currentStatus) => {
         try {
-            await base44.functions.invoke('gestionarSolicitudes', {
+            await superAdminClient.post('gestionarSolicitudes', {
                 action: 'toggle_active',
                 commerce_code: commerceCode,
                 active: !currentStatus
@@ -86,7 +87,7 @@ export default function SuperAdminSolicitudes() {
     const handleDelete = async (id) => {
         if (!window.confirm("¿Seguro que quieres eliminar este comercio permanentemente?")) return;
         try {
-            await base44.functions.invoke('gestionarSolicitudes', {
+            await superAdminClient.post('gestionarSolicitudes', {
                 action: 'delete',
                 id: id
             });
@@ -100,7 +101,7 @@ export default function SuperAdminSolicitudes() {
     const handleNuclearReset = async () => {
         if (!window.confirm("¿ESTÁS SEGURO? Esto borrará TODOS los comercios y solicitudes antiguas para empezar de cero. Esta acción no se puede deshacer.")) return;
         try {
-            const { data } = await base44.functions.invoke('resetData', {});
+            const data = await superAdminClient.post('resetData', {});
             if (data.success) {
                 toast({ title: "Base de Datos Limpia", description: "Se han borrado todos los registros legacy con éxito." });
                 queryClient.invalidateQueries(['solicitudes-comercio']);
