@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { crypto } from "jsr:@std/crypto";
-import { createClientFromRequest } from "npm:@base44/sdk";
+import { createClientFromRequest } from "https://esm.sh/@base44/sdk@0.8.3";
 
 // Clave Secreta para validar SuperAdmin (Escritura)
 const JWT_SECRET = "CLAVE_SECRETA_MUY_DIFICIL_DE_ADIVINAR_2026_CAMBIAME";

@@ -1,15 +1,12 @@
 // @ts-nocheck
 import { crypto } from "jsr:@std/crypto";
+import { createClientFromRequest } from "npm:@base44/sdk";
 
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
 const PASSWORD_SALT = "v4_SUPER_SECRET_SALT_2026_PROTECT_BASE44_SYSTEM_#99282";
 
-// Función Helper para Hashear (Igual que en SuperAdmin y Login)
+// Función Helper para Hashear
 async function hashPassword(password) {
     const encoder = new TextEncoder();
-    // SALT aplicado
     const data = encoder.encode(password + PASSWORD_SALT);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -23,17 +20,18 @@ Deno.serve(async (req) => {
         const body = await req.json();
         const { action, ...data } = body;
 
-        // 1. Validar Duplicados (Email)
+        const base44 = createClientFromRequest(req);
+        // Usamos ServiceRole para escritura/lectura privilegiada sin usuario logueado
+        const adminClient = base44.asServiceRole;
+
+        // 1. Validar Duplicados (Email) via SDK
         console.log(`Verificando existencia de: ${data.email}`);
-        const checkResponse = await fetch(`${BASE44_URL}?email_negocio=${encodeURIComponent(data.email)}`, {
-            headers: { 'api_key': API_KEY }
+        const existing = await adminClient.entities.Comercio.filter({
+            email_negocio: data.email
         });
 
-        if (checkResponse.ok) {
-            const existing = await checkResponse.json();
-            if (Array.isArray(existing) && existing.length > 0) {
-                return Response.json({ success: false, error: "Este email ya está registrado. Por favor inicia sesión." }, { status: 400 });
-            }
+        if (Array.isArray(existing) && existing.length > 0) {
+            return Response.json({ success: false, error: "Este email ya está registrado. Por favor inicia sesión." }, { status: 400 });
         }
 
         // 2. Seguridad: Hashear Password
@@ -48,15 +46,10 @@ Deno.serve(async (req) => {
             nombre: data.nombre_comercio || data.nombre,
             nombre_usuario: data.full_name,
             email_negocio: data.email,
-            // BLINDAJE: Guardamos hash, nunca texto plano
             password_hash: securePasswordHash,
-            // Mantenemos campo legacy 'password' vacío o con placeholder para no romper esquemas viejos si los hubiera, 
-            // pero lo ideal es no enviarlo. Lo omitimos por seguridad.
             whatsapp_negocio: data.whatsapp,
-
             commerce_code: commerceCode,
             user_id: newUserId,
-
             estado_registro: "completado",
             activo: true,
             plan: "bronce",
@@ -65,18 +58,8 @@ Deno.serve(async (req) => {
             created_at: new Date().toISOString()
         };
 
-        // 5. Persistencia
-        const response = await fetch(BASE44_URL, {
-            method: 'POST',
-            headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify(entityPayload)
-        });
-
-        const result = await response.json();
-
-        if (result.error || (result.code && result.message)) {
-            throw new Error(result.message || result.error || "Error al crear comercio en Base44");
-        }
+        // 5. Persistencia via SDK
+        const result = await adminClient.entities.Comercio.create(entityPayload);
 
         // 6. Respuesta Limpia
         return Response.json({

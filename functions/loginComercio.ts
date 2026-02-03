@@ -1,9 +1,6 @@
 // @ts-nocheck
 import { crypto } from "jsr:@std/crypto";
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 // SECRETO COMERCIOS (Diferente al de Admin, aislacion de roles)
 const JWT_SECRET_COMERCIO = "CLAVE_SECRETA_COMERCIOS_2026_BLINDADA";
@@ -11,7 +8,6 @@ const PASSWORD_SALT = "v4_SUPER_SECRET_SALT_2026_PROTECT_BASE44_SYSTEM_#99282";
 
 async function hashPassword(password) {
     const encoder = new TextEncoder();
-    // SALT aplicado protegiendo contra rainbow tables incluso si roban la DB
     const data = encoder.encode(password + PASSWORD_SALT);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -28,11 +24,13 @@ Deno.serve(async (req) => {
             return Response.json({ error: "Email y contraseña requeridos" }, { status: 400 });
         }
 
-        // 1. Buscar Comercio
-        const response = await fetch(`${BASE44_URL}?email_negocio=${encodeURIComponent(email)}`, {
-            headers: { 'api_key': API_KEY }
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
+
+        // 1. Buscar Comercio (SDK)
+        const comercios = await adminClient.entities.Comercio.filter({
+            email_negocio: email
         });
-        const comercios = await response.json();
 
         if (!Array.isArray(comercios) || comercios.length === 0) {
             await new Promise(r => setTimeout(r, 500)); // Anti-timing
@@ -51,15 +49,14 @@ Deno.serve(async (req) => {
         let needsMigration = false;
 
         if (comercio.password_hash) {
-            // A. Verificación Profesional (Hash) - USUARIO MODERNO MIGRADO
+            // A. Verificación Profesional (Hash)
             const inputHash = await hashPassword(password);
             isValid = (inputHash === comercio.password_hash);
         } else if (comercio.password) {
-            // B. Legacy Fallback (Texto Plano) - USUARIO VIEJO
-            // IMPORTANTE: Estrategia de Migración Progresiva
+            // B. Legacy Fallback (Texto Plano)
             if (password === comercio.password) {
                 isValid = true;
-                needsMigration = true; // Marcamos para auto-migrar
+                needsMigration = true;
             }
         }
 
@@ -69,36 +66,26 @@ Deno.serve(async (req) => {
         }
 
         // 4. AUTO-MIGRACIÓN (Si aplica)
-        // Convertimos al usuario legacy en usuario seguro transparente y silenciosamente
         if (needsMigration) {
             try {
                 const newSecureHash = await hashPassword(password);
                 const comercioId = comercio.id || comercio._id;
 
-                // Actualizamos DB: Ponemos Hash y matamos texto plano
-                // Fire-and-forget (no esperamos blocking) para no demorar login
-                fetch(`${BASE44_URL}/${comercioId}`, {
-                    method: 'PATCH',
-                    headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        password_hash: newSecureHash,
-                        password: null, // Eliminamos rastro inseguro
-                        migracion_seguridad: new Date().toISOString() // Audit log
-                    })
+                // Actualizamos DB via SDK (fire-and-forget)
+                adminClient.entities.Comercio.update(comercioId, {
+                    password_hash: newSecureHash,
+                    password: null, // Wipe legacy
+                    migracion_seguridad: new Date().toISOString()
                 }).catch(err => console.error("Error en auto-migracion:", err));
 
-                console.log(`[SECURITY] Usuario ${comercioId} migrado a SHA-256 exitosamente.`);
+                console.log(`[SECURITY] Usuario ${comercioId} migrado a SHA-256.`);
             } catch (e) {
                 console.error("Fallo intento de migracion:", e);
-                // No bloqueamos el login, ya validó ok
             }
         }
 
-        // 5. Generar Token Firmado (JWT-ish)
-        // Payload: commerce_code : user_id : timestamp
+        // 5. Generar Token Firmado (JWT-ish propietary logic remains same)
         const payloadStr = `${comercio.commerce_code}:${comercio.user_id}:${Date.now()}`;
-
-        // Firma
         const firmaData = new TextEncoder().encode(payloadStr + JWT_SECRET_COMERCIO);
         const firmaBuffer = await crypto.subtle.digest("SHA-256", firmaData);
         const firmaArray = Array.from(new Uint8Array(firmaBuffer));
@@ -110,7 +97,6 @@ Deno.serve(async (req) => {
         return Response.json({
             success: true,
             token: token,
-            // Devolvemos datos minimos necesarios para UI inmediata
             commerce: {
                 nombre: comercio.nombre || comercio.nombre_comercio,
                 code: comercio.commerce_code,
@@ -119,6 +105,7 @@ Deno.serve(async (req) => {
         });
 
     } catch (error) {
+        console.error("Login Error:", error);
         return Response.json({ error: error.message }, { status: 500 });
     }
 });

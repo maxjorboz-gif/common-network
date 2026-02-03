@@ -13,6 +13,7 @@ export const base44 = createClient({
 
 // Definición de Entidades para uso tipado/estructurado en la app
 // (Agrega aquí las que necesites)
+/*
 base44.entities = {
   ...base44.entities,
   // Ejemplo de cómo se suelen estructurar si el SDK lo requiere explicitamente o como helpers
@@ -23,6 +24,7 @@ base44.entities = {
   GastoPublicitario: base44.entity('GastoPublicitario'),
   Cupon: base44.entity('Cupon')
 };
+*/
 
 // Helper de Autenticación (para usar en botones, no automático)
 export const loginGoogle = () => {

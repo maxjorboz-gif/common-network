@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { createClientFromRequest } from "npm:@base44/sdk";
+import { createClientFromRequest } from "https://esm.sh/@base44/sdk@0.8.3";
 
 Deno.serve(async (req) => {
     try {
