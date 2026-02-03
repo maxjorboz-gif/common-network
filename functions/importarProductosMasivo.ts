@@ -1,9 +1,5 @@
-// Eliminamos import obsoleto de std/http
-// import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91"; // Hardcoded por seguridad y consistencia
-const URL_PRODUCTO = `https://app.base44.com/api/apps/${APP_ID}/entities/Producto`;
+// @ts-nocheck
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -17,10 +13,13 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const { commerce_code, productos } = await req.json();
+        const { id_comercio, productos } = await req.json();
+
+        // MAPPING: id_comercio -> commerce_code (internal logic)
+        const commerce_code = id_comercio;
 
         if (!commerce_code) {
-            return new Response(JSON.stringify({ error: "commerce_code requerido" }), { headers: corsHeaders, status: 400 });
+            return new Response(JSON.stringify({ error: "id_comercio requerido" }), { headers: corsHeaders, status: 400 });
         }
 
         if (!Array.isArray(productos) || productos.length === 0) {
@@ -29,14 +28,14 @@ Deno.serve(async (req: Request) => {
 
         console.log(`[Importación Masiva] Procesando ${productos.length} items para ${commerce_code}`);
 
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
+
         const resultados = {
             exitosos: 0,
             fallidos: 0,
             errores: [] as string[]
         };
-
-        // Procesamos en paralelo para velocidad, pero con cuidado de rate limits si fuera necesario.
-        // Base44 suele aguantar bien. Hacemos promesas.
 
         const promesas = productos.map(async (prod, index) => {
             try {
@@ -62,20 +61,8 @@ Deno.serve(async (req: Request) => {
                     created_at: new Date().toISOString()
                 };
 
-                // Insertar
-                const response = await fetch(URL_PRODUCTO, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'api_key': API_KEY
-                    },
-                    body: JSON.stringify(nuevoProducto)
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.text();
-                    throw new Error(`API Error: ${response.status} - ${errorData}`);
-                }
+                // Insertar con SDK
+                await adminClient.entities.Producto.create(nuevoProducto);
 
                 resultados.exitosos++;
 

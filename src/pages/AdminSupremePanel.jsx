@@ -95,11 +95,11 @@ export default function AdminSupremePanel() {
 
     // C. TOGGLE STATUS (HABILITAR / DESHABILITAR COMERCIO)
     const toggleStatusMutation = useMutation({
-        mutationFn: async ({ id_registro, active, commerce_code }) => {
+        mutationFn: async ({ id_registro, active, id_comercio }) => {
             const payload = {
                 action: 'toggle_active',
                 id: id_registro,
-                commerce_code,
+                id_comercio,
                 active
             };
             const response = await base44.functions.invoke('gestionarSolicitudes', payload);
@@ -224,7 +224,7 @@ export default function AdminSupremePanel() {
                                     ) : comerciosActivos.map((com) => (
                                         <TableRow key={com.id} className="border-neutral-800 hover:bg-neutral-800/50">
                                             <TableCell className="font-bold text-white">{com.nombre_comercio}</TableCell>
-                                            <TableCell className="font-mono text-xs text-neutral-400">{com.commerce_code}</TableCell>
+                                            <TableCell className="font-mono text-xs text-neutral-400">{com.id_comercio}</TableCell>
                                             <TableCell className="font-mono text-green-500 font-bold">
                                                 ${com.saldo_publicidad?.toLocaleString() || '0'}
                                             </TableCell>
@@ -234,14 +234,14 @@ export default function AdminSupremePanel() {
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-right flex justify-end gap-2">
-                                                <a href={`/tienda/${com.commerce_code}`} target="_blank" rel="noreferrer" className="p-2 bg-neutral-800 rounded hover:bg-neutral-700 text-neutral-300">
+                                                <a href={`/tienda/${com.id_comercio}`} target="_blank" rel="noreferrer" className="p-2 bg-neutral-800 rounded hover:bg-neutral-700 text-neutral-300">
                                                     <ExternalLink size={14} />
                                                 </a>
                                                 <Button
                                                     size="sm"
                                                     variant={com.activo ? "destructive" : "default"}
                                                     className={`h-8 text-xs ${!com.activo && "bg-green-600 hover:bg-green-700"}`}
-                                                    onClick={() => toggleStatusMutation.mutate({ id_registro: com.id_registro, active: !com.activo, commerce_code: com.commerce_code })}
+                                                    onClick={() => toggleStatusMutation.mutate({ id_registro: com.id_registro, active: !com.activo, id_comercio: com.id_comercio })}
                                                 >
                                                     {com.activo ? "Bloquear" : "Habilitar"}
                                                 </Button>

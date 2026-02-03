@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { commerceClient } from '@/api/commerceApiClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,13 +12,12 @@ export default function AdminConfiguracion({ comercio }) {
   const queryClient = useQueryClient();
 
   const { data: config, isLoading } = useQuery({
-    queryKey: ['config', comercio.commerce_code || comercio.id_comercio],
+    queryKey: ['config', comercio.id_comercio],
     queryFn: async () => {
-      const response = await commerceClient.post('obtenerConfiguracion', {
-        commerce_code: comercio.commerce_code,
-        id_comercio: comercio.id_comercio // Legacy fallback
+      const response = await base44.functions.invoke('obtenerConfiguracion', {
+        id_comercio: comercio.id_comercio
       });
-      return response.config;
+      return response.data?.config || response.config;
     }
   });
 
@@ -90,12 +88,12 @@ export default function AdminConfiguracion({ comercio }) {
 
   const updateConfig = useMutation({
     mutationFn: async (data) => {
-      const response = await commerceClient.post('actualizarConfiguracion', {
-        commerce_code: comercio.commerce_code, // PRIORITIZE
-        id_comercio: comercio.id_comercio,     // LEGACY
+      // Uso de base44 client estándar
+      const response = await base44.functions.invoke('actualizarConfiguracion', {
+        id_comercio: comercio.id_comercio,
         configData: data
       });
-      return response;
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['config'] });
@@ -106,7 +104,8 @@ export default function AdminConfiguracion({ comercio }) {
   const generarDiseno = useMutation({
     mutationFn: async (style = 'auto') => {
       if (!formData.descripcion_negocio && style === 'auto') throw new Error("Escribí una descripción primero para el modo automático");
-      const res = await commerceClient.post('generarDisenoTienda', {
+
+      const res = await base44.functions.invoke('generarDisenoTienda', {
         descripcion_negocio: formData.descripcion_negocio,
         nombre_comercio: formData.nombre_comercio_display || comercio.nombre_comercio,
         estilo: style
@@ -115,6 +114,7 @@ export default function AdminConfiguracion({ comercio }) {
       if (res.error) throw new Error(res.error);
       return res.data;
     },
+
     onSuccess: (data) => {
       setFormData(prev => ({
         ...prev,
@@ -151,14 +151,14 @@ export default function AdminConfiguracion({ comercio }) {
           <div className="flex gap-2 mt-2">
             <Input
               readOnly
-              value={`${window.location.origin}/tienda/${comercio.commerce_code}`}
+              value={`${window.location.origin}/tienda/${comercio.id_comercio}`}
               className="bg-black/30 text-neutral-300 border-orange-900/30 font-mono"
             />
             <Button
               variant="outline"
               className="border-orange-600 text-orange-500 hover:bg-orange-600 hover:text-white"
               onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/tienda/${comercio.commerce_code}`);
+                navigator.clipboard.writeText(`${window.location.origin}/tienda/${comercio.id_comercio}`);
                 toast.success("URL copiada al portapapeles");
               }}
             >
@@ -166,7 +166,7 @@ export default function AdminConfiguracion({ comercio }) {
             </Button>
             <Button
               className="bg-orange-600 hover:bg-orange-700"
-              onClick={() => window.open(`/tienda/${comercio.commerce_code}`, '_blank')}
+              onClick={() => window.open(`/tienda/${comercio.id_comercio}`, '_blank')}
             >
               Ver Tienda
             </Button>

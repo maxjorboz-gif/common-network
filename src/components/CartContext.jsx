@@ -8,7 +8,7 @@ export function CartProvider({ children }) {
   // Obtener ID del comercio actual de la URL
   // En Next.js o Router modernos usariamos useParams, pero esto es Context global. 
   // Intentamos sacar commerce_code de la URL si es posible para el tracking preciso
-  const getCommerceCode = () => {
+  const getIdComercio = () => {
     if (typeof window === 'undefined') return null;
     const pathParts = window.location.pathname.split('/');
     const idx = pathParts.indexOf('tienda');
@@ -45,7 +45,7 @@ export function CartProvider({ children }) {
       event_name: 'add_to_cart',
       entity_type: 'product',
       entity_id: producto.id,
-      commerce_code: getCommerceCode(),
+      id_comercio: getIdComercio(),
       payload: {
         title: producto.titulo,
         price: producto.precio_estandar || producto.precio,
@@ -78,7 +78,7 @@ export function CartProvider({ children }) {
         event_name: 'remove_from_cart',
         entity_type: 'product',
         entity_id: id,
-        commerce_code: getCommerceCode(),
+        id_comercio: getIdComercio(),
         payload: {
           title: itemToRemove.titulo,
           price: itemToRemove.precio_estandar || itemToRemove.precio

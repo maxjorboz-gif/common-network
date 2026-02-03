@@ -1,50 +1,38 @@
 
 // @ts-nocheck
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE_URL = `https://app.base44.com/api/apps/${APP_ID}/entities`;
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req: Request) => {
     try {
         if (req.method === 'OPTIONS') return new Response('OK'); // CORS
 
-        const body = await req.json();
-        const { commerce_code: idRecibido, id_comercio: legacyId } = body;
-        const commerceCode = idRecibido || legacyId;
+        const { id_comercio } = await req.json();
 
-        if (!commerceCode) {
-            return Response.json({ error: 'Falta ID de comercio (commerce_code)' }, { status: 400 });
+        if (!id_comercio) {
+            return Response.json({ error: 'Falta ID de comercio (id_comercio)' }, { status: 400 });
         }
 
-        // 1. OBTENER PRODUCTOS (FETCH FILTERED)
-        // URL: [BASE]/Producto?commerce_code=[CODE]
-        const prodUrl = `${BASE_URL}/Producto?commerce_code=${encodeURIComponent(commerceCode)}`;
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
 
-        const prodResponse = await fetch(prodUrl, {
-            headers: { 'api_key': API_KEY }
+        // 1. OBTENER PRODUCTOS (SDK FILTER)
+        // MAPPING: id_comercio -> commerce_code
+        const productos = await adminClient.entities.Producto.filter({
+            commerce_code: id_comercio
         });
 
-        if (!prodResponse.ok) {
-            throw new Error('Error fetching productos from Base44');
-        }
-
-        const productos = await prodResponse.json();
-
         // 2. OBTENER ATRIBUTOS (Para que el panel de edición funcione completo)
-        // Nota: Si no podemos filtrar por commerce_code en Atributos (porque no tiene el campo),
-        // tendríamos que traer todos o filtrar en memoria.
-        // ASUMIMOS que AtributoProducto NO tiene commerce_code directo, sino id_producto.
         // ESTRATEGIA OPTIMIZADA: Get all attributes y filtrar en memoria por IDs de mis productos.
-        // (Si son muchos, esto es lento, pero por ahora sirve).
+        // Nota: Base44 SDK filter accept limited operators currently.
+        const misProductoIds = new Set(productos.map(p => p.id || p._id));
 
-        const attrUrl = `${BASE_URL}/AtributoProducto`; // Trae max 50/100 default
-        const attrResponse = await fetch(attrUrl, { headers: { 'api_key': API_KEY } });
         let atributos = [];
-        if (attrResponse.ok) {
-            const todosAtributos = await attrResponse.json();
-            // Filtramos solo los que pertenecen a mis productos
-            const misProductoIds = new Set(productos.map(p => p.id || p._id));
+        try {
+            // Fetching all (or constrained list) and filtering
+            const todosAtributos = await adminClient.entities.AtributoProducto.list({ limit: 500 }); // Reasonable limit for now
             atributos = todosAtributos.filter(a => misProductoIds.has(a.id_producto));
+        } catch (e) {
+            console.warn("Error fetching atributos:", e);
         }
 
         // Normalizar stock para el admin (unificar campos legacy)
@@ -61,6 +49,6 @@ Deno.serve(async (req: Request) => {
 
     } catch (error) {
         console.error('Error productos admin:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message || String(error) }, { status: 500 });
     }
 });

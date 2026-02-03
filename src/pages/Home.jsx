@@ -16,10 +16,10 @@ import LandingPage from './LandingPage'; // Importación de Landing Pública
 
 export default function Home() {
   const [searchParams] = useSearchParams();
-  const { commerce_code } = useParams();
+  const { id_comercio: paramId } = useParams();
 
   // LÓGICA STRICTA: Prioridad a ruta dinámica, luego query params
-  const COMERCIO_ID = commerce_code || searchParams.get('id') || searchParams.get('code');
+  const id_comercio = paramId || searchParams.get('id_comercio') || searchParams.get('id');
   const { openDrawer, addItem } = useCart();
   const [searchTerm, setSearchTerm] = useState('');
   const [popupOpen, setPopupOpen] = useState(false);
@@ -27,20 +27,20 @@ export default function Home() {
 
   // Si no hay ID de comercio, mostramos la Landing Page de la plataforma
   // Esto evita pantallas rotas o defaults hardcodeados en preview/dev
-  if (!COMERCIO_ID) {
+  if (!id_comercio) {
     return <LandingPage />;
   }
 
   // 1. Carga unificada (Reflejo de DB)
   const { data: paginaData, isLoading } = useQuery({
-    queryKey: ['pagina-inicio', COMERCIO_ID],
+    queryKey: ['pagina-inicio', id_comercio],
     queryFn: async () => {
       const response = await base44.functions.invoke('obtenerPaginaInicio', {
-        id_comercio: COMERCIO_ID
+        id_comercio
       });
       return response.data?.data || response.data; // Manejo de diferentes estructuras de respuesta
     },
-    enabled: !!COMERCIO_ID, // Solo ejecutar si hay ID
+    enabled: !!id_comercio, // Solo ejecutar si hay ID
   });
 
   const { comercio, combos, destacados, productosPorCategoria, resenasDestacadas, sorteo, identidad, anunciosRed } = paginaData || {};

@@ -8,15 +8,14 @@ Deno.serve(async (req) => {
     try {
         if (req.method === 'OPTIONS') return new Response("OK");
 
-        const { commerce_code, id_comercio: legacyId, configData } = await req.json();
-        const id_comercio_final = commerce_code || legacyId;
+        const { id_comercio, configData } = await req.json();
 
-        if (!id_comercio_final) {
+        if (!id_comercio) {
             return Response.json({ error: 'Falta ID Comercio' }, { status: 400 });
         }
 
         // 1. Buscar si ya existe la configuración para este comercio
-        const queryUrl = `${BASE_URL}?commerce_code=${id_comercio_final}`;
+        const queryUrl = `${BASE_URL}?commerce_code=${id_comercio}`;
         const responseBusqueda = await fetch(queryUrl, {
             headers: { 'api_key': API_KEY }
         });
@@ -56,8 +55,8 @@ Deno.serve(async (req) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    commerce_code: id_comercio_final,
-                    id_comercio: id_comercio_final, // Soporte legado
+                    commerce_code: id_comercio,
+                    id_comercio: id_comercio, // Soporte legado
                     ...configData,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()

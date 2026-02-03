@@ -58,32 +58,33 @@ const AuthenticatedApp = () => {
       } />
 
       {/* RUTAS DINÁMICAS DE TIENDA (SEO Friendly) */}
-      <Route path="/tienda/:commerce_code" element={
+      {/* RUTAS DINÁMICAS DE TIENDA (SEO Friendly) */}
+      <Route path="/tienda/:id_comercio" element={
         <LayoutWrapper currentPageName="home">
           <Pages.home />
         </LayoutWrapper>
       } />
-      <Route path="/tienda/:commerce_code/checkout" element={
+      <Route path="/tienda/:id_comercio/checkout" element={
         <LayoutWrapper currentPageName="checkout">
           <Pages.checkout />
         </LayoutWrapper>
       } />
-      <Route path="/tienda/:commerce_code/producto" element={
+      <Route path="/tienda/:id_comercio/producto" element={
         <LayoutWrapper currentPageName="producto">
           <Pages.producto />
         </LayoutWrapper>
       } />
-      <Route path="/tienda/:commerce_code/confirmacion" element={
+      <Route path="/tienda/:id_comercio/confirmacion" element={
         <LayoutWrapper currentPageName="confirmacion">
           <Pages.confirmacion />
         </LayoutWrapper>
       } />
-      <Route path="/tienda/:commerce_code/terminos" element={
+      <Route path="/tienda/:id_comercio/terminos" element={
         <LayoutWrapper currentPageName="terminos">
           <Pages.terminos />
         </LayoutWrapper>
       } />
-      <Route path="/tienda/:commerce_code/devolucion" element={
+      <Route path="/tienda/:id_comercio/devolucion" element={
         <LayoutWrapper currentPageName="devolucion">
           <Pages.devolucion />
         </LayoutWrapper>
@@ -124,15 +125,15 @@ const PageTracker = () => {
     getClientId();
 
     // 2. Track Page View
-    // Intentamos deducir el commerce_code de la URL
+    // Intentamos deducir el id_comercio de la URL
     const pathParts = location.pathname.split('/');
-    const commerceCodeIdx = pathParts.indexOf('tienda');
-    const commerce_code = commerceCodeIdx !== -1 && pathParts[commerceCodeIdx + 1] ? pathParts[commerceCodeIdx + 1] : null;
+    const idComercioIdx = pathParts.indexOf('tienda');
+    const id_comercio = idComercioIdx !== -1 && pathParts[idComercioIdx + 1] ? pathParts[idComercioIdx + 1] : null;
 
     trackEvent({
       event_type: 'navigation',
       event_name: 'page_view',
-      commerce_code: commerce_code,
+      id_comercio: id_comercio,
       payload: {
         path: location.pathname,
         search: location.search

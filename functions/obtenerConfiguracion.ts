@@ -1,8 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE_URL = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/ConfiguracionComercio";
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
   try {
@@ -15,17 +12,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Faltan parámetros' }, { status: 400 });
     }
 
-    // 1. Obtener Configuración (URL Directa)
-    const queryUrl = `${BASE_URL}?commerce_code=${idBusqueda}`;
-    const response = await fetch(queryUrl, {
-      headers: { 'api_key': API_KEY }
+    const base44 = createClientFromRequest(req);
+    const adminClient = base44.asServiceRole;
+
+    // 1. Obtener Configuración (SDK Filter)
+    const configs = await adminClient.entities.ConfiguracionComercio.filter({
+      commerce_code: idBusqueda
     });
-
-    if (!response.ok) {
-      throw new Error(`Error obteniendo configuración: ${await response.text()}`);
-    }
-
-    const configs = await response.json();
 
     const defaultConfig = {
       descuento_base_transferencia: 10,
@@ -41,6 +34,6 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error obtenerConfiguracion:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: error.message || String(error) }, { status: 500 });
   }
 });

@@ -1,8 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const URL_SORTEO = `https://app.base44.com/api/apps/${APP_ID}/entities/Sorteo`;
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 /**
  * GESTIONAR SORTEOS (Lógica de Marketing)
@@ -19,21 +16,23 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Falta commerce_code' }, { status: 400 });
         }
 
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
+
         // --- ACCIÓN: LISTAR ---
         if (action === 'list') {
-            const res = await fetch(`${URL_SORTEO}?commerce_code=${commerce_code}`, {
-                headers: { 'api_key': API_KEY }
+            const list = await adminClient.entities.Sorteo.filter({
+                commerce_code: commerce_code
             });
-            const list = await res.json();
             return Response.json({ success: true, sorteos: Array.isArray(list) ? list : [] });
         }
 
         // --- ACCIÓN: OBTENER ACTIVO (Para el Frontend) ---
         if (action === 'get_active') {
-            const res = await fetch(`${URL_SORTEO}?commerce_code=${commerce_code}&activo=true`, {
-                headers: { 'api_key': API_KEY }
+            const activos = await adminClient.entities.Sorteo.filter({
+                commerce_code: commerce_code,
+                activo: true
             });
-            const activos = await res.json();
             // Retornamos el más reciente si hay varios activos por error
             return Response.json({
                 success: true,
@@ -43,7 +42,6 @@ Deno.serve(async (req) => {
 
         // --- ACCIÓN: CREAR ---
         if (action === 'create') {
-            // Antes de crear uno activo, podríamos desactivar los anteriores
             const payload = {
                 ...data,
                 commerce_code,
@@ -52,32 +50,21 @@ Deno.serve(async (req) => {
                 updated_at: new Date().toISOString()
             };
 
-            const res = await fetch(URL_SORTEO, {
-                method: 'POST',
-                headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!res.ok) throw new Error("Error al crear el sorteo");
-            const nuevoSorteo = await res.json();
+            const nuevoSorteo = await adminClient.entities.Sorteo.create(payload);
             return Response.json({ success: true, sorteo: nuevoSorteo });
         }
 
-        // --- ACCIÓN: ACTUALIZAR (Toggles, Cambio de premios, etc) ---
+        // --- ACCIÓN: ACTUALIZAR ---
         if (action === 'update') {
             if (!sorteoId) return Response.json({ error: 'Falta sorteoId' }, { status: 400 });
 
-            const res = await fetch(`${URL_SORTEO}/${sorteoId}`, {
-                method: 'PATCH',
-                headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...data,
-                    updated_at: new Date().toISOString()
-                })
+            await adminClient.entities.Sorteo.update(sorteoId, {
+                ...data,
+                updated_at: new Date().toISOString()
             });
 
-            if (!res.ok) throw new Error("Error al actualizar el sorteo");
-            const actualizado = await res.json();
+            // SDK update returns nothing or partial. If full object needed:
+            const actualizado = await adminClient.entities.Sorteo.get(sorteoId);
             return Response.json({ success: true, sorteo: actualizado });
         }
 
@@ -85,12 +72,10 @@ Deno.serve(async (req) => {
         if (action === 'delete') {
             if (!sorteoId) return Response.json({ error: 'Falta sorteoId' }, { status: 400 });
 
-            const res = await fetch(`${URL_SORTEO}/${sorteoId}`, {
-                method: 'DELETE',
-                headers: { 'api_key': API_KEY }
-            });
+            // SDK DELETE
+            // Assuming SDK has delete method if allowed by Base44
+            await adminClient.entities.Sorteo.delete(sorteoId);
 
-            if (!res.ok) throw new Error("Error al eliminar el sorteo");
             return Response.json({ success: true, mensaje: "Sorteo eliminado" });
         }
 
@@ -98,6 +83,6 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error("Error en gestionarSorteo:", error);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message || String(error) }, { status: 500 });
     }
 });

@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { commerceClient } from '@/api/commerceApiClient';
 import { useState, useEffect } from 'react';
 import {
     Wallet,
@@ -30,20 +29,32 @@ export default function AdminAdWallet({ comercio }) {
     const { data: datosComercio, isLoading } = useQuery({
         queryKey: ['comercio-wallet', comercio.commerce_code],
         queryFn: async () => {
-            const response = await commerceClient.post('obtenerDatosComercio', {
+            // Using Base44 to get commerce data. 
+            // Might need token if configured, assuming backend accepts just commerce_code for now if strict auth not enforced or handled via other means.
+            // Actually, obtenerDatosComercio expects Authorization header OR token in body now.
+            // But we don't have the token easily accessible here unless we grab from localStorage or context.
+            // Let's assume passed commerce object is enough or we rely on token in body if we had it.
+            // However, `AdminAdWallet` is for the logged in user.
+            // Ideally we use `base44.functions.invoke`. If backend requires token, we must provide it.
+            // Assuming the simple `obtenerDatosComercio` allows fetching public/semi-public data or we need to pass token.
+            // Let's try to grab token from localStorage if available to be safe, or just call it.
+            const token = localStorage.getItem('commerce_token');
+            const response = await base44.functions.invoke('obtenerDatosComercio', {
+                token: token,
+                // commerce_code might be redundant if token has it, but safe to pass if needed by logic
                 commerce_code: comercio.commerce_code
             });
-            return response.comercio;
+            return response.data?.comercio || response.comercio;
         }
     });
 
     const { data: config, isLoadingConfig } = useQuery({
         queryKey: ['config-admin', comercio.commerce_code],
         queryFn: async () => {
-            const response = await commerceClient.post('obtenerConfiguracion', {
+            const response = await base44.functions.invoke('obtenerConfiguracion', {
                 commerce_code: comercio.commerce_code
             });
-            return response.config;
+            return response.data?.config || response.config;
         }
     });
 
@@ -51,13 +62,13 @@ export default function AdminAdWallet({ comercio }) {
     const { data: configSuprema, isLoading: loadingSuprema } = useQuery({
         queryKey: ['config-suprema-public'],
         queryFn: async () => {
-            const response = await commerceClient.post('configuracionSuprema', {
+            const response = await base44.functions.invoke('configuracionSuprema', {
                 action: 'obtener'
             });
-            console.log("Datos bancarios obtenidos:", response?.config);
-            return response?.config || {};
+            console.log("Datos bancarios obtenidos:", response.data?.config);
+            return response.data?.config || {};
         },
-        refetchOnWindowFocus: true // Para asegurar que si cambias de pestaña se actualice
+        refetchOnWindowFocus: true
     });
 
     const [dailyLimit, setDailyLimit] = useState(0);
@@ -70,10 +81,11 @@ export default function AdminAdWallet({ comercio }) {
 
     const updateConfigMutation = useMutation({
         mutationFn: async (newLimit) => {
-            return await commerceClient.post('actualizarConfiguracion', {
+            const response = await base44.functions.invoke('actualizarConfiguracion', {
                 commerce_code: comercio.commerce_code,
                 configData: { limite_diario_ads: newLimit }
             });
+            return response.data || response;
         },
         onSuccess: () => {
             toast.success("Límite diario actualizado");
@@ -94,13 +106,15 @@ export default function AdminAdWallet({ comercio }) {
     // 2. Mutación para solicitar recarga
     const requestReload = useMutation({
         mutationFn: async (plan) => {
-            // Usamos trackEvent o una función de logs para registrar la intención de carga
-            // Y enviamos un mensaje a las notas del comercio
-            return await commerceClient.post('agregarNotaLead', {
-                id_comercio: comercio.commerce_code,
-                nota: `[SOLICITUD PUBLICIDAD] El comercio solicitó un reporte de carga de $${plan.precio} USD. Operación: ${transactionId}`,
-                tipo: 'facturacion'
+            // Corrected to use solicitarCreditoPublicitario
+            const response = await base44.functions.invoke('solicitarCreditoPublicitario', {
+                commerce_code: comercio.commerce_code,
+                monto: plan.precio,
+                transaction_id: transactionId,
+                consumo_preferencia: `Plan ${plan.title}`,
+                platform: 'Meta Ads'
             });
+            return response.data || response;
         },
         onSuccess: () => {
             toast.success("Solicitud enviada. Tu saldo se acreditará en breve.");

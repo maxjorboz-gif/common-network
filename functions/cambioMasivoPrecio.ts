@@ -1,8 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE_URL = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto";
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
     try {
@@ -15,19 +12,21 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Ids Invalidos' }, { status: 400 });
         }
 
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
+
         // UPDATE LOOP
         let count = 0;
-        for (const id of productosIds) {
+
+        // Processing in parallel for speed, though sequentially is safer for rate limits if massive.
+        // Array.map implies parallel start.
+        const promises = productosIds.map(async (id) => {
             try {
-                // 1. Obtener producto individualmente usando la constante BASE_URL
-                const getResponse = await fetch(`${BASE_URL}/${id}`, {
-                    headers: { 'api_key': API_KEY }
-                });
+                // 1. Obtener producto (SDK)
+                const p = await adminClient.entities.Producto.get(id);
+                if (!p) return;
 
-                if (!getResponse.ok) continue;
-                const p = await getResponse.json();
-
-                let nuevo = p.precio_estandar;
+                let nuevo = p.precio_estandar || 0;
                 const v = parseFloat(valor);
 
                 if (modo === 'percentage') {
@@ -38,31 +37,23 @@ Deno.serve(async (req) => {
                     nuevo = tipo === 'increase' ? nuevo + v : nuevo - v;
                 }
 
-                // 2. ACTUALIZAR (PATCH) utilizando la constante BASE_URL
-                const updateResponse = await fetch(`${BASE_URL}/${id}`, {
-                    method: 'PATCH',
-                    headers: {
-                        'api_key': API_KEY,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        precio_estandar: Math.max(0, Math.round(nuevo)),
-                        updated_at: new Date().toISOString()
-                    })
+                // 2. ACTUALIZAR (SDK)
+                await adminClient.entities.Producto.update(id, {
+                    precio_estandar: Math.max(0, Math.round(nuevo)),
+                    updated_at: new Date().toISOString()
                 });
-
-                if (updateResponse.ok) {
-                    count++;
-                }
+                count++;
             } catch (e) {
                 console.error(`Error procesando producto ${id}:`, e);
             }
-        }
+        });
+
+        await Promise.all(promises);
 
         return Response.json({ success: true, actualizados: count });
 
     } catch (error) {
         console.error('Error cambioMasivoPrecio:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message || String(error) }, { status: 500 });
     }
 });

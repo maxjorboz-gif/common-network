@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { commerceClient } from '@/api/commerceApiClient';
 import { MessageCircle, Phone, Mail, User, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,11 +16,11 @@ export default function AdminLeads({ comercio }) {
   const { data: leadsData, isLoading } = useQuery({
     queryKey: ['leads-admin', comercio.commerce_code || comercio.id_comercio],
     queryFn: async () => {
-      const response = await commerceClient.post('obtenerLeads', {
+      const response = await base44.functions.invoke('obtenerLeads', {
         commerce_code: comercio.commerce_code,
-        id_comercio: comercio.id_comercio // Legacy fallback
+        id_comercio: comercio.id_comercio
       });
-      return response;
+      return response.data || response;
     }
   });
 
@@ -30,7 +29,7 @@ export default function AdminLeads({ comercio }) {
 
   const handleChangeEstado = async (leadId, nuevoEstado) => {
     try {
-      await commerceClient.post('cambiarEstadoLead', {
+      await base44.functions.invoke('cambiarEstadoLead', {
         leadId,
         nuevoEstado
       });
@@ -42,7 +41,7 @@ export default function AdminLeads({ comercio }) {
 
   const handleAddNote = async (leadId, nota) => {
     try {
-      await commerceClient.post('agregarNotaLead', {
+      await base44.functions.invoke('agregarNotaLead', {
         leadId,
         nota
       });

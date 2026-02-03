@@ -1,9 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const URL_PRODUCTO = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto";
-const URL_ATRIBUTO = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/AtributoProducto";
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
     try {
@@ -23,6 +19,9 @@ Deno.serve(async (req) => {
         if (!commerceCodeFinal) {
             return Response.json({ error: 'Falta commerce_code' }, { status: 400 });
         }
+
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
 
         // ENTITY PAYLOAD
         const entityPayload = {
@@ -53,43 +52,20 @@ Deno.serve(async (req) => {
             created_at: new Date().toISOString()
         };
 
-        // 1. CREAR PRODUCTO (URL Directa)
-        const prodResponse = await fetch(URL_PRODUCTO, {
-            method: 'POST',
-            headers: {
-                'api_key': API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(entityPayload)
-        });
+        // 1. CREAR PRODUCTO (SDK)
+        const nuevoProducto = await adminClient.entities.Producto.create(entityPayload);
 
-        if (!prodResponse.ok) {
-            const errorText = await prodResponse.text();
-            throw new Error(`Error creando producto en Base44: ${errorText}`);
-        }
-
-        const nuevoProducto = await prodResponse.json();
-
-        // 2. CREAR ATRIBUTOS (URL Directa)
+        // 2. CREAR ATRIBUTOS (SDK)
         if (atributos && Array.isArray(atributos)) {
             for (let i = 0; i < atributos.length; i++) {
                 const attr = atributos[i];
-                const attrPayload = {
+                await adminClient.entities.AtributoProducto.create({
                     id_producto: nuevoProducto.id || nuevoProducto._id,
                     nombre_atributo: attr.nombre_atributo,
                     valor_atributo: attr.valor_atributo,
                     ia_weight: attr.ia_weight || 5,
                     orden: i,
                     created_at: new Date().toISOString()
-                };
-
-                await fetch(URL_ATRIBUTO, {
-                    method: 'POST',
-                    headers: {
-                        'api_key': API_KEY,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(attrPayload)
                 });
             }
         }

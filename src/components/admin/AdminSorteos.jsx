@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { commerceClient } from '@/api/commerceApiClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
     Dialog,
@@ -33,11 +32,12 @@ export default function AdminSorteos({ comercio }) {
     const { data: sorteos, isLoading: loadingSorteos } = useQuery({
         queryKey: ['sorteos-admin', comercio.commerce_code],
         queryFn: async () => {
-            const response = await commerceClient.post('gestionarSorteo', {
+            const response = await base44.functions.invoke('gestionarSorteo', {
                 action: 'list',
                 commerce_code: comercio.commerce_code
             });
-            return response?.sorteos || [];
+            const data = response.data || response;
+            return data?.sorteos || [];
         }
     });
 
@@ -45,21 +45,23 @@ export default function AdminSorteos({ comercio }) {
     const { data: productos } = useQuery({
         queryKey: ['productos-admin-sorteo', comercio.commerce_code],
         queryFn: async () => {
-            const response = await commerceClient.post('obtenerProductosAdmin', {
+            const response = await base44.functions.invoke('obtenerProductosAdmin', {
                 commerce_code: comercio.commerce_code
             });
-            return response?.productos || [];
+            const data = response.data || response;
+            return data?.productos || [];
         }
     });
 
     // 3. Crear Sorteo
     const mutationCreate = useMutation({
         mutationFn: async (data) => {
-            return await commerceClient.post('gestionarSorteo', {
+            const response = await base44.functions.invoke('gestionarSorteo', {
                 action: 'create',
                 commerce_code: comercio.commerce_code,
                 data
             });
+            return response.data || response;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['sorteos-admin'] });
@@ -72,12 +74,13 @@ export default function AdminSorteos({ comercio }) {
     // 4. Toggle Activo
     const mutationToggle = useMutation({
         mutationFn: async ({ id, activo }) => {
-            return await commerceClient.post('gestionarSorteo', {
+            const response = await base44.functions.invoke('gestionarSorteo', {
                 action: 'update',
                 commerce_code: comercio.commerce_code,
                 sorteoId: id,
                 data: { activo }
             });
+            return response.data || response;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['sorteos-admin'] });
@@ -88,11 +91,12 @@ export default function AdminSorteos({ comercio }) {
     // 5. Eliminar
     const mutationDelete = useMutation({
         mutationFn: async (id) => {
-            return await commerceClient.post('gestionarSorteo', {
+            const response = await base44.functions.invoke('gestionarSorteo', {
                 action: 'delete',
                 commerce_code: comercio.commerce_code,
                 sorteoId: id
             });
+            return response.data || response;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['sorteos-admin'] });

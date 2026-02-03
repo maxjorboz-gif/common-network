@@ -1,9 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const URL_PRODUCTO = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto";
-const URL_ATRIBUTO = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/AtributoProducto";
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
     try {
@@ -12,44 +8,32 @@ Deno.serve(async (req) => {
         const { productoId } = await req.json();
         if (!productoId) return Response.json({ error: 'ID requerido' }, { status: 400 });
 
-        // 1. Limpieza de Atributos (URL Directa)
-        // Buscamos los atributos vinculados al producto para borrarlos uno por uno
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
+
+        // 1. Limpieza de Atributos (SDK Direct)
+        // Buscamos los atributos vinculados al producto para borrarlos
         try {
-            const queryAttrUrl = `${URL_ATRIBUTO}?id_producto=${productoId}`;
-            const resAttrs = await fetch(queryAttrUrl, {
-                headers: { 'api_key': API_KEY }
+            const atributos = await adminClient.entities.AtributoProducto.filter({
+                id_producto: productoId
             });
 
-            if (resAttrs.ok) {
-                const atributos = await resAttrs.json();
-                if (Array.isArray(atributos)) {
-                    for (const attr of atributos) {
-                        await fetch(`${URL_ATRIBUTO}/${attr.id || attr._id}`, {
-                            method: 'DELETE',
-                            headers: { 'api_key': API_KEY }
-                        });
-                    }
-                }
-            }
+            // Delete in parallel or loop
+            await Promise.all(atributos.map(attr =>
+                adminClient.entities.AtributoProducto.delete(attr.id || attr._id)
+            ));
+
         } catch (e) {
             console.error("Error eliminando atributos relacionados:", e);
         }
 
-        // 2. Eliminar Producto (URL Directa)
-        const deleteResponse = await fetch(`${URL_PRODUCTO}/${productoId}`, {
-            method: 'DELETE',
-            headers: { 'api_key': API_KEY }
-        });
-
-        if (!deleteResponse.ok) {
-            const errorText = await deleteResponse.text();
-            throw new Error(`Error eliminando producto: ${errorText}`);
-        }
+        // 2. Eliminar Producto (SDK)
+        await adminClient.entities.Producto.delete(productoId);
 
         return Response.json({ success: true, mensaje: 'Producto eliminado' });
 
     } catch (error) {
         console.error('Error eliminarProducto:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message || String(error) }, { status: 500 });
     }
 });

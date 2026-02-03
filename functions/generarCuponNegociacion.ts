@@ -1,8 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE_URL = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Cupon";
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
   try {
@@ -18,6 +15,9 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
+    const base44 = createClientFromRequest(req);
+    const adminClient = base44.asServiceRole;
+
     // Calcula expiración
     const expiracion = new Date();
     expiracion.setMinutes(expiracion.getMinutes() + validezMinutos);
@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     // Generar código único corto
     const codigo = `OFF${porcentajeDescuento}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-    // Payload para la entidad Cupon (URL Directa)
+    // Payload para la entidad Cupon (SDK)
     const cuponPayload = {
       codigo,
       id_comercio: id_comercio_final,
@@ -42,21 +42,7 @@ Deno.serve(async (req) => {
       created_at: new Date().toISOString()
     };
 
-    const response = await fetch(BASE_URL, {
-      method: 'POST',
-      headers: {
-        'api_key': API_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(cuponPayload)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error creando cupón: ${errorText}`);
-    }
-
-    const cupon = await response.json();
+    const cupon = await adminClient.entities.Cupon.create(cuponPayload);
 
     return Response.json({
       success: true,
@@ -65,6 +51,6 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error generarCuponNegociacion:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: error.message || String(error) }, { status: 500 });
   }
 });

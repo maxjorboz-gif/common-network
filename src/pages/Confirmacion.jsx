@@ -7,11 +7,11 @@ import { CheckCircle2, ShoppingBag, MessageCircle } from 'lucide-react';
 export default function Confirmacion() {
     const location = useLocation();
     const navigate = useNavigate();
-    const { commerce_code } = useParams();
+    const { id_comercio } = useParams();
     const { orden } = location.state || {};
 
     const handleVolver = () => {
-        if (commerce_code) navigate(`/tienda/${commerce_code}`);
+        if (id_comercio) navigate(`/tienda/${id_comercio}`);
         else navigate('/');
     };
 

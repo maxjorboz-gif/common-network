@@ -1,8 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE_URL = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Cupon";
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
     try {
@@ -15,22 +12,17 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Faltan datos (commerce_code requerido)' }, { status: 400 });
         }
 
-        // 1. Buscar Cupón usando la constante BASE_URL
-        const queryUrl = `${BASE_URL}?codigo=${encodeURIComponent(codigoCupon)}&commerce_code=${id_comercio_final}&activo=true`;
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
 
-        const response = await fetch(queryUrl, {
-            headers: {
-                'api_key': API_KEY,
-                'Content-Type': 'application/json'
-            }
+        // 1. Buscar Cupón (SDK)
+        const cupones = await adminClient.entities.Cupon.filter({
+            codigo: codigoCupon,
+            commerce_code: id_comercio_final,
+            activo: true
         });
 
-        if (!response.ok) {
-            throw new Error(`Error consultando cupón: ${await response.text()}`);
-        }
-
-        const cupones = await response.json();
-        const cupon = Array.isArray(cupones) ? cupones[0] : null;
+        const cupon = Array.isArray(cupones) && cupones.length > 0 ? cupones[0] : null;
 
         if (!cupon) {
             return Response.json({ error: 'Cupón inválido o expirado' }, { status: 404 });
@@ -55,6 +47,6 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Error aplicarCupon:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message || String(error) }, { status: 500 });
     }
 });

@@ -19,10 +19,10 @@ const COMERCIO_ID_FALLBACK = null; // Eliminado 000001
 
 export default function Checkout() {
     const [searchParams] = useSearchParams();
-    const { commerce_code } = useParams();
+    const { id_comercio: paramId } = useParams();
 
-    // Support new commerce_code (dynamic route) or legacy ID (query param)
-    const COMERCIO_ID = commerce_code || searchParams.get('code') || searchParams.get('id');
+    // Normalización estricta: id_comercio
+    const id_comercio = paramId || searchParams.get('id_comercio') || searchParams.get('id');
     const navigate = useNavigate();
     const { cartItems, total, clearCart } = useCart();
 
@@ -30,22 +30,22 @@ export default function Checkout() {
 
     // Validar comercio existente
     useEffect(() => {
-        if (!COMERCIO_ID) {
+        if (!id_comercio) {
             toast.error("Enlace de compra inválido (Falta Comercio)");
             // If we don't know the commerce, we can't really redirect to "their" home, maybe main landing?
             navigate('/');
         }
-    }, [COMERCIO_ID, navigate]);
+    }, [id_comercio, navigate]);
 
     // 0. CARGAR CONFIGURACIÓN DEL COMERCIO
     const [config, setConfig] = useState(null);
     useEffect(() => {
-        if (COMERCIO_ID) {
-            base44.functions.invoke('obtenerConfiguracion', { commerce_code: COMERCIO_ID })
+        if (id_comercio) {
+            base44.functions.invoke('obtenerConfiguracion', { id_comercio })
                 .then(res => setConfig(res.data.config))
                 .catch(err => console.error("Error loading config", err));
         }
-    }, [COMERCIO_ID]);
+    }, [id_comercio]);
 
     // 1. ESTADOS
     const [loading, setLoading] = useState(false);

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { commerceClient } from '@/api/commerceApiClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, ShoppingBag, TrendingUp, Users, AlertTriangle, Package, Eye, PlusCircle, CreditCard, X, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,14 +17,15 @@ export default function AdminEstadisticas({ comercio }) {
 
   const resetGastosMutation = useMutation({
     mutationFn: async () => {
-      return await commerceClient.post('resetGastoPublicitario', {
-        commerce_code: comercio.commerce_code
+      const response = await base44.functions.invoke('resetGastoPublicitario', {
+        id_comercio: comercio.id_comercio
       });
+      return response.data || response;
     },
     onSuccess: (data) => {
       if (data.success) {
         toast.success(`Contador reiniciado. ${data.count || 0} registros archivados.`);
-        queryClient.invalidateQueries(['estadisticas-admin', comercio.commerce_code]);
+        queryClient.invalidateQueries(['estadisticas-admin', comercio.id_comercio]);
       } else {
         toast.error(data.message || 'Error reiniciando');
       }
@@ -34,12 +34,13 @@ export default function AdminEstadisticas({ comercio }) {
   });
   const requestMutation = useMutation({
     mutationFn: async (data) => {
-      return await commerceClient.post('solicitarCreditoPublicitario', {
-        commerce_code: comercio.commerce_code,
+      const response = await base44.functions.invoke('solicitarCreditoPublicitario', {
+        id_comercio: comercio.id_comercio,
         monto: data.monto,
         transaction_id: data.transactionId,
         consumo_preferencia: data.consumptionPref
       });
+      return response.data || response;
     },
     onSuccess: () => {
       toast.success('Solicitud enviada correctamente');
@@ -51,15 +52,14 @@ export default function AdminEstadisticas({ comercio }) {
 
   // Obtener todas las estadísticas desde el backend
   const { data: stats, isLoading, refetch } = useQuery({
-    queryKey: ['estadisticas-admin', comercio.commerce_code, dateRange.start, dateRange.end],
+    queryKey: ['estadisticas-admin', comercio.id_comercio, dateRange.start, dateRange.end],
     queryFn: async () => {
-      const response = await commerceClient.post('obtenerEstadisticas', {
-        commerce_code: comercio.commerce_code,
+      const response = await base44.functions.invoke('obtenerEstadisticas', {
         id_comercio: comercio.id_comercio,
         fecha_inicio: dateRange.start || undefined,
         fecha_fin: dateRange.end || undefined
       });
-      return response;
+      return response.data || response;
     }
   });
 

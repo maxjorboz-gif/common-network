@@ -1,8 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
-import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
-import { commerceClient } from '@/api/commerceApiClient';
 
 const AuthContext = createContext();
 
@@ -25,18 +23,13 @@ export const AuthProvider = ({ children }) => {
 
   // Initial Load - Check for existing sessions without blocking
   useEffect(() => {
-    // 1. Recover Commerce Session if token exists
     const storedToken = localStorage.getItem('commerce_token');
     if (storedToken) {
       refreshCommerceSession(storedToken);
     }
-
-    // 2. We can lazily check standard user auth if needed, 
-    // but we respect the "passive" requirement by default.
   }, []);
 
   // --- Commerce Auth Methods ---
-
   const loginComercio = async (email, password) => {
     setIsLoadingCommerce(true);
     try {
@@ -44,11 +37,8 @@ export const AuthProvider = ({ children }) => {
 
       if (response.data && response.data.success) {
         const { session, commerce } = response.data;
-
-        // Save source of truth
         localStorage.setItem('commerce_token', session.token);
-        localStorage.setItem('commerce_data', JSON.stringify(commerce)); // Fast retrieval
-
+        localStorage.setItem('commerce_data', JSON.stringify(commerce));
         setCommerceToken(session.token);
         setCommerce(commerce);
         setIsCommerceAuthenticated(true);
@@ -70,68 +60,66 @@ export const AuthProvider = ({ children }) => {
     setCommerce(null);
     setCommerceToken(null);
     setIsCommerceAuthenticated(false);
-    // Optional: Redirect to home or login
     window.location.href = '/';
   };
 
   const refreshCommerceSession = async (tokenOverride) => {
-    const token = tokenOverride || commerceToken;
-    if (!token) return;
+    const token = tokenOverride || localStorage.getItem('commerce_token');
+    if (!token) {
+      setCommerce(null);
+      setIsCommerceAuthenticated(false);
+      setIsLoadingCommerce(false);
+      return;
+    }
 
     setIsLoadingCommerce(true);
     try {
-      // USANDO CLIENTE PROFESIONAL: commerceClient
-      // Centraliza headers, auth y manejo de errores.
-      const data = await commerceClient.post('obtenerDatosComercio', {});
+      const response = await base44.functions.invoke('obtenerDatosComercio', { token });
+      const data = response.data || response;
 
       if (data.success && data.comercio) {
         setCommerce(data.comercio);
         setIsCommerceAuthenticated(true);
       } else {
-        // Token invalid 
         logoutComercio();
       }
     } catch (err) {
       console.error("Session Refresh Error:", err);
-      // Don't auto-logout on network error, only on auth invalid
-      if (err.status === 401 || err.status === 403) {
-        logoutComercio();
-      }
     } finally {
       setIsLoadingCommerce(false);
     }
   };
 
-
-  // --- Standard User Auth Methods (Legacy / SuperAdmin) ---
-
+  // --- Standard User Auth Methods ---
   const checkAppState = async () => {
     try {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
 
-      const appClient = createAxiosClient({
-        baseURL: `/api/apps/public`,
-        headers: { 'X-App-Id': appParams.appId },
-        token: appParams.token,
-        interceptResponses: true
+      // Reemplazo native fetch en lugar de axios-client interno
+      const endpoint = `/api/apps/public/prod/public-settings/by-id/${appParams.appId}`;
+      const response = await fetch(endpoint, {
+        headers: {
+          'X-App-Id': appParams.appId,
+          'Authorization': appParams.token ? `Bearer ${appParams.token}` : undefined
+        }
       });
 
-      try {
-        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
+      if (!response.ok) {
+        // Si falla, no bloqueamos, solo logueamos
+        console.warn("Public settings check status:", response.status);
+      } else {
+        const publicSettings = await response.json();
         setAppPublicSettings(publicSettings);
-
-        if (appParams.token) {
-          await checkUserAuth();
-        }
-        setIsLoadingPublicSettings(false);
-      } catch (appError) {
-        // ... Error handling preserved ...
-        console.error('App state check failed:', appError);
-        setIsLoadingPublicSettings(false);
       }
+
+      if (appParams.token) {
+        await checkUserAuth();
+      }
+      setIsLoadingPublicSettings(false);
+
     } catch (error) {
-      console.error('Unexpected error:', error);
+      console.error('App state check failed:', error);
       setIsLoadingPublicSettings(false);
     }
   };
@@ -157,26 +145,10 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{
-      // Standard User
-      user,
-      isAuthenticated,
-      isLoadingAuth,
-      checkAppState,
-      logout,
-
-      // Commerce User
-      commerce,
-      commerceToken,
-      isCommerceAuthenticated,
-      isLoadingCommerce,
-      loginComercio,
-      logoutComercio,
-      refreshCommerceSession,
-
-      // Global
-      isLoadingPublicSettings,
-      authError,
-      appPublicSettings,
+      user, isAuthenticated, isLoadingAuth, checkAppState, logout,
+      commerce, commerceToken, isCommerceAuthenticated, isLoadingCommerce,
+      loginComercio, logoutComercio, refreshCommerceSession,
+      isLoadingPublicSettings, authError, appPublicSettings,
     }}>
       {children}
     </AuthContext.Provider>
@@ -190,5 +162,6 @@ export const useAuth = () => {
   }
   return context;
 };
+
 
 

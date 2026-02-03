@@ -13,7 +13,7 @@ import { trackEvent } from '@/lib/tracking';
 export default function Producto() {
   const urlParams = new URLSearchParams(window.location.search);
   const idProducto = urlParams.get('id');
-  const { commerce_code } = useParams();
+  const { id_comercio } = useParams();
   const navigate = useNavigate();
   const { addItem, openDrawer } = useCart();
   const [selectedImage, setSelectedImage] = useState(0);
@@ -40,7 +40,7 @@ export default function Producto() {
         event_name: 'product_view',
         entity_type: 'product',
         entity_id: data.producto.id,
-        commerce_code: commerce_code,
+        id_comercio: id_comercio,
         payload: {
           title: data.producto.titulo,
           price: data.producto.precio_estandar
@@ -52,10 +52,10 @@ export default function Producto() {
       base44.functions.invoke('registrarInteres', {
         id_cliente: clienteId,
         interes: data.producto.categoria || 'Vista de Producto',
-        commerce_code: commerce_code
+        id_comercio: id_comercio
       }).catch(err => console.warn('Error tracking interes:', err));
     }
-  }, [data, commerce_code]);
+  }, [data, id_comercio]);
 
   // --- LÓGICA DE ARCHIVOS ESTANDARIZADA ---
   const getFileUrl = (file) => {
@@ -66,7 +66,7 @@ export default function Producto() {
   };
 
   const handleVolver = () => {
-    if (commerce_code) navigate(`/tienda/${commerce_code}`);
+    if (id_comercio) navigate(`/tienda/${id_comercio}`);
     else window.history.back();
   };
 

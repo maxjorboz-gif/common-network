@@ -1,13 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-
-const URL_ORDEN = `https://app.base44.com/api/apps/${APP_ID}/entities/Orden`;
-const URL_GASTO = `https://app.base44.com/api/apps/${APP_ID}/entities/GastoPublicitario`;
-const URL_PRODUCTO = `https://app.base44.com/api/apps/${APP_ID}/entities/Producto`;
-const URL_SORTEO = `https://app.base44.com/api/apps/${APP_ID}/entities/Sorteo`;
-const URL_LEAD = `https://app.base44.com/api/apps/${APP_ID}/entities/Lead`;
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
     try {
@@ -20,22 +12,17 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Falta ID Comercio' }, { status: 400 });
         }
 
-        let filterParam = idBusqueda.length > 20 ? `id_comercio=${idBusqueda}` : `commerce_code=${idBusqueda}`;
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
 
-        // 1. OBTENCION DE DATOS INTEGRAL (Dashboard para el Comercio)
-        const [resOrdenes, resGastos, resProductos, resSorteos, resLeads] = await Promise.all([
-            fetch(`${URL_ORDEN}?${filterParam}`, { headers: { 'api_key': API_KEY } }),
-            fetch(`${URL_GASTO}?${filterParam}`, { headers: { 'api_key': API_KEY } }),
-            fetch(`${URL_PRODUCTO}?${filterParam}`, { headers: { 'api_key': API_KEY } }),
-            fetch(`${URL_SORTEO}?${filterParam}&activo=true`, { headers: { 'api_key': API_KEY } }),
-            fetch(`${URL_LEAD}?${filterParam}&origen=sorteo`, { headers: { 'api_key': API_KEY } })
+        // 1. OBTENCION DE DATOS INTEGRAL (Dashboard para el Comercio) - SDK Parallel
+        const [ordenesAll, gastosAll, productos, sorteosActivos, leadsSorteo] = await Promise.all([
+            adminClient.entities.Orden.filter({ commerce_code: idBusqueda }).catch(() => []),
+            adminClient.entities.GastoPublicitario.filter({ commerce_code: idBusqueda }).catch(() => []),
+            adminClient.entities.Producto.filter({ commerce_code: idBusqueda }).catch(() => []),
+            adminClient.entities.Sorteo.filter({ commerce_code: idBusqueda, activo: true }).catch(() => []), // Assuming exact match supported
+            adminClient.entities.Lead.filter({ commerce_code: idBusqueda, origen: 'sorteo' }).catch(() => [])
         ]);
-
-        const ordenesAll = await resOrdenes.json().catch(() => []);
-        const gastosAll = await resGastos.json().catch(() => []);
-        const productos = await resProductos.json().catch(() => []);
-        const sorteosActivos = await resSorteos.json().catch(() => []);
-        const leadsSorteo = await resLeads.json().catch(() => []);
 
         // FILTRADO POR FECHA GLOBAL
         const start = fecha_inicio ? new Date(fecha_inicio) : null;
@@ -73,6 +60,22 @@ Deno.serve(async (req) => {
             marketingMessage = `¡Tu sorteo está funcionando! Tienes ${totalParticipantes} clientes potenciales nuevos esperando ganar la ${sorteoActivo.titulo || 'premio'}.`;
         }
 
+        // 4. Top Productos Calculation (Simplified)
+        // Group orders items
+        const productStats = {};
+        for (const o of ordenes) {
+            if (o.items && Array.isArray(o.items) && (o.estado === 'PAGADA' || o.estado === 'ENTREGADA')) {
+                for (const item of o.items) {
+                    const key = item.titulo || item.product_id;
+                    if (!productStats[key]) productStats[key] = { titulo: key, cantidad: 0, revenue: 0 };
+                    productStats[key].cantidad += (item.cantidad || 1);
+                    productStats[key].revenue += (Number(item.precio_unitario) * (Number(item.cantidad) || 1));
+                }
+            }
+        }
+        const topProductos = Object.values(productStats).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+
+
         return Response.json({
             success: true,
             estadisticas: {
@@ -80,7 +83,8 @@ Deno.serve(async (req) => {
                 totalOrdenes: Array.isArray(ordenes) ? ordenes.length : 0,
                 totalGastoAds: Math.round(totalGastoAds),
                 roas: totalGastoAds > 0 ? (totalVentas / totalGastoAds).toFixed(2) : 0,
-                productosStockBajo: (Array.isArray(productos) ? productos : []).filter(p => (Number(p.stock_actual) || 0) <= 5).length
+                productosStockBajo: (Array.isArray(productos) ? productos : []).filter(p => (Number(p.stock_actual) || 0) <= 5).length,
+                topProductos
             },
             marketing: {
                 sorteoActivo: !!sorteoActivo,
@@ -91,6 +95,6 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Error en obtenerEstadisticas:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message || String(error) }, { status: 500 });
     }
 });

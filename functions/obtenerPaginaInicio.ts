@@ -13,20 +13,20 @@ Deno.serve(async (req) => {
         if (req.method === 'OPTIONS') return new Response("OK");
 
         const url = new URL(req.url);
-        let commerceCode = url.searchParams.get('commerce_code');
+        let idComercio = url.searchParams.get('id_comercio');
         let customerId = null;
 
         const body = await req.json().catch(() => ({}));
-        if (!commerceCode) {
-            commerceCode = body.commerce_code || body.id_comercio;
+        if (!idComercio) {
+            idComercio = body.id_comercio || body.commerce_code;
         }
         customerId = body.id_cliente;
 
-        if (!commerceCode) {
-            return Response.json({ error: 'commerce_code requerido' }, { status: 400 });
+        if (!idComercio) {
+            return Response.json({ error: 'id_comercio requerido' }, { status: 400 });
         }
 
-        const filterParam = commerceCode.length > 20 ? `id_comercio=${commerceCode}` : `commerce_code=${commerceCode}`;
+        const filterParam = `id_comercio=${idComercio}`;
 
         // 1. FETCH EN PARALELO (Todo lo necesario para la Landing Page)
         const fetchPromises = [

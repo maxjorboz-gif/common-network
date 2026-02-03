@@ -1,8 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const URL_LEAD = `https://app.base44.com/api/apps/${APP_ID}/entities/Lead`;
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req: Request) => {
     try {
@@ -15,19 +12,16 @@ Deno.serve(async (req: Request) => {
             return Response.json({ error: 'Falta ID de comercio (commerce_code)' }, { status: 400 });
         }
 
-        // Determinar parámetro de filtro
-        let filterParam = idBusqueda.length > 20 ? `id_comercio=${idBusqueda}` : `commerce_code=${idBusqueda}`;
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
 
-        // Obtener Leads (URL Directa)
-        const response = await fetch(`${URL_LEAD}?${filterParam}`, {
-            headers: { 'api_key': API_KEY }
+        // Obtener Leads (SDK Filter)
+        const leads = await adminClient.entities.Lead.filter({
+            commerce_code: idBusqueda
         });
 
-        if (!response.ok) {
-            throw new Error(`Error obteniendo leads: ${await response.text()}`);
-        }
-
-        const leads = await response.json();
+        // Optional: Sort descending in memory
+        // leads.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
         return Response.json({
             success: true,
@@ -36,6 +30,6 @@ Deno.serve(async (req: Request) => {
 
     } catch (error) {
         console.error('Error obtenerLeads:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message || String(error) }, { status: 500 });
     }
 });

@@ -1,8 +1,5 @@
 // @ts-nocheck
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const URL_PRODUCTO = `https://app.base44.com/api/apps/${APP_ID}/entities/Producto`;
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
     try {
@@ -14,25 +11,18 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Parámetros incompletos' }, { status: 400 });
         }
 
-        // 1. Actualizar estado (PATCH)
-        const responseUpdate = await fetch(`${URL_PRODUCTO}/${productoId}`, {
-            method: 'PATCH',
-            headers: {
-                'api_key': API_KEY,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                activo: Boolean(activo),
-                updated_at: new Date().toISOString()
-            })
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
+
+        // 1. Actualizar estado (SDK Update)
+        await adminClient.entities.Producto.update(productoId, {
+            activo: Boolean(activo),
+            updated_at: new Date().toISOString()
         });
 
-        if (!responseUpdate.ok) {
-            const errorText = await responseUpdate.text();
-            throw new Error(`Error actualizando producto: ${errorText}`);
-        }
-
-        const productoActualizado = await responseUpdate.json();
+        // 2. Obtener actualizado (SDK Get)
+        // SDK update returns empty/partial usually.
+        const productoActualizado = await adminClient.entities.Producto.get(productoId);
 
         return Response.json({
             success: true,
@@ -42,6 +32,6 @@ Deno.serve(async (req) => {
 
     } catch (error) {
         console.error('Error toggleActivoProducto:', error);
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message || String(error) }, { status: 500 });
     }
 });

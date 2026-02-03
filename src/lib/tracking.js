@@ -20,7 +20,7 @@ export const trackEvent = async (eventData) => {
         const payload = {
             commonnet_client_id: getClientId(),
             tenant_id: null, // Dejamos que lo maneje el contexto o se pase explícitamente si se tiene
-            commerce_code: null, // Ídem
+            id_comercio: null, // Ídem
             event_type: eventData.event_type || 'unknown',
             event_name: eventData.event_name || 'unknown_event',
             entity_type: eventData.entity_type || null,

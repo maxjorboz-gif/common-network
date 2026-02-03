@@ -17,12 +17,12 @@ export default function CartDrawerNew() {
     isDrawerOpen, closeDrawer
   } = useCart();
   const navigate = useNavigate();
-  const { commerce_code } = useParams();
+  const { id_comercio } = useParams();
 
   const handleIrACheckout = () => {
     closeDrawer();
-    if (commerce_code) {
-      navigate(`/tienda/${commerce_code}/checkout`);
+    if (id_comercio) {
+      navigate(`/tienda/${id_comercio}/checkout`);
     } else {
       navigate('/checkout');
     }

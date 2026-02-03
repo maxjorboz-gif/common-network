@@ -1,13 +1,9 @@
 // @ts-check
 import { generateEventId } from './utilsCrypto.ts';
 
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-
-const URL_ORDEN = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Orden";
-const URL_COMERCIO = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Comercio";
-const URL_EVENTO_META = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/EventoMeta";
-const URL_PRODUCTO = "https://app.base44.com/api/apps/6967728aba18db08a32d56fd/entities/Producto";
+// @ts-check
+import { generateEventId } from './utilsCrypto.ts';
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
     try {
@@ -16,36 +12,43 @@ Deno.serve(async (req) => {
         const { ordenId } = await req.json();
         if (!ordenId) throw new Error("Falta ID de orden");
 
-        // 1. OBTENER ORDEN (URL Directa)
-        const responseOrden = await fetch(`${URL_ORDEN}/${ordenId}`, {
-            headers: { 'api_key': API_KEY }
-        });
-        if (!responseOrden.ok) throw new Error("Orden no encontrada");
-        const orden = await responseOrden.json();
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
 
-        // 2. STOCK UPDATE (URL Directa)
+        // 1. OBTENER ORDEN (SDK)
+        let orden;
+        try {
+            orden = await adminClient.entities.Orden.get(ordenId);
+        } catch (e) {
+            throw new Error("Orden no encontrada");
+        }
+
+        // 2. STOCK UPDATE (SDK)
         if (orden.items) {
+            // Processing sequentially to avoid race conditions on same product or just simplicity
             for (const item of orden.items) {
                 try {
-                    const resProd = await fetch(`${URL_PRODUCTO}/${item.id_producto}`, {
-                        headers: { 'api_key': API_KEY }
-                    });
-                    if (resProd.ok) {
-                        const p = await resProd.json();
-                        await fetch(`${URL_PRODUCTO}/${p.id || p._id}`, {
-                            method: 'PATCH',
-                            headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                stock_actual: Math.max(0, (p.stock_actual || 0) - (item.cantidad || 0)),
-                                total_vendidos: (p.total_vendidos || 0) + (item.cantidad || 0)
-                            })
+                    // Get Product, then Update
+                    // Note: SDK usually doesn't atomic decrement, so we read then write.
+                    const productos = await adminClient.entities.Producto.filter({ id: item.id_producto });
+                    // Fallback search if ID mismatch direct get
+                    let p = productos.length > 0 ? productos[0] : null;
+
+                    if (!p) {
+                        try { p = await adminClient.entities.Producto.get(item.id_producto); } catch (err) { }
+                    }
+
+                    if (p) {
+                        await adminClient.entities.Producto.update(p.id || p._id, {
+                            stock_actual: Math.max(0, (p.stock_actual || 0) - (item.cantidad || 0)),
+                            total_vendidos: (p.total_vendidos || 0) + (item.cantidad || 0)
                         });
                     }
                 } catch (e) { console.error("Error stock:", e); }
             }
         }
 
-        // 3. REGISTRAR EVENTO META (URL Directa)
+        // 3. REGISTRAR EVENTO META (SDK Create)
         const purchaseEventId = generateEventId('Purchase', orden.id || orden._id);
         const userData = {
             em: orden.hashes_generados?.emH ? [orden.hashes_generados.emH] : [],
@@ -59,10 +62,8 @@ Deno.serve(async (req) => {
             content_ids: orden.items?.map(i => i.id_producto) || []
         };
 
-        await fetch(URL_EVENTO_META, {
-            method: 'POST',
-            headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        try {
+            await adminClient.entities.EventoMeta.create({
                 event_id: purchaseEventId,
                 event_name: 'Purchase',
                 id_comercio: orden.id_comercio || orden.commerce_code,
@@ -70,43 +71,34 @@ Deno.serve(async (req) => {
                 custom_data: customData,
                 action_source: 'website',
                 event_time: Math.floor(Date.now() / 1000)
-            })
-        });
+            });
+        } catch (e) { console.error("Error creating Meta Event:", e); }
 
-        // 4. UPDATE COMERCIO STATS (URL Directa)
+
+        // 4. UPDATE COMERCIO STATS (SDK)
         const commerceKey = orden.commerce_code || orden.id_comercio;
         if (commerceKey) {
-            const resBusqueda = await fetch(`${URL_COMERCIO}?commerce_code=${commerceKey}`, {
-                headers: { 'api_key': API_KEY }
-            });
-            const comercios = await resBusqueda.json();
-            const comercio = Array.isArray(comercios) ? comercios[0] : null;
+            try {
+                // Assuming commerce_code is unique filter
+                const comercios = await adminClient.entities.Comercio.filter({ commerce_code: commerceKey });
+                const comercio = comercios.length > 0 ? comercios[0] : null;
 
-            if (comercio) {
-                await fetch(`${URL_COMERCIO}/${comercio.id || comercio._id}`, {
-                    method: 'PATCH',
-                    headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+                if (comercio) {
+                    await adminClient.entities.Comercio.update(comercio.id || comercio._id, {
                         total_ventas: (comercio.total_ventas || 0) + Number(orden.total || 0),
                         total_ordenes: (comercio.total_ordenes || 0) + 1
-                    })
-                });
-            }
+                    });
+                }
+            } catch (e) { console.error("Error updating Commerce Stats:", e); }
         }
 
-        // 5. FINALIZAR ORDEN (URL Directa)
-        const updateOrdenRes = await fetch(`${URL_ORDEN}/${ordenId}`, {
-            method: 'PATCH',
-            headers: { 'api_key': API_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                estado: 'PAGADA',
-                fecha_pago_confirmado: new Date().toISOString(),
-                event_id_meta: purchaseEventId,
-                updated_at: new Date().toISOString()
-            })
+        // 5. FINALIZAR ORDEN (SDK Update)
+        const ordenFinal = await adminClient.entities.Orden.update(ordenId, {
+            estado: 'PAGADA',
+            fecha_pago_confirmado: new Date().toISOString(),
+            event_id_meta: purchaseEventId,
+            updated_at: new Date().toISOString()
         });
-
-        const ordenFinal = await updateOrdenRes.json();
 
         return Response.json({ success: true, orden: ordenFinal });
 

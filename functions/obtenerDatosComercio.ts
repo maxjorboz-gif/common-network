@@ -1,9 +1,6 @@
 // @ts-nocheck
 import { crypto } from "jsr:@std/crypto";
-
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const BASE44_URL = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
+import { createClientFromRequest } from "npm:@base44/sdk";
 
 // Debe coincidir con loginComercio.ts
 const JWT_SECRET_COMERCIO = "CLAVE_SECRETA_COMERCIOS_2026_BLINDADA";
@@ -11,12 +8,12 @@ const JWT_SECRET_COMERCIO = "CLAVE_SECRETA_COMERCIOS_2026_BLINDADA";
 async function verifyTokenSignature(tokenRaw) {
     try {
         const decoded = atob(tokenRaw);
-        const [commerceCode, userId, timestamp, signature] = decoded.split(':');
+        const [idComercio, userId, timestamp, signature] = decoded.split(':');
 
-        if (!commerceCode || !userId || !timestamp || !signature) return null;
+        if (!idComercio || !userId || !timestamp || !signature) return null;
 
         // Recrear firma
-        const payloadStr = `${commerceCode}:${userId}:${timestamp}`;
+        const payloadStr = `${idComercio}:${userId}:${timestamp}`;
         const firmaData = new TextEncoder().encode(payloadStr + JWT_SECRET_COMERCIO);
         const firmaBuffer = await crypto.subtle.digest("SHA-256", firmaData);
         const firmaArray = Array.from(new Uint8Array(firmaBuffer));
@@ -27,7 +24,7 @@ async function verifyTokenSignature(tokenRaw) {
         // Opcional: Check Expiración (ej. 24hs)
         // if (Date.now() - parseInt(timestamp) > 86400000) return null;
 
-        return commerceCode;
+        return idComercio;
     } catch (e) {
         return null;
     }
@@ -39,42 +36,56 @@ Deno.serve(async (req) => {
             return new Response("OK", { headers: { "Access-Control-Allow-Origin": "*" } });
         }
 
-        // 1. Obtener Token del Header Authorization
+        // 1. Obtener Token (Header OR Body)
+        let token = "";
         const authHeader = req.headers.get("Authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        if (authHeader && authHeader.startsWith("Bearer ")) {
+            token = authHeader.split(" ")[1];
+        } else {
+            const body = await req.clone().json().catch(() => ({}));
+            if (body.token) token = body.token;
+        }
+
+        if (!token) {
             return Response.json({ error: "Token no proporcionado" }, { status: 401 });
         }
 
-        const token = authHeader.split(" ")[1];
-
         // 2. Verificar Firma Criptográfica
-        const commerceCodeValidado = await verifyTokenSignature(token);
+        const idComercioValidado = await verifyTokenSignature(token);
 
-        if (!commerceCodeValidado) {
+        if (!idComercioValidado) {
             return Response.json({ error: "Token inválido o manipulado" }, { status: 403 });
         }
 
-        // 3. Buscar Datos Reales en DB (Usando el código validado)
-        const response = await fetch(`${BASE44_URL}?commerce_code=${commerceCodeValidado}`, {
-            headers: { 'api_key': API_KEY }
-        });
-        const data = await response.json();
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
 
-        if (!Array.isArray(data) || data.length === 0) {
+        // 3. Buscar Datos Reales en DB (SDK)
+        // MAPPING: id_comercio (app) -> commerce_code (db field)
+        const comercios = await adminClient.entities.Comercio.filter({
+            commerce_code: idComercioValidado
+        });
+
+        if (comercios.length === 0) {
             return Response.json({ error: "Comercio no encontrado" }, { status: 404 });
         }
 
-        const comercio = data[0];
+        const comercio = comercios[0];
 
         // 4. Limpieza de Seguridad (Nunca devolver passwords)
         const { password, password_hash, ...safeComercioData } = comercio;
 
+        // INJECTION: Ensure id_comercio exists for frontend compatibility
+        if (!safeComercioData.id_comercio) {
+            safeComercioData.id_comercio = safeComercioData.commerce_code;
+        }
+
         return Response.json({
             success: true,
-            data: safeComercioData
+            comercio: safeComercioData
         });
 
     } catch (error) {
-        return Response.json({ error: error.message }, { status: 500 });
+        return Response.json({ error: error.message || String(error) }, { status: 500 });
     }
 });

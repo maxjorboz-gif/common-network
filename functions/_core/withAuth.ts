@@ -1,22 +1,27 @@
 const APP_ID = "6967728aba18db08a32d56fd";
 const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const URL_COMERCIO = `https://app.base44.com/api/apps/${APP_ID}/entities/Comercio`;
+
+// REGLA FORCE_WIPE: URL Estándar de Base de Datos
+const BASE_URL_API = `https://app.base44.com/api/apps/${APP_ID}/entities`;
 
 /**
- * Middleware withAuth (Refactorizado DB-First)
+ * Middleware withAuth (Refactorizado DB-First & Ubiquitous Language)
  * Verifica el Token Custom de Comercio y valida contra la tabla Comercio.
+ * Alineado ESTRICTAMENTE a nombres de FORCE_WIPE.ts.
  */
 interface AuthContext {
     user: {
-        id: string;
-        email: string;
-        role: string;
-        commerceCode: string;
+        id: string;             // user_id
+        email_negocio: string;  // email_negocio (EXACT MATCH)
+        role: "admin_comercio";
+        id_comercio: string;  // id_comercio (Variable Normalizada)
     };
     tenant: {
-        commerceCode: string;
-        id: string;
-        status: string;
+        id_comercio: string;  // id_comercio (Variable Normalizada)
+        id: string;             // _id (Base44 system field)
+        estado_registro: string;// estado_registro (EXACT MATCH)
+        plan: string;           // plan (EXACT MATCH)
+        activo: boolean;        // activo (EXACT MATCH)
     };
 }
 
@@ -29,28 +34,34 @@ export async function withAuth(req: Request, handler: (context: AuthContext, req
 
         const token = authHeader.split(' ')[1];
 
-        // 1. DECODIFICAR TOKEN (Formato: commerce_code:random:timestamp en Base64)
-        let commerceCode = null;
+        // 1. DECODIFICAR TOKEN (Formato: id_comercio:random:timestamp en Base64)
+        let id_comercio = null;
         try {
             const decoded = atob(token);
             const parts = decoded.split(":");
             if (parts.length < 3) throw new Error("Token malformado");
-            commerceCode = parts[0];
+
+            // Extracción directa respetando nombre de variable
+            id_comercio = parts[0];
         } catch (e) {
             return Response.json({ error: 'Token inválido' }, { status: 403 });
         }
 
-        if (!commerceCode) {
+        if (!id_comercio) {
             return Response.json({ error: 'Token inválido: Sin código de comercio' }, { status: 403 });
         }
 
-        // 2. VALIDAR CONTRA BASE DE DATOS (Single Source of Truth)
-        const queryUrl = `${URL_COMERCIO}?commerce_code=${encodeURIComponent(commerceCode)}`;
+        // 2. VALIDAR CONTRA BASE DE DATOS (Single Source of Truth: Entidad Comercio)
+        // REGLA: Usar URL estándar ${BASE_URL_API}/Comercio
+        // MAPPING: id_comercio (app) -> commerce_code (db)
+        const queryUrl = `${BASE_URL_API}/Comercio?commerce_code=${encodeURIComponent(id_comercio)}`;
+
         const dbResponse = await fetch(queryUrl, {
             headers: { 'api_key': API_KEY }
         });
 
         if (!dbResponse.ok) {
+            console.error(`Error validadando comercio: ${dbResponse.status} - ${dbResponse.statusText}`);
             return Response.json({ error: 'Error al validar sesión' }, { status: 500 });
         }
 
@@ -61,22 +72,24 @@ export async function withAuth(req: Request, handler: (context: AuthContext, req
             return Response.json({ error: 'Sesión inválida: Comercio no encontrado' }, { status: 401 });
         }
 
-        if (comercio.activo === false) { // Chequeo explícito de suspensión
+        if (comercio.activo === false) { // Chequeo explícito de suspensión (campo: activo)
             return Response.json({ error: 'Cuenta suspendida o inactiva' }, { status: 403 });
         }
 
-        // 3. CONSTRUIR CONTEXTO DE EJECUCIÓN
-        const context = {
+        // 3. CONSTRUIR CONTEXTO DE EJECUCIÓN (Uso de Nombres Exactos)
+        const context: AuthContext = {
             user: {
                 id: comercio.user_id || 'legacy_no_id',
-                email: comercio.email_negocio,
-                role: 'admin_comercio', // Rol fijo por ahora
-                commerceCode: comercio.commerce_code
+                email_negocio: comercio.email_negocio,
+                role: 'admin_comercio',
+                id_comercio: comercio.commerce_code || comercio.id_comercio
             },
             tenant: {
-                commerceCode: comercio.commerce_code,
+                id_comercio: comercio.commerce_code || comercio.id_comercio,
                 id: comercio.id || comercio._id,
-                status: comercio.estado_registro
+                estado_registro: comercio.estado_registro,
+                plan: comercio.plan,
+                activo: comercio.activo
             }
         };
 

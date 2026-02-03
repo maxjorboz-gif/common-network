@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
-import { commerceClient } from '@/api/commerceApiClient';
 import { Package, CheckCircle, Truck, Eye, Clock, XCircle, DollarSign } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
@@ -16,21 +16,21 @@ import {
 } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 
+
 export default function AdminOrdenes({ comercio }) {
   const [selectedOrden, setSelectedOrden] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
+  // Fetch ordenes
   const { data: ordenes = [], isLoading } = useQuery({
     queryKey: ['ordenes-admin', comercio.commerce_code || comercio.id_comercio],
     queryFn: async () => {
-      queryFn: async () => {
-        const response = await commerceClient.post('obtenerOrdenes', {
-          commerce_code: comercio.commerce_code, // Use code
-          id_comercio: comercio.id_comercio // Legacy fallback
-        });
-        return response.ordenes;
-      }
+      const response = await base44.functions.invoke('obtenerOrdenes', {
+        commerce_code: comercio.commerce_code,
+        id_comercio: comercio.id_comercio
+      });
+      return response.data?.ordenes || response.ordenes || [];
     }
   });
 
@@ -38,11 +38,13 @@ export default function AdminOrdenes({ comercio }) {
     try {
       toast.loading('Confirmando pago...');
 
-      const response = await commerceClient.post('confirmarPago', {
+      const response = await base44.functions.invoke('confirmarPago', {
         ordenId: orden.id
       });
 
-      if (response.success) {
+      const data = response.data || response;
+
+      if (data.success) {
         queryClient.invalidateQueries(['ordenes-admin']);
         queryClient.invalidateQueries(['estadisticas-admin']);
         toast.dismiss();
@@ -57,7 +59,7 @@ export default function AdminOrdenes({ comercio }) {
 
   const handleChangeEstado = async (ordenId, nuevoEstado) => {
     try {
-      await commerceClient.post('cambiarEstadoOrden', {
+      await base44.functions.invoke('cambiarEstadoOrden', {
         ordenId,
         nuevoEstado
       });
