@@ -8,6 +8,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import { ProtectedCommerceRoute, ProtectedSuperAdminRoute } from '@/components/ProtectedRoute';
 
 // IMPORTANTE: El motor del carrito
 import { CartProvider } from "@/components/CartContext";
@@ -44,18 +45,32 @@ const AuthenticatedApp = () => {
   }
 
   // Filtrar 'adminSupreme' y 'registro' para que no se generen automáticamente con el Layout estándar
-  const standardPages = Object.entries(Pages).filter(([path]) => path !== 'adminSupreme' && path !== 'registro');
+  // Filtrar 'adminSupreme', 'adminpanel' y 'registro' para que no se generen automáticamente
+  const standardPages = Object.entries(Pages).filter(([path]) =>
+    path !== 'adminSupreme' && path !== 'adminpanel' && path !== 'merchant' && path !== 'registro'
+  );
 
   return (
     <Routes>
-      {/* RUTAS DE SUPER ADMINISTRADOR (BLINDADAS) */}
-      <Route path="/admin/login" element={<AdminLogin />} />
+      {/* RUTAS DE SUPER ADMINISTRADOR (PROTEGIDAS) */}
+      <Route
+        path="/admin-supreme"
+        element={
+          <ProtectedSuperAdminRoute>
+            <Pages.adminSupreme />
+          </ProtectedSuperAdminRoute>
+        }
+      />
 
-      <Route path="/adminSupreme" element={
-        <PrivateAdminRoute>
-          <Pages.adminSupreme />
-        </PrivateAdminRoute>
-      } />
+      {/* RUTAS DE PANEL DE COMERCIO (PROTEGIDAS) */}
+      <Route
+        path="/adminpanel"
+        element={
+          <ProtectedCommerceRoute>
+            <Pages.adminpanel />
+          </ProtectedCommerceRoute>
+        }
+      />
 
       {/* RUTAS DINÁMICAS DE TIENDA (SEO Friendly) */}
       {/* RUTAS DINÁMICAS DE TIENDA (SEO Friendly) */}
