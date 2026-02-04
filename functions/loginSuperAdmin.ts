@@ -1,18 +1,13 @@
 // @ts-nocheck
 import { crypto } from "jsr:@std/crypto";
+import { createClientFromRequest } from "npm:@base44/sdk";
 
-const APP_ID = "6967728aba18db08a32d56fd";
-const API_KEY = "fb3a067ef3c44d8489059567b4206a91";
-const URL_SUPERADMIN = `https://app.base44.com/api/apps/${APP_ID}/entities/SuperAdmin`;
-
-// SECRET KEY para firmar tokens. 
-// LO IDEAL ES QUE ESTO ESTÉ EN VAR DE ENTORNO. AQUI HARDCODE POR SIMPLICIDAD DE LA SOLUCIÓN.
-const JWT_SECRET = "CLAVE_SECRETA_MUY_DIFICIL_DE_ADIVINAR_2026_CAMBIAME";
+// SECRETO SUPER ADMIN (Diferente al de Comercios, máxima seguridad)
+const JWT_SECRET_SUPERADMIN = "CLAVE_SECRETA_SUPERADMIN_2026_ULTRA_BLINDADA_#XYZ999";
 const PASSWORD_SALT = "v4_SUPER_SECRET_SALT_2026_PROTECT_BASE44_SYSTEM_#99282";
 
-async function hashPassword(password: string) {
+async function hashPassword(password) {
     const encoder = new TextEncoder();
-    // SALT aplicado
     const data = encoder.encode(password + PASSWORD_SALT);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -20,57 +15,120 @@ async function hashPassword(password: string) {
 }
 
 Deno.serve(async (req) => {
-    // CORS
-    if (req.method === 'OPTIONS') {
-        return new Response("OK", { headers: { "Access-Control-Allow-Origin": "*" } });
-    }
-
     try {
+        if (req.method === 'OPTIONS') return new Response("OK");
+
         const { email, password } = await req.json();
 
         if (!email || !password) {
-            return Response.json({ error: "Datos incompletos" }, { status: 400, headers: { "Access-Control-Allow-Origin": "*" } });
+            return Response.json({ error: "Email y contraseña requeridos" }, { status: 400 });
         }
 
-        // 1. Buscar Admin
-        const userResp = await fetch(`${URL_SUPERADMIN}?email=${email}`, {
-            headers: { 'api_key': API_KEY }
+        const base44 = createClientFromRequest(req);
+        const adminClient = base44.asServiceRole;
+
+        // 1. Buscar Super Admin
+        const superAdmins = await adminClient.entities.SuperAdmin.filter({
+            email: email
         });
-        const users = await userResp.json();
 
-        if (!Array.isArray(users) || users.length === 0) {
-            // Retardamos para evitar Timing Attacks
-            await new Promise(r => setTimeout(r, 500));
-            return Response.json({ error: "Credenciales inválidas" }, { status: 401, headers: { "Access-Control-Allow-Origin": "*" } });
+        if (!Array.isArray(superAdmins) || superAdmins.length === 0) {
+            await new Promise(r => setTimeout(r, 500)); // Anti-timing attack
+            return Response.json({
+                success: false,
+                error: "Credenciales inválidas"
+            }, { status: 401 });
         }
 
-        const admin = users[0];
+        const superAdmin = superAdmins[0];
 
-        // 2. Verificar Hash
-        const inputHash = await hashPassword(password);
-
-        if (inputHash !== admin.password_hash) {
-            await new Promise(r => setTimeout(r, 500));
-            return Response.json({ error: "Credenciales inválidas" }, { status: 401, headers: { "Access-Control-Allow-Origin": "*" } });
+        // 2. Verificar Estado
+        if (superAdmin.estado === 'inactivo' || superAdmin.estado === 'suspendido') {
+            return Response.json({
+                success: false,
+                error: "Cuenta inactiva. Contacte al administrador del sistema."
+            }, { status: 403 });
         }
 
-        // 3. Generar "Token" (Simple Session Token firmado caseramente para no importar librerias JWT pesadas)
-        // Formato: base64(admin_id : timestamp : firma_hmac)
+        // 3. Verificación de Contraseña
+        let isValid = false;
+        let needsMigration = false;
 
-        const payloadStr = `${admin.id || admin._id}:${Date.now()}`;
-        const signature = await hashPassword(payloadStr + JWT_SECRET); // Usamos el mismo hasher como firma simple
-        const token = btoa(`${payloadStr}:${signature}`);
+        if (superAdmin.password_hash) {
+            // Verificación con hash
+            const inputHash = await hashPassword(password);
+            isValid = (inputHash === superAdmin.password_hash);
+        } else if (superAdmin.password) {
+            // Legacy fallback (texto plano)
+            if (password === superAdmin.password) {
+                isValid = true;
+                needsMigration = true;
+            }
+        }
 
+        if (!isValid) {
+            await new Promise(r => setTimeout(r, 500));
+            return Response.json({
+                success: false,
+                error: "Credenciales inválidas"
+            }, { status: 401 });
+        }
+
+        // 4. AUTO-MIGRACIÓN (Si aplica)
+        if (needsMigration) {
+            try {
+                const newSecureHash = await hashPassword(password);
+                const superAdminId = superAdmin.id || superAdmin._id;
+
+                adminClient.entities.SuperAdmin.update(superAdminId, {
+                    password_hash: newSecureHash,
+                    password: null, // Eliminar contraseña en texto plano
+                    migracion_seguridad: new Date().toISOString()
+                }).catch(err => console.error("Error en auto-migración:", err));
+
+                console.log(`[SECURITY] Super Admin ${superAdminId} migrado a SHA-256.`);
+            } catch (e) {
+                console.error("Fallo intento de migración:", e);
+            }
+        }
+
+        // 5. Generar Token Firmado
+        const payloadStr = `superadmin:${superAdmin.id}:${Date.now()}`;
+        const firmaData = new TextEncoder().encode(payloadStr + JWT_SECRET_SUPERADMIN);
+        const firmaBuffer = await crypto.subtle.digest("SHA-256", firmaData);
+        const firmaArray = Array.from(new Uint8Array(firmaBuffer));
+        const firmaHex = firmaArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+        const token = btoa(`${payloadStr}:${firmaHex}`);
+
+        // 6. Actualizar último acceso
+        try {
+            await adminClient.entities.SuperAdmin.update(superAdmin.id, {
+                ultimo_acceso: new Date().toISOString()
+            });
+        } catch (e) {
+            console.error("Error actualizando último acceso:", e);
+        }
+
+        // 7. Respuesta Exitosa
         return Response.json({
             success: true,
-            token: token,
-            admin: {
-                nombre: admin.nombre,
-                email: admin.email
+            session: {
+                token: token
+            },
+            superAdmin: {
+                id: superAdmin.id,
+                email: superAdmin.email,
+                nombre: superAdmin.nombre || 'Super Admin',
+                permisos: superAdmin.permisos || ['all']
             }
-        }, { headers: { "Access-Control-Allow-Origin": "*" } });
+        });
 
-    } catch (e) {
-        return Response.json({ error: e.message }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
+    } catch (error) {
+        console.error("Login Super Admin Error:", error);
+        return Response.json({
+            success: false,
+            error: error.message
+        }, { status: 500 });
     }
 });

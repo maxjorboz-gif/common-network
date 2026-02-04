@@ -52,6 +52,9 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
+      {/* RUTAS DE LOGIN (PÚBLICAS) */}
+      <Route path="/admin-login" element={<Pages.loginSuperAdmin />} />
+
       {/* RUTAS DE SUPER ADMINISTRADOR (PROTEGIDAS) */}
       <Route
         path="/admin-supreme"

@@ -21,10 +21,12 @@ import LandingPage from './pages/LandingPage';
 import __Layout from './Layout.jsx';
 
 import AdminSupremePanel from './pages/AdminSupremePanel';
+import LoginSuperAdmin from './pages/LoginSuperAdmin';
 
 
 export const PAGES = {
     "adminSupreme": AdminSupremePanel,
+    "loginSuperAdmin": LoginSuperAdmin,
     "merchant": AdminPanel,
     "adminpanel": AdminPanel, // Alias para cumplir requerimiento explicito
     "checkout": Checkout,
