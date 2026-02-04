@@ -1,8 +1,5 @@
 // @ts-check
 import { generateEventId } from './utilsCrypto.ts';
-
-// @ts-check
-import { generateEventId } from './utilsCrypto.ts';
 import { createClientFromRequest } from "npm:@base44/sdk";
 
 Deno.serve(async (req) => {
