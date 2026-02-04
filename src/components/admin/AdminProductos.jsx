@@ -408,901 +408,900 @@ export default function AdminProductos({ comercio }) {
       }
 
       try {
-        try {
-          const response = await base44.functions.invoke('importarProductosMasivo', {
-            id_comercio: comercio.id_comercio,
-            productos: productosParaImportar
-          });
-
-          if (response.data?.success) {
-            setImportResult({ success: true, message: response.data.message, detalles: response.data.detalles });
-            queryClient.invalidateQueries(['productos-admin']);
-          } else {
-            throw new Error(response.data?.error || 'Error desconocido');
-          }
-
-        } catch (error) {
-          console.error(error);
-          setImportResult({ success: false, message: 'Fallo al procesar importación: ' + error.message });
-        } finally {
-          setIsImporting(false);
-        }
-      };
-      reader.readAsText(csvFile);
-    };
-
-    const handleBulkPhotoUpload = async (e) => {
-      const files = Array.from(e.target.files);
-      if (files.length === 0) return;
-
-      setIsUploadingPhoto(true);
-      const newPhotos = [];
-
-      try {
-        for (const file of files) {
-          const { file_url } = await base44.integrations.Core.UploadFile({ file });
-          newPhotos.push({ name: file.name, url: file_url });
-        }
-        setUploadedPhotos([...uploadedPhotos, ...newPhotos]);
-      } catch (err) {
-        alert('Error subiendo algunas fotos');
-        console.error(err);
-      } finally {
-        setIsUploadingPhoto(false);
-      }
-    };
-
-    const copyToClipboard = (text) => {
-      navigator.clipboard.writeText(text);
-      alert('Link copiado!');
-    };
-
-    const handleBulkPriceChange = async () => {
-      try {
-        const response = await base44.functions.invoke('cambioMasivoPrecio', {
-          productosIds: selectedProducts,
-          tipo: bulkPriceChange.type,
-          valor: bulkPriceChange.value,
-          modo: bulkPriceChange.mode
+        const response = await base44.functions.invoke('importarProductosMasivo', {
+          id_comercio: comercio.id_comercio,
+          productos: productosParaImportar
         });
 
-        queryClient.invalidateQueries(['productos-admin']);
-        setBulkActionDialogOpen(false);
-        setSelectedProducts([]);
-        alert(`${response.data?.actualizados} productos actualizados`);
-      } catch (err) {
-        console.error('Error actualizando precios:', err);
-        alert('Error actualizando precios');
+        if (response.data?.success) {
+          setImportResult({ success: true, message: response.data.message, detalles: response.data.detalles });
+          queryClient.invalidateQueries(['productos-admin']);
+        } else {
+          throw new Error(response.data?.error || 'Error desconocido');
+        }
+
+      } catch (error) {
+        console.error(error);
+        setImportResult({ success: false, message: 'Fallo al procesar importación: ' + error.message });
+      } finally {
+        setIsImporting(false);
       }
     };
-    return (
-      <div className="p-6 max-w-[1600px] mx-auto">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-black italic tracking-tighter text-gray-900 uppercase">
-              Catálogo de Productos
-            </h1>
-            <p className="text-gray-500 font-medium">Gestioná el inventario disponible en tu tienda.</p>
-          </div>
+    reader.readAsText(csvFile);
+  };
 
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedProducts.length > 0 && (
-              <Button variant="destructive" onClick={handleBulkDelete}>
-                <Trash2 className="w-4 h-4 mr-2" />
-                Eliminar ({selectedProducts.length})
+  const handleBulkPhotoUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    setIsUploadingPhoto(true);
+    const newPhotos = [];
+
+    try {
+      for (const file of files) {
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        newPhotos.push({ name: file.name, url: file_url });
+      }
+      setUploadedPhotos([...uploadedPhotos, ...newPhotos]);
+    } catch (err) {
+      alert('Error subiendo algunas fotos');
+      console.error(err);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    alert('Link copiado!');
+  };
+
+  const handleBulkPriceChange = async () => {
+    try {
+      const response = await base44.functions.invoke('cambioMasivoPrecio', {
+        productosIds: selectedProducts,
+        tipo: bulkPriceChange.type,
+        valor: bulkPriceChange.value,
+        modo: bulkPriceChange.mode
+      });
+
+      queryClient.invalidateQueries(['productos-admin']);
+      setBulkActionDialogOpen(false);
+      setSelectedProducts([]);
+      alert(`${response.data?.actualizados} productos actualizados`);
+    } catch (err) {
+      console.error('Error actualizando precios:', err);
+      alert('Error actualizando precios');
+    }
+  };
+  return (
+    <div className="p-6 max-w-[1600px] mx-auto">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-black italic tracking-tighter text-gray-900 uppercase">
+            Catálogo de Productos
+          </h1>
+          <p className="text-gray-500 font-medium">Gestioná el inventario disponible en tu tienda.</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {selectedProducts.length > 0 && (
+            <Button variant="destructive" onClick={handleBulkDelete}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Eliminar ({selectedProducts.length})
+            </Button>
+          )}
+
+          <Button variant="outline" onClick={() => setBulkActionDialogOpen(true)} disabled={selectedProducts.length === 0}>
+            <DollarSign className="w-4 h-4 mr-2" />
+            Precios
+          </Button>
+
+          <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Importar
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => handleOpenDialog()} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Producto
               </Button>
-            )}
+            </DialogTrigger>
 
-            <Button variant="outline" onClick={() => setBulkActionDialogOpen(true)} disabled={selectedProducts.length === 0}>
-              <DollarSign className="w-4 h-4 mr-2" />
-              Precios
-            </Button>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader className="">
+                <DialogTitle>
+                  {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
+                </DialogTitle>
+              </DialogHeader>
 
-            <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
-              <FileSpreadsheet className="w-4 h-4 mr-2" />
-              Importar
-            </Button>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={() => handleOpenDialog()} className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nuevo Producto
-                </Button>
-              </DialogTrigger>
+              <div className="space-y-4 mt-4">
+                {editingProduct && (
+                  <div>
+                    <Label htmlFor="id_producto">ID Único (UUID) - Solo Lectura</Label>
+                    <Input
+                      id="id_producto"
+                      value={editingProduct.id}
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">ID único de Base44 para rastreo de Meta</p>
+                  </div>
+                )}
 
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader className="">
-                  <DialogTitle>
-                    {editingProduct ? 'Editar Producto' : 'Nuevo Producto'}
-                  </DialogTitle>
-                </DialogHeader>
+                <div>
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="titulo">Título (Concreto y Descriptivo) *</Label>
+                    <Button
+                      type="button"
+                      onClick={() => generateDescriptions.mutate()}
+                      disabled={generateDescriptions.isPending || !formData.titulo}
+                      className="bg-purple-600 hover:bg-purple-700 text-white h-7 text-xs"
+                    >
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      {generateDescriptions.isPending ? 'Generando...' : 'Generar con IA'}
+                    </Button>
+                  </div>
+                  <Input
+                    id="titulo"
+                    value={formData.titulo}
+                    onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+                    placeholder="Ej: Parrilla Móvil Acero Inox 80x40 con Brasero"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Usado por la IA para categorizar y titular en Meta Ads.</p>
+                </div>
 
-                <div className="space-y-4 mt-4">
-                  {editingProduct && (
-                    <div>
-                      <Label htmlFor="id_producto">ID Único (UUID) - Solo Lectura</Label>
-                      <Input
-                        id="id_producto"
-                        value={editingProduct.id}
-                        disabled
-                        className="bg-gray-100 cursor-not-allowed"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">ID único de Base44 para rastreo de Meta</p>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="descripcion_tecnica" className="text-blue-900 font-bold">1. Especificaciones Técnicas (Fuente de Verdad IA)</Label>
+                    <div className="bg-blue-50 p-2 rounded border border-blue-200 mb-2">
+                      <p className="text-xs text-blue-800 font-medium">
+                        ⚠️ IMPORTANTE: La IA leerá esto para generar automáticamente:
+                      </p>
+                      <ul className="text-xs text-blue-700 list-disc list-inside ml-1">
+                        <li>Los <b>Atributos/Filtros</b> (Peso, Medidas, Material).</li>
+                        <li>La <b>Categoría de Meta</b> (DPA).</li>
+                        <li>La <b>Descripción Comercial</b> y argumentos de venta.</li>
+                      </ul>
+                      <p className="text-[10px] text-blue-600 mt-1 italic">
+                        Sé lo más específico posible. Ejemplo: "Acero 3mm", "Ruedas reforzadas", "50kg".
+                      </p>
                     </div>
-                  )}
+                    <Textarea
+                      id="descripcion_tecnica"
+                      value={formData.descripcion_tecnica}
+                      onChange={(e) => setFormData({ ...formData, descripcion_tecnica: e.target.value })}
+                      placeholder="- Material: Hierro ángulo 1/8&#10;- Medidas: 80x50x110 cm&#10;- Incluye: Pala y atizador&#10;- Peso: 25kg"
+                      rows={6}
+                      className="font-mono bg-white"
+                    />
+                  </div>
 
                   <div>
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="titulo">Título (Concreto y Descriptivo) *</Label>
-                      <Button
-                        type="button"
-                        onClick={() => generateDescriptions.mutate()}
-                        disabled={generateDescriptions.isPending || !formData.titulo}
-                        className="bg-purple-600 hover:bg-purple-700 text-white h-7 text-xs"
-                      >
-                        <Sparkles className="w-3 h-3 mr-1" />
-                        {generateDescriptions.isPending ? 'Generando...' : 'Generar con IA'}
+                    <Label htmlFor="descripcion">2. Descripción Comercial (Generada por IA)</Label>
+                    <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+                      <Button onClick={() => generateDescriptions.mutate('sofisticado')} type="button" variant="outline" size="xs" className="whitespace-nowrap text-[10px] h-6 px-2 border-purple-300 text-purple-700 hover:bg-purple-50">
+                        ✨ Sofisticado
+                      </Button>
+                      <Button onClick={() => generateDescriptions.mutate('elegante')} type="button" variant="outline" size="xs" className="whitespace-nowrap text-[10px] h-6 px-2 border-purple-300 text-purple-700 hover:bg-purple-50">
+                        ✨ Elegante
+                      </Button>
+                      <Button onClick={() => generateDescriptions.mutate('urgencia')} type="button" variant="outline" size="xs" className="whitespace-nowrap text-[10px] h-6 px-2 border-purple-300 text-purple-700 hover:bg-purple-50">
+                        🔥 Con Urgencia
+                      </Button>
+                      <Button onClick={() => generateDescriptions.mutate('creativo')} type="button" variant="outline" size="xs" className="whitespace-nowrap text-[10px] h-6 px-2 border-purple-300 text-purple-700 hover:bg-purple-50">
+                        🤖 Creatividad IA
                       </Button>
                     </div>
-                    <Input
-                      id="titulo"
-                      value={formData.titulo}
-                      onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                      placeholder="Ej: Parrilla Móvil Acero Inox 80x40 con Brasero"
-                      className="mt-1"
+                    <Textarea
+                      id="descripcion"
+                      value={formData.descripcion}
+                      onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                      placeholder="Descripción atractiva para el cliente..."
+                      rows={3}
                     />
-                    <p className="text-xs text-gray-500 mt-1">Usado por la IA para categorizar y titular en Meta Ads.</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="descripcion_tecnica" className="text-blue-900 font-bold">1. Especificaciones Técnicas (Fuente de Verdad IA)</Label>
-                      <div className="bg-blue-50 p-2 rounded border border-blue-200 mb-2">
-                        <p className="text-xs text-blue-800 font-medium">
-                          ⚠️ IMPORTANTE: La IA leerá esto para generar automáticamente:
-                        </p>
-                        <ul className="text-xs text-blue-700 list-disc list-inside ml-1">
-                          <li>Los <b>Atributos/Filtros</b> (Peso, Medidas, Material).</li>
-                          <li>La <b>Categoría de Meta</b> (DPA).</li>
-                          <li>La <b>Descripción Comercial</b> y argumentos de venta.</li>
-                        </ul>
-                        <p className="text-[10px] text-blue-600 mt-1 italic">
-                          Sé lo más específico posible. Ejemplo: "Acero 3mm", "Ruedas reforzadas", "50kg".
-                        </p>
-                      </div>
-                      <Textarea
-                        id="descripcion_tecnica"
-                        value={formData.descripcion_tecnica}
-                        onChange={(e) => setFormData({ ...formData, descripcion_tecnica: e.target.value })}
-                        placeholder="- Material: Hierro ángulo 1/8&#10;- Medidas: 80x50x110 cm&#10;- Incluye: Pala y atizador&#10;- Peso: 25kg"
-                        rows={6}
-                        className="font-mono bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="descripcion">2. Descripción Comercial (Generada por IA)</Label>
-                      <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
-                        <Button onClick={() => generateDescriptions.mutate('sofisticado')} type="button" variant="outline" size="xs" className="whitespace-nowrap text-[10px] h-6 px-2 border-purple-300 text-purple-700 hover:bg-purple-50">
-                          ✨ Sofisticado
-                        </Button>
-                        <Button onClick={() => generateDescriptions.mutate('elegante')} type="button" variant="outline" size="xs" className="whitespace-nowrap text-[10px] h-6 px-2 border-purple-300 text-purple-700 hover:bg-purple-50">
-                          ✨ Elegante
-                        </Button>
-                        <Button onClick={() => generateDescriptions.mutate('urgencia')} type="button" variant="outline" size="xs" className="whitespace-nowrap text-[10px] h-6 px-2 border-purple-300 text-purple-700 hover:bg-purple-50">
-                          🔥 Con Urgencia
-                        </Button>
-                        <Button onClick={() => generateDescriptions.mutate('creativo')} type="button" variant="outline" size="xs" className="whitespace-nowrap text-[10px] h-6 px-2 border-purple-300 text-purple-700 hover:bg-purple-50">
-                          🤖 Creatividad IA
-                        </Button>
-                      </div>
-                      <Textarea
-                        id="descripcion"
-                        value={formData.descripcion}
-                        onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                        placeholder="Descripción atractiva para el cliente..."
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="sku">SKU</Label>
-                      <Input
-                        id="sku"
-                        value={formData.sku_taller_interno}
-                        onChange={(e) => setFormData({ ...formData, sku_taller_interno: e.target.value })}
-                        placeholder="Se generará automáticamente"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Identificador único para tracking de Meta Ads</p>
-                    </div>
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-blue-900">💰 Estrategia de Precios y Pisos IA</h4>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="activar_minimos"
-                            checked={formData.activar_minimos}
-                            onChange={(e) => setFormData({ ...formData, activar_minimos: e.target.checked })}
-                            className="w-4 h-4 rounded border-blue-400"
-                          />
-                          <Label htmlFor="activar_minimos" className="text-xs text-blue-800 cursor-pointer select-none">Habilitar Pisos IA</Label>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="precio_estandar" className="text-blue-900">Precio Estándar (Lista) *</Label>
-                          <Input
-                            id="precio_estandar"
-                            type="number"
-                            value={formData.precio_estandar}
-                            onChange={(e) => setFormData({ ...formData, precio_estandar: e.target.value })}
-                            placeholder="0"
-                            className="border-blue-300 font-bold text-lg"
-                          />
-                          <p className="text-xs text-blue-600 mt-1">Precio público mostrado en tienda</p>
-                        </div>
-
-                        {formData.activar_minimos && (
-                          <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 fade-in">
-                            <div>
-                              <Label htmlFor="min_transf" className="text-amber-900 text-xs font-bold">Mínimo Transferencia</Label>
-                              <Input
-                                id="min_transf"
-                                type="number"
-                                value={formData.precio_minimo_transferencia}
-                                onChange={(e) => setFormData({ ...formData, precio_minimo_transferencia: e.target.value })}
-                                placeholder="0"
-                                className="border-amber-400 bg-white"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="min_tarjeta" className="text-amber-900 text-xs font-bold">Mínimo Tarjeta</Label>
-                              <Input
-                                id="min_tarjeta"
-                                type="number"
-                                value={formData.precio_minimo_tarjeta}
-                                onChange={(e) => setFormData({ ...formData, precio_minimo_tarjeta: e.target.value })}
-                                placeholder="0"
-                                className="border-amber-400 bg-white"
-                              />
-                            </div>
-                            <p className="col-span-2 text-[10px] text-amber-800 italic text-center">
-                              * Estos son los pisos hasta donde la IA puede bajar negociando.
-                            </p>
-                          </div>
-                        )}
-
-                        <div>
-                          <Label htmlFor="costo_producto" className="text-gray-700">Costo Real (Opcional)</Label>
-                          <Input
-                            id="costo_producto"
-                            type="number"
-                            value={formData.costo_producto}
-                            onChange={(e) => setFormData({ ...formData, costo_producto: e.target.value })}
-                            placeholder="0"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Tu costo para calcular margen real</p>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="stock">Stock Disponible</Label>
-                  <Input
-                    id="stock"
-                    type="number"
-                    value={formData.stock_actual}
-                    onChange={(e) => setFormData({ ...formData, stock_actual: e.target.value })}
-                    placeholder="0"
-                  />
-                </div>
-
-                <div>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="categoria">Categoría del Comercio *</Label>
-                      <Input
-                        id="categoria"
-                        value={formData.categoria || ''}
-                        onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-                        placeholder="Ej: Parrillas, Accesorios, Indumentaria (Creá tus propias categorías)"
-                        className="border-orange-300"
-                        list="categorias-sugeridas"
-                      />
-                      <datalist id="categorias-sugeridas">
-                        <option value="Set Parrillero Completo" />
-                        <option value="Parrillas con Brasero Uruguayo" />
-                        <option value="Accesorios de Cocción" />
-                      </datalist>
-                      <p className="text-xs text-orange-600 mt-1">Escribí una nueva o elegí una existente. Organiza tu tienda como quieras.</p>
-                    </div>
-
-                    <div className="bg-gray-100 p-3 rounded border border-gray-200">
-                      <Label className="text-xs font-bold text-gray-500 uppercase">Categoría Meta (Automática)</Label>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="w-4 h-4 rounded-full bg-blue-500 animate-pulse"></div>
-                        <span className="text-sm text-gray-700 italic">
-                          {formData.meta_product_category || 'El Agente determinará la mejor categoría de Meta Ads basada en el título y specs.'}
-                        </span>
-                      </div>
-                    </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="sku">SKU</Label>
+                    <Input
+                      id="sku"
+                      value={formData.sku_taller_interno}
+                      onChange={(e) => setFormData({ ...formData, sku_taller_interno: e.target.value })}
+                      placeholder="Se generará automáticamente"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Identificador único para tracking de Meta Ads</p>
                   </div>
 
-
-
-                  <div className="border-t pt-4">
-                    <Label className="text-base font-semibold mb-4 block">📸 Carga de Multimedia (Meta-Ready)</Label>
-
-                    <div className="space-y-3 mb-6">
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="font-medium text-sm">📷 Foto Principal (image_link)</Label>
-                          {mediaTemp.fotoPrincipal && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveMedia('fotoPrincipal')}
-                              className="text-red-500 h-6"
-                            >
-                              <X className="w-4 h-4" /> Cambiar
-                            </Button>
-                          )}
-                        </div>
-                        {mediaTemp.fotoPrincipal ? (
-                          <div className="w-20 h-20 rounded border border-blue-300 overflow-hidden">
-                            <img src={mediaTemp.fotoPrincipal.preview} alt="Preview" className="w-full h-full object-cover" />
-                          </div>
-                        ) : (
-                          <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-blue-300 rounded cursor-pointer hover:bg-blue-100">
-                            <Upload className="w-5 h-5 text-blue-400" />
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleMediaSelect('fotoPrincipal', e)}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                      </div>
-
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="font-medium text-sm">📷 Foto Detalle 1</Label>
-                          {mediaTemp.fotoDetalle1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveMedia('fotoDetalle1')}
-                              className="text-red-500 h-6"
-                            >
-                              <X className="w-4 h-4" /> Cambiar
-                            </Button>
-                          )}
-                        </div>
-                        {mediaTemp.fotoDetalle1 ? (
-                          <div className="w-20 h-20 rounded border border-blue-300 overflow-hidden">
-                            <img src={mediaTemp.fotoDetalle1.preview} alt="Preview" className="w-full h-full object-cover" />
-                          </div>
-                        ) : (
-                          <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-blue-300 rounded cursor-pointer hover:bg-blue-100">
-                            <Upload className="w-5 h-5 text-blue-400" />
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleMediaSelect('fotoDetalle1', e)}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                      </div>
-
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="font-medium text-sm">📷 Foto Detalle 2</Label>
-                          {mediaTemp.fotoDetalle2 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveMedia('fotoDetalle2')}
-                              className="text-red-500 h-6"
-                            >
-                              <X className="w-4 h-4" /> Cambiar
-                            </Button>
-                          )}
-                        </div>
-                        {mediaTemp.fotoDetalle2 ? (
-                          <div className="w-20 h-20 rounded border border-blue-300 overflow-hidden">
-                            <img src={mediaTemp.fotoDetalle2.preview} alt="Preview" className="w-full h-full object-cover" />
-                          </div>
-                        ) : (
-                          <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-blue-300 rounded cursor-pointer hover:bg-blue-100">
-                            <Upload className="w-5 h-5 text-blue-400" />
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleMediaSelect('fotoDetalle2', e)}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-blue-900">💰 Estrategia de Precios y Pisos IA</h4>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="activar_minimos"
+                          checked={formData.activar_minimos}
+                          onChange={(e) => setFormData({ ...formData, activar_minimos: e.target.checked })}
+                          className="w-4 h-4 rounded border-blue-400"
+                        />
+                        <Label htmlFor="activar_minimos" className="text-xs text-blue-800 cursor-pointer select-none">Habilitar Pisos IA</Label>
                       </div>
                     </div>
 
                     <div className="space-y-3">
-                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="font-medium text-sm text-purple-900">🎬 Video de Venta (Uso/Lifestyle)</Label>
-                          {mediaTemp.videoVenta && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveMedia('videoVenta')}
-                              className="text-red-500 h-6"
-                            >
-                              <X className="w-4 h-4" /> Cambiar
-                            </Button>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-purple-700 mb-2 font-bold">⚠️ Requisito: Max 30 seg. El producto debe verse siendo utilizado. Validación demora hasta 24hs.</p>
-                        {mediaTemp.videoVenta ? (
-                          <div className="w-20 h-12 bg-purple-200 rounded border border-purple-300 flex items-center justify-center">
-                            <p className="text-xs text-center px-1 truncate">{mediaTemp.videoVenta.nombre}</p>
-                          </div>
-                        ) : (
-                          <label className="flex items-center justify-center w-20 h-12 border-2 border-dashed border-purple-300 rounded cursor-pointer hover:bg-purple-100">
-                            <Upload className="w-5 h-5 text-purple-400" />
-                            <input
-                              type="file"
-                              accept="video/mp4,video/quicktime"
-                              onChange={(e) => handleMediaSelect('videoVenta', e)}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
+                      <div>
+                        <Label htmlFor="precio_estandar" className="text-blue-900">Precio Estándar (Lista) *</Label>
+                        <Input
+                          id="precio_estandar"
+                          type="number"
+                          value={formData.precio_estandar}
+                          onChange={(e) => setFormData({ ...formData, precio_estandar: e.target.value })}
+                          placeholder="0"
+                          className="border-blue-300 font-bold text-lg"
+                        />
+                        <p className="text-xs text-blue-600 mt-1">Precio público mostrado en tienda</p>
                       </div>
 
-                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="font-medium text-sm text-purple-900">🎬 Video Técnico (Producto solo)</Label>
-                          {mediaTemp.videoTecnico && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveMedia('videoTecnico')}
-                              className="text-red-500 h-6"
-                            >
-                              <X className="w-4 h-4" /> Cambiar
-                            </Button>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-purple-700 mb-2 font-bold">⚠️ Requisito: Max 30 seg. Plano detalle mostrando el producto. Validación demora hasta 24hs.</p>
-                        {mediaTemp.videoTecnico ? (
-                          <div className="w-20 h-12 bg-purple-200 rounded border border-purple-300 flex items-center justify-center">
-                            <p className="text-xs text-center px-1 truncate">{mediaTemp.videoTecnico.nombre}</p>
-                          </div>
-                        ) : (
-                          <label className="flex items-center justify-center w-20 h-12 border-2 border-dashed border-purple-300 rounded cursor-pointer hover:bg-purple-100">
-                            <Upload className="w-5 h-5 text-purple-400" />
-                            <input
-                              type="file"
-                              accept="video/mp4,video/quicktime"
-                              onChange={(e) => handleMediaSelect('videoTecnico', e)}
-                              className="hidden"
+                      {formData.activar_minimos && (
+                        <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 fade-in">
+                          <div>
+                            <Label htmlFor="min_transf" className="text-amber-900 text-xs font-bold">Mínimo Transferencia</Label>
+                            <Input
+                              id="min_transf"
+                              type="number"
+                              value={formData.precio_minimo_transferencia}
+                              onChange={(e) => setFormData({ ...formData, precio_minimo_transferencia: e.target.value })}
+                              placeholder="0"
+                              className="border-amber-400 bg-white"
                             />
-                          </label>
-                        )}
+                          </div>
+                          <div>
+                            <Label htmlFor="min_tarjeta" className="text-amber-900 text-xs font-bold">Mínimo Tarjeta</Label>
+                            <Input
+                              id="min_tarjeta"
+                              type="number"
+                              value={formData.precio_minimo_tarjeta}
+                              onChange={(e) => setFormData({ ...formData, precio_minimo_tarjeta: e.target.value })}
+                              placeholder="0"
+                              className="border-amber-400 bg-white"
+                            />
+                          </div>
+                          <p className="col-span-2 text-[10px] text-amber-800 italic text-center">
+                            * Estos son los pisos hasta donde la IA puede bajar negociando.
+                          </p>
+                        </div>
+                      )}
+
+                      <div>
+                        <Label htmlFor="costo_producto" className="text-gray-700">Costo Real (Opcional)</Label>
+                        <Input
+                          id="costo_producto"
+                          type="number"
+                          value={formData.costo_producto}
+                          onChange={(e) => setFormData({ ...formData, costo_producto: e.target.value })}
+                          placeholder="0"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Tu costo para calcular margen real</p>
                       </div>
                     </div>
                   </div>
-
-
-
-                  <div className="flex gap-4 pt-4">
-                    <Button onClick={handleSave} className="flex-1 bg-blue-600 hover:bg-blue-700">
-                      <Check className="w-4 h-4 mr-2" />
-                      Guardar
-                    </Button>
-                    <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1">
-                      <X className="w-4 h-4 mr-2" />
-                      Cancelar
-                    </Button>
-                  </div>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div >
-        </div >
-
-        <CategoriaFilter
-          selectedCategoria={selectedCategoria}
-          onFilterChange={setSelectedCategoria}
-          categorias={[...new Set(productos.map(p => p.categoria))]}
-          onDeleteCategory={handleDeleteCategory}
-          metaCategories={META_CATEGORIES}
-        />
-
-        <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader className="">
-              <DialogTitle className="flex items-center gap-2">
-                <FileSpreadsheet className="w-6 h-6 text-green-600" />
-                Herramienta de Importación Masiva
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
-              {/* LEFT SIDE: URL TOOL */}
-              <div className="space-y-4 border-r pr-4">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <LinkIcon className="w-5 h-5 text-blue-500" />
-                  1. Generador de Links de Fotos
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Subí tus fotos aquí para obtener los links públicos que necesitás pegar en el Excel.
-                </p>
-
-                <div className="bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-6 text-center hover:bg-blue-100 transition-colors">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleBulkPhotoUpload}
-                    className="hidden"
-                    id="bulk-photo-upload"
-                    disabled={isUploadingPhoto}
-                  />
-                  <label htmlFor="bulk-photo-upload" className="cursor-pointer flex flex-col items-center">
-                    {isUploadingPhoto ? (
-                      <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-2"></div>
-                    ) : (
-                      <Upload className="w-10 h-10 text-blue-500 mb-2" />
-                    )}
-                    <span className="text-blue-700 font-bold">
-                      {isUploadingPhoto ? 'Subiendo...' : 'Elegir Fotos (Múltiples)'}
-                    </span>
-                  </label>
-                </div>
-
-                {uploadedPhotos.length > 0 && (
-                  <div className="bg-gray-100 p-3 rounded-lg max-h-60 overflow-y-auto space-y-2">
-                    <p className="text-xs font-bold text-gray-500 mb-2">FOTOS SUBIDAS (Copiá estos links):</p>
-                    {uploadedPhotos.map((photo, i) => (
-                      <div key={i} className="flex items-center justify-between bg-white p-2 rounded border shadow-sm text-xs">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <img src={photo.url} alt="mini" className="w-8 h-8 object-cover rounded" />
-                          <span className="truncate max-w-[150px]">{photo.name}</span>
-                        </div>
-                        <Button size="xs" variant="ghost" onClick={() => copyToClipboard(photo.url)} title="Copiar URL">
-                          <Copy className="w-3 h-3 text-blue-600" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* RIGHT SIDE: CSV IMPORT */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <FileSpreadsheet className="w-5 h-5 text-green-600" />
-                  2. Carga del Excel/CSV
-                </h3>
-
-                <div className="bg-green-50 p-4 rounded-lg space-y-4 border border-green-200">
-                  <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="w-full bg-white text-green-700 border-green-300">
-                    <Download className="w-4 h-4 mr-2" />
-                    Descargar Plantilla CSV
-                  </Button>
-                  <p className="text-xs text-green-800">
-                    Descargá la plantilla, llenala con tus productos (usando los links de fotos generados a la izquierda) y subila abajo.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Archivo CSV Completo</Label>
-                  <Input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleCsvUpload}
-                  />
-                </div>
-
-                {importResult && (
-                  <div className={`p-3 rounded text-sm ${importResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {importResult.message}
-                    {importResult.detalles?.errores?.length > 0 && (
-                      <ul className="mt-2 text-xs list-disc pl-4">
-                        {importResult.detalles.errores.slice(0, 5).map((err, i) => <li key={i}>{err}</li>)}
-                        {importResult.detalles.errores.length > 5 && <li>...y más errores</li>}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                <Button
-                  onClick={processCsvImport}
-                  disabled={!csvFile || isImporting}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {isImporting ? 'Procesando...' : 'Importar Productos'}
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex justify-end mt-6">
-              <Button variant="outline" onClick={() => setImportDialogOpen(false)}>Cerrar</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={bulkActionDialogOpen} onOpenChange={setBulkActionDialogOpen}>
-          <DialogContent>
-            <DialogHeader className="">
-              <DialogTitle>Cambiar Precio de {selectedProducts.length} Productos</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label>Tipo de Cambio</Label>
-                <select
-                  value={bulkPriceChange.type}
-                  onChange={(e) => setBulkPriceChange({ ...bulkPriceChange, type: e.target.value })}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="increase">Aumentar</option>
-                  <option value="decrease">Disminuir</option>
-                </select>
               </div>
 
               <div>
-                <Label>Modo</Label>
-                <select
-                  value={bulkPriceChange.mode}
-                  onChange={(e) => setBulkPriceChange({ ...bulkPriceChange, mode: e.target.value })}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="percentage">Porcentaje (%)</option>
-                  <option value="fixed">Monto Fijo ($)</option>
-                </select>
-              </div>
-
-              <div>
-                <Label>Valor</Label>
+                <Label htmlFor="stock">Stock Disponible</Label>
                 <Input
+                  id="stock"
                   type="number"
-                  value={bulkPriceChange.value}
-                  onChange={(e) => setBulkPriceChange({ ...bulkPriceChange, value: parseFloat(e.target.value) || 0 })}
-                  placeholder={bulkPriceChange.mode === 'percentage' ? '10' : '5000'}
+                  value={formData.stock_actual}
+                  onChange={(e) => setFormData({ ...formData, stock_actual: e.target.value })}
+                  placeholder="0"
                 />
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={handleBulkPriceChange} className="flex-1">
-                  Aplicar Cambio
-                </Button>
-                <Button variant="outline" onClick={() => setBulkActionDialogOpen(false)} className="flex-1">
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {
-          productos.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Plus className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay productos aún</h3>
-              <p className="text-gray-600 mb-6">Creá tu primer producto para comenzar a vender</p>
-              <Button onClick={() => handleOpenDialog()} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Crear mi primer producto
-              </Button>
-            </div>
-          ) : (
-            <div>
-              {productos.length > 0 && (
-                <div className="mb-4 p-4 bg-gray-50 rounded-lg border flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedProducts.length > 0 && selectedProducts.length === productosFiltrados.length}
-                      onChange={handleSelectAll}
-                      className="w-4 h-4 rounded"
+              <div>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="categoria">Categoría del Comercio *</Label>
+                    <Input
+                      id="categoria"
+                      value={formData.categoria || ''}
+                      onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
+                      placeholder="Ej: Parrillas, Accesorios, Indumentaria (Creá tus propias categorías)"
+                      className="border-orange-300"
+                      list="categorias-sugeridas"
                     />
-                    <span className="text-sm font-medium">
-                      {selectedProducts.length > 0
-                        ? `${selectedProducts.length} producto(s) seleccionado(s)`
-                        : 'Seleccionar todos'}
-                    </span>
+                    <datalist id="categorias-sugeridas">
+                      <option value="Set Parrillero Completo" />
+                      <option value="Parrillas con Brasero Uruguayo" />
+                      <option value="Accesorios de Cocción" />
+                    </datalist>
+                    <p className="text-xs text-orange-600 mt-1">Escribí una nueva o elegí una existente. Organiza tu tienda como quieras.</p>
                   </div>
-                  {selectedProducts.length > 0 && (
-                    <span className="text-xs text-gray-500">
-                      Usa los botones arriba para aplicar acciones masivas
-                    </span>
+
+                  <div className="bg-gray-100 p-3 rounded border border-gray-200">
+                    <Label className="text-xs font-bold text-gray-500 uppercase">Categoría Meta (Automática)</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="w-4 h-4 rounded-full bg-blue-500 animate-pulse"></div>
+                      <span className="text-sm text-gray-700 italic">
+                        {formData.meta_product_category || 'El Agente determinará la mejor categoría de Meta Ads basada en el título y specs.'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+
+
+                <div className="border-t pt-4">
+                  <Label className="text-base font-semibold mb-4 block">📸 Carga de Multimedia (Meta-Ready)</Label>
+
+                  <div className="space-y-3 mb-6">
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="font-medium text-sm">📷 Foto Principal (image_link)</Label>
+                        {mediaTemp.fotoPrincipal && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMedia('fotoPrincipal')}
+                            className="text-red-500 h-6"
+                          >
+                            <X className="w-4 h-4" /> Cambiar
+                          </Button>
+                        )}
+                      </div>
+                      {mediaTemp.fotoPrincipal ? (
+                        <div className="w-20 h-20 rounded border border-blue-300 overflow-hidden">
+                          <img src={mediaTemp.fotoPrincipal.preview} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-blue-300 rounded cursor-pointer hover:bg-blue-100">
+                          <Upload className="w-5 h-5 text-blue-400" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleMediaSelect('fotoPrincipal', e)}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="font-medium text-sm">📷 Foto Detalle 1</Label>
+                        {mediaTemp.fotoDetalle1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMedia('fotoDetalle1')}
+                            className="text-red-500 h-6"
+                          >
+                            <X className="w-4 h-4" /> Cambiar
+                          </Button>
+                        )}
+                      </div>
+                      {mediaTemp.fotoDetalle1 ? (
+                        <div className="w-20 h-20 rounded border border-blue-300 overflow-hidden">
+                          <img src={mediaTemp.fotoDetalle1.preview} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-blue-300 rounded cursor-pointer hover:bg-blue-100">
+                          <Upload className="w-5 h-5 text-blue-400" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleMediaSelect('fotoDetalle1', e)}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="font-medium text-sm">📷 Foto Detalle 2</Label>
+                        {mediaTemp.fotoDetalle2 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMedia('fotoDetalle2')}
+                            className="text-red-500 h-6"
+                          >
+                            <X className="w-4 h-4" /> Cambiar
+                          </Button>
+                        )}
+                      </div>
+                      {mediaTemp.fotoDetalle2 ? (
+                        <div className="w-20 h-20 rounded border border-blue-300 overflow-hidden">
+                          <img src={mediaTemp.fotoDetalle2.preview} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-blue-300 rounded cursor-pointer hover:bg-blue-100">
+                          <Upload className="w-5 h-5 text-blue-400" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleMediaSelect('fotoDetalle2', e)}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="font-medium text-sm text-purple-900">🎬 Video de Venta (Uso/Lifestyle)</Label>
+                        {mediaTemp.videoVenta && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMedia('videoVenta')}
+                            className="text-red-500 h-6"
+                          >
+                            <X className="w-4 h-4" /> Cambiar
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-purple-700 mb-2 font-bold">⚠️ Requisito: Max 30 seg. El producto debe verse siendo utilizado. Validación demora hasta 24hs.</p>
+                      {mediaTemp.videoVenta ? (
+                        <div className="w-20 h-12 bg-purple-200 rounded border border-purple-300 flex items-center justify-center">
+                          <p className="text-xs text-center px-1 truncate">{mediaTemp.videoVenta.nombre}</p>
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center w-20 h-12 border-2 border-dashed border-purple-300 rounded cursor-pointer hover:bg-purple-100">
+                          <Upload className="w-5 h-5 text-purple-400" />
+                          <input
+                            type="file"
+                            accept="video/mp4,video/quicktime"
+                            onChange={(e) => handleMediaSelect('videoVenta', e)}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="font-medium text-sm text-purple-900">🎬 Video Técnico (Producto solo)</Label>
+                        {mediaTemp.videoTecnico && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMedia('videoTecnico')}
+                            className="text-red-500 h-6"
+                          >
+                            <X className="w-4 h-4" /> Cambiar
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-purple-700 mb-2 font-bold">⚠️ Requisito: Max 30 seg. Plano detalle mostrando el producto. Validación demora hasta 24hs.</p>
+                      {mediaTemp.videoTecnico ? (
+                        <div className="w-20 h-12 bg-purple-200 rounded border border-purple-300 flex items-center justify-center">
+                          <p className="text-xs text-center px-1 truncate">{mediaTemp.videoTecnico.nombre}</p>
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center w-20 h-12 border-2 border-dashed border-purple-300 rounded cursor-pointer hover:bg-purple-100">
+                          <Upload className="w-5 h-5 text-purple-400" />
+                          <input
+                            type="file"
+                            accept="video/mp4,video/quicktime"
+                            onChange={(e) => handleMediaSelect('videoTecnico', e)}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+
+
+                <div className="flex gap-4 pt-4">
+                  <Button onClick={handleSave} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                    <Check className="w-4 h-4 mr-2" />
+                    Guardar
+                  </Button>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1">
+                    <X className="w-4 h-4 mr-2" />
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div >
+      </div >
+
+      <CategoriaFilter
+        selectedCategoria={selectedCategoria}
+        onFilterChange={setSelectedCategoria}
+        categorias={[...new Set(productos.map(p => p.categoria))]}
+        onDeleteCategory={handleDeleteCategory}
+        metaCategories={META_CATEGORIES}
+      />
+
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="">
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="w-6 h-6 text-green-600" />
+              Herramienta de Importación Masiva
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+            {/* LEFT SIDE: URL TOOL */}
+            <div className="space-y-4 border-r pr-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <LinkIcon className="w-5 h-5 text-blue-500" />
+                1. Generador de Links de Fotos
+              </h3>
+              <p className="text-sm text-gray-600">
+                Subí tus fotos aquí para obtener los links públicos que necesitás pegar en el Excel.
+              </p>
+
+              <div className="bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-6 text-center hover:bg-blue-100 transition-colors">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleBulkPhotoUpload}
+                  className="hidden"
+                  id="bulk-photo-upload"
+                  disabled={isUploadingPhoto}
+                />
+                <label htmlFor="bulk-photo-upload" className="cursor-pointer flex flex-col items-center">
+                  {isUploadingPhoto ? (
+                    <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-2"></div>
+                  ) : (
+                    <Upload className="w-10 h-10 text-blue-500 mb-2" />
+                  )}
+                  <span className="text-blue-700 font-bold">
+                    {isUploadingPhoto ? 'Subiendo...' : 'Elegir Fotos (Múltiples)'}
+                  </span>
+                </label>
+              </div>
+
+              {uploadedPhotos.length > 0 && (
+                <div className="bg-gray-100 p-3 rounded-lg max-h-60 overflow-y-auto space-y-2">
+                  <p className="text-xs font-bold text-gray-500 mb-2">FOTOS SUBIDAS (Copiá estos links):</p>
+                  {uploadedPhotos.map((photo, i) => (
+                    <div key={i} className="flex items-center justify-between bg-white p-2 rounded border shadow-sm text-xs">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <img src={photo.url} alt="mini" className="w-8 h-8 object-cover rounded" />
+                        <span className="truncate max-w-[150px]">{photo.name}</span>
+                      </div>
+                      <Button size="xs" variant="ghost" onClick={() => copyToClipboard(photo.url)} title="Copiar URL">
+                        <Copy className="w-3 h-3 text-blue-600" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT SIDE: CSV IMPORT */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                2. Carga del Excel/CSV
+              </h3>
+
+              <div className="bg-green-50 p-4 rounded-lg space-y-4 border border-green-200">
+                <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="w-full bg-white text-green-700 border-green-300">
+                  <Download className="w-4 h-4 mr-2" />
+                  Descargar Plantilla CSV
+                </Button>
+                <p className="text-xs text-green-800">
+                  Descargá la plantilla, llenala con tus productos (usando los links de fotos generados a la izquierda) y subila abajo.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Archivo CSV Completo</Label>
+                <Input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCsvUpload}
+                />
+              </div>
+
+              {importResult && (
+                <div className={`p-3 rounded text-sm ${importResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {importResult.message}
+                  {importResult.detalles?.errores?.length > 0 && (
+                    <ul className="mt-2 text-xs list-disc pl-4">
+                      {importResult.detalles.errores.slice(0, 5).map((err, i) => <li key={i}>{err}</li>)}
+                      {importResult.detalles.errores.length > 5 && <li>...y más errores</li>}
+                    </ul>
                   )}
                 </div>
               )}
 
-              {[...new Set(productosFiltrados.map(p => p.categoria))].sort().map(categoria => {
-                const productosCategoria = productosFiltrados.filter(p => p.categoria === categoria);
-                return (
-                  <div key={categoria} className="mb-8">
-                    <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-200 justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                          {productosCategoria.length}
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-900">{categoria}</h3>
+              <Button
+                onClick={processCsvImport}
+                disabled={!csvFile || isImporting}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isImporting ? 'Procesando...' : 'Importar Productos'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>Cerrar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkActionDialogOpen} onOpenChange={setBulkActionDialogOpen}>
+        <DialogContent>
+          <DialogHeader className="">
+            <DialogTitle>Cambiar Precio de {selectedProducts.length} Productos</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Tipo de Cambio</Label>
+              <select
+                value={bulkPriceChange.type}
+                onChange={(e) => setBulkPriceChange({ ...bulkPriceChange, type: e.target.value })}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="increase">Aumentar</option>
+                <option value="decrease">Disminuir</option>
+              </select>
+            </div>
+
+            <div>
+              <Label>Modo</Label>
+              <select
+                value={bulkPriceChange.mode}
+                onChange={(e) => setBulkPriceChange({ ...bulkPriceChange, mode: e.target.value })}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="percentage">Porcentaje (%)</option>
+                <option value="fixed">Monto Fijo ($)</option>
+              </select>
+            </div>
+
+            <div>
+              <Label>Valor</Label>
+              <Input
+                type="number"
+                value={bulkPriceChange.value}
+                onChange={(e) => setBulkPriceChange({ ...bulkPriceChange, value: parseFloat(e.target.value) || 0 })}
+                placeholder={bulkPriceChange.mode === 'percentage' ? '10' : '5000'}
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={handleBulkPriceChange} className="flex-1">
+                Aplicar Cambio
+              </Button>
+              <Button variant="outline" onClick={() => setBulkActionDialogOpen(false)} className="flex-1">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {
+        productos.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Plus className="w-10 h-10 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay productos aún</h3>
+            <p className="text-gray-600 mb-6">Creá tu primer producto para comenzar a vender</p>
+            <Button onClick={() => handleOpenDialog()} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="w-4 h-4 mr-2" />
+              Crear mi primer producto
+            </Button>
+          </div>
+        ) : (
+          <div>
+            {productos.length > 0 && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg border flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.length > 0 && selectedProducts.length === productosFiltrados.length}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-sm font-medium">
+                    {selectedProducts.length > 0
+                      ? `${selectedProducts.length} producto(s) seleccionado(s)`
+                      : 'Seleccionar todos'}
+                  </span>
+                </div>
+                {selectedProducts.length > 0 && (
+                  <span className="text-xs text-gray-500">
+                    Usa los botones arriba para aplicar acciones masivas
+                  </span>
+                )}
+              </div>
+            )}
+
+            {[...new Set(productosFiltrados.map(p => p.categoria))].sort().map(categoria => {
+              const productosCategoria = productosFiltrados.filter(p => p.categoria === categoria);
+              return (
+                <div key={categoria} className="mb-8">
+                  <div className="flex items-center gap-3 mb-4 pb-3 border-b-2 border-blue-200 justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                        {productosCategoria.length}
                       </div>
-
-                      {!META_CATEGORIES.includes(categoria) && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteCategory(categoria)}
-                          className="text-red-500 hover:bg-red-50 hover:text-red-700"
-                          title="Eliminar Categoría"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Borrar Categoría
-                        </Button>
-                      )}
+                      <h3 className="text-xl font-bold text-gray-900">{categoria}</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {productosCategoria.map(producto => {
-                        const stockBajo = producto.stock_actual <= (producto.stock_minimo_alerta || 5);
-                        const sinStock = producto.stock_actual <= 0;
-                        const margen = producto.costo_producto > 0
-                          ? ((producto.precio_estandar - producto.costo_producto) / producto.precio_estandar * 100).toFixed(1)
-                          : 0;
 
-                        const atributosProducto = todosAtributos.filter(a => a.id_producto === producto.id);
+                    {!META_CATEGORIES.includes(categoria) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteCategory(categoria)}
+                        className="text-red-500 hover:bg-red-50 hover:text-red-700"
+                        title="Eliminar Categoría"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Borrar Categoría
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {productosCategoria.map(producto => {
+                      const stockBajo = producto.stock_actual <= (producto.stock_minimo_alerta || 5);
+                      const sinStock = producto.stock_actual <= 0;
+                      const margen = producto.costo_producto > 0
+                        ? ((producto.precio_estandar - producto.costo_producto) / producto.precio_estandar * 100).toFixed(1)
+                        : 0;
 
-                        return (
-                          <Card key={producto.id} className={!producto.activo ? 'opacity-60' : ''}>
-                            <div className="aspect-video bg-gray-100 relative">
-                              <div className="absolute top-2 left-2 z-10">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedProducts.includes(producto.id)}
-                                  onChange={() => handleSelectProduct(producto.id)}
-                                  className="w-5 h-5 rounded"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </div>
-                              <img
-                                src={producto.imagen_principal || 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400'}
-                                alt={producto.titulo}
-                                className="w-full h-full object-cover"
+                      const atributosProducto = todosAtributos.filter(a => a.id_producto === producto.id);
+
+                      return (
+                        <Card key={producto.id} className={!producto.activo ? 'opacity-60' : ''}>
+                          <div className="aspect-video bg-gray-100 relative">
+                            <div className="absolute top-2 left-2 z-10">
+                              <input
+                                type="checkbox"
+                                checked={selectedProducts.includes(producto.id)}
+                                onChange={() => handleSelectProduct(producto.id)}
+                                className="w-5 h-5 rounded"
+                                onClick={(e) => e.stopPropagation()}
                               />
-                              <div className="absolute top-2 right-2 flex gap-2">
-                                {!producto.activo && (
-                                  <Badge variant="secondary" className="">Inactivo</Badge>
-                                )}
-                                {sinStock && (
-                                  <Badge className="bg-red-500" variant="destructive">Sin stock</Badge>
-                                )}
-                                {stockBajo && !sinStock && (
-                                  <Badge className="bg-orange-500" variant="default">Stock bajo</Badge>
-                                )}
+                            </div>
+                            <img
+                              src={producto.imagen_principal || 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400'}
+                              alt={producto.titulo}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-2 right-2 flex gap-2">
+                              {!producto.activo && (
+                                <Badge variant="secondary" className="">Inactivo</Badge>
+                              )}
+                              {sinStock && (
+                                <Badge className="bg-red-500" variant="destructive">Sin stock</Badge>
+                              )}
+                              {stockBajo && !sinStock && (
+                                <Badge className="bg-orange-500" variant="default">Stock bajo</Badge>
+                              )}
+                            </div>
+                            <div className="absolute top-2 left-12">
+                              <Badge variant="outline" className="bg-white/90 text-xs">
+                                ID: {producto.id.substring(0, 8)}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="font-semibold line-clamp-1">{producto.titulo}</h3>
+                            </div>
+
+                            <div className="bg-gray-50 p-2 rounded mb-3 space-y-2 text-xs">
+                              <div className="flex justify-between gap-2">
+                                <span className="text-gray-600 font-medium">SKU:</span>
+                                <span className="font-mono font-bold text-blue-700">{producto.sku_taller_interno || '-'}</span>
                               </div>
-                              <div className="absolute top-2 left-12">
-                                <Badge variant="outline" className="bg-white/90 text-xs">
-                                  ID: {producto.id.substring(0, 8)}
-                                </Badge>
+                              <div className="flex justify-between gap-2 border-t pt-2">
+                                <span className="text-gray-600 font-medium">ID Meta:</span>
+                                <span className="font-mono text-gray-500 text-xs">{producto.id.substring(0, 12)}...</span>
                               </div>
                             </div>
 
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <h3 className="font-semibold line-clamp-1">{producto.titulo}</h3>
+                            {atributosProducto.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-3">
+                                {atributosProducto.slice(0, 3).map((attr, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {attr.nombre_atributo}: {attr.valor_atributo}
+                                  </Badge>
+                                ))}
+                                {atributosProducto.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{atributosProducto.length - 3}
+                                  </Badge>
+                                )}
                               </div>
+                            )}
 
-                              <div className="bg-gray-50 p-2 rounded mb-3 space-y-2 text-xs">
-                                <div className="flex justify-between gap-2">
-                                  <span className="text-gray-600 font-medium">SKU:</span>
-                                  <span className="font-mono font-bold text-blue-700">{producto.sku_taller_interno || '-'}</span>
-                                </div>
-                                <div className="flex justify-between gap-2 border-t pt-2">
-                                  <span className="text-gray-600 font-medium">ID Meta:</span>
-                                  <span className="font-mono text-gray-500 text-xs">{producto.id.substring(0, 12)}...</span>
-                                </div>
+                            <div className="space-y-1 text-sm mb-4">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Precio Estándar:</span>
+                                <span className="font-semibold">${producto.precio_estandar?.toLocaleString('es-AR')}</span>
                               </div>
-
-                              {atributosProducto.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-3">
-                                  {atributosProducto.slice(0, 3).map((attr, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs">
-                                      {attr.nombre_atributo}: {attr.valor_atributo}
-                                    </Badge>
-                                  ))}
-                                  {atributosProducto.length > 3 && (
-                                    <Badge variant="outline" className="text-xs">
-                                      +{atributosProducto.length - 3}
-                                    </Badge>
-                                  )}
+                              {producto.precio_minimo && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Mín. IA:</span>
+                                  <span className="font-medium text-amber-600">${producto.precio_minimo?.toLocaleString('es-AR')}</span>
                                 </div>
                               )}
-
-                              <div className="space-y-1 text-sm mb-4">
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Precio Estándar:</span>
-                                  <span className="font-semibold">${producto.precio_estandar?.toLocaleString('es-AR')}</span>
-                                </div>
-                                {producto.precio_minimo && (
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-600">Mín. IA:</span>
-                                    <span className="font-medium text-amber-600">${producto.precio_minimo?.toLocaleString('es-AR')}</span>
-                                  </div>
-                                )}
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Stock:</span>
-                                  <span className={sinStock ? 'text-red-600 font-medium' : 'font-medium'}>
-                                    {producto.stock_actual}
-                                  </span>
-                                </div>
-                                {producto.costo_producto > 0 && (
-                                  <div className="flex justify-between">
-                                    <span className="text-gray-600">Margen:</span>
-                                    <span className="font-medium text-green-600">{margen}%</span>
-                                  </div>
-                                )}
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Categoría:</span>
-                                  <span className="font-medium text-blue-600 text-xs">{producto.categoria || '-'}</span>
-                                </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Stock:</span>
+                                <span className={sinStock ? 'text-red-600 font-medium' : 'font-medium'}>
+                                  {producto.stock_actual}
+                                </span>
                               </div>
-
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleToggleActivo(producto)}
-                                  className="flex-1"
-                                >
-                                  {producto.activo ? 'Desactivar' : 'Activar'}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleOpenDialog(producto)}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDelete(producto.id)}
-                                  className="text-red-500 hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                              {producto.costo_producto > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-600">Margen:</span>
+                                  <span className="font-medium text-green-600">{margen}%</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Categoría:</span>
+                                <span className="font-medium text-blue-600 text-xs">{producto.categoria || '-'}</span>
                               </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleActivo(producto)}
+                                className="flex-1"
+                              >
+                                {producto.activo ? 'Desactivar' : 'Activar'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenDialog(producto)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(producto.id)}
+                                className="text-red-500 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          )
-        }
-      </div >
-    );
-  }
+                </div>
+              );
+            })}
+          </div>
+        )
+      }
+    </div >
+  );
+}
