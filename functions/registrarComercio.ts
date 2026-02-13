@@ -1,0 +1,74 @@
+import { createClientFromRequest } from "npm:@base44/sdk";
+
+/**
+ * Genera un id_comercio único de 10 caracteres alfanuméricos
+ */
+function generateIdComercio() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 10; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+export default async function (req) {
+    const client = createClientFromRequest(req);
+    const payload = await req.json();
+
+    try {
+        const { user_id, nombre, email_negocio, whatsapp_negocio, password } = payload;
+
+        // Generar id_comercio único
+        const id_comercio = generateIdComercio();
+
+        // Hashear contraseña con SHA-256
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const password_hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // Crear Comercio con serviceRole
+        const comercio = await client.asServiceRole.entities.Comercio.create({
+            user_id,
+            id_comercio,
+            nombre,
+            email_negocio,
+            whatsapp_negocio,
+            password_hash,  // Guardamos hash, NO la contraseña
+            estado_registro: 'completado',
+            plan: 'bronce',
+            activo: true
+        });
+
+        // Crear ConfiguracionComercio automáticamente
+        await client.asServiceRole.entities.ConfiguracionComercio.create({
+            id_comercio,
+            colores: {
+                primario: '#f97316',
+                secundario: '#ea580c',
+                acento: '#fb923c'
+            },
+            habilitar_referidos: true,
+            habilitar_popup_salida: true,
+            envio_gratis_minimo: 0,
+            costo_envio_default: 0,
+            mostrar_stock: true,
+            umbral_escasez: 5,
+            descuento_base_transferencia: 10
+        });
+
+        return Response.json({
+            success: true,
+            id_comercio: comercio.id_comercio
+        });
+
+    } catch (error) {
+        console.error('Error en registrarComercio:', error);
+        return Response.json({
+            success: false,
+            error: error.message || "Error al registrar comercio"
+        }, { status: 500 });
+    }
+}
