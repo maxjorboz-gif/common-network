@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Menu, X, Flame, LayoutDashboard } from 'lucide-react';
-import CartButton from '@/components/CartButton';
 import { useAuth } from '@/lib/AuthContext';
 
 const getPageNameFromPath = (pathname) => {
@@ -19,8 +18,8 @@ export default function Layout({ children }) {
   const currentPageName = getPageNameFromPath(location.pathname);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Consumo pasivo del contexto: solo leemos si hay comercio auth, no bloqueamos nada.
-  const { isCommerceAuthenticated, commerce } = useAuth();
+  // Consumo pasivo del contexto: solo leemos si hay usuario autenticado
+  const { isAuthenticated, user } = useAuth();
 
   const isAdminPage = currentPageName === 'AdminPanel';
   const isLandingPage = currentPageName === 'Landing';
@@ -43,10 +42,10 @@ export default function Layout({ children }) {
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center gap-6">
 
-                {/* Si estamos autenticados como comercio, mostramos acceso directo al panel */}
-                {isCommerceAuthenticated && (
+                {/* Si estamos autenticados, mostramos acceso directo al panel */}
+                {isAuthenticated && (
                   <Link
-                    to="/adminpanel"
+                    to="/merchant"
                     className="flex items-center gap-2 px-4 py-2 bg-neutral-800 text-white rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-neutral-700 transition-colors"
                   >
                     <LayoutDashboard className="w-4 h-4" />
@@ -54,7 +53,7 @@ export default function Layout({ children }) {
                   </Link>
                 )}
 
-                {isLandingPage && !isCommerceAuthenticated && (
+                {isLandingPage && !isAuthenticated && (
                   <Link
                     to="/registro"
                     className={`px-4 py-2 rounded-xl text-sm font-black uppercase italic tracking-widest transition-all text-neutral-400 hover:text-white`}
