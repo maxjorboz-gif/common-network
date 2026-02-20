@@ -73,7 +73,9 @@ export default async function (req) {
 
         return Response.json({
             success: true,
-            id_comercio: comercio.id_comercio
+            id_comercio: comercio.id_comercio,
+            slug: comercio.slug,
+            url_tienda: `/tienda?slug=${comercio.slug}`
         });
 
     } catch (error) {
