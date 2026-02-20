@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Menu, X, Flame, LayoutDashboard } from 'lucide-react';
-import { useAuth } from '@/lib/AuthContext';
+import { base44 } from '@/api/base44Client';
 
 const getPageNameFromPath = (pathname) => {
   const path = pathname.toLowerCase();
