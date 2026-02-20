@@ -185,7 +185,7 @@ export default function Producto() {
         )}
       </div>
 
-      <MarketingPromoToast producto={producto} comercio={data?.comercio} />
+
     </div>
   );
 }
