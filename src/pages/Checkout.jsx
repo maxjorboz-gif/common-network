@@ -13,7 +13,12 @@ import {
     ArrowLeft, MapPin, Phone, User, CheckCircle,
     Ticket, CreditCard, Landmark, Fingerprint, Hash, ShoppingBasket, Truck, FileText, Info
 } from 'lucide-react';
-import { trackEvent } from '@/lib/tracking';
+
+const trackEvent = (params) => {
+    if (typeof window !== 'undefined' && window.fbq) {
+        try { window.fbq('track', params.event_name || 'PageView', params.payload || {}); } catch(e) {}
+    }
+};
 
 const COMERCIO_ID_FALLBACK = null; // Eliminado 000001
 
