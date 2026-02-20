@@ -7,8 +7,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useCart } from '@/components/CartContext';
 import ReviewSlider from '@/components/store/ReviewSlider';
 import { useNavigate, useParams } from 'react-router-dom';
-import MarketingPromoToast from '@/components/ui/MarketingPromoToast';
-import { trackEvent } from '@/lib/tracking';
+
+const trackEvent = (params) => {
+  if (typeof window !== 'undefined' && window.fbq) {
+    try { window.fbq('track', params.event_name || 'PageView', params.payload || {}); } catch(e) {}
+  }
+};
 
 export default function Producto() {
   const urlParams = new URLSearchParams(window.location.search);
