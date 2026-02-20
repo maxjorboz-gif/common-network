@@ -75,15 +75,16 @@ export default function MerchantRegister() {
                 return;
             }
 
+            const urlTienda = `${window.location.origin}/tienda?slug=${result.id_comercio?.slug || result.slug || result.id_comercio}`;
             toast({
                 title: "¡Comercio registrado!",
-                description: `ID: ${result.id_comercio}. Redirigiendo al panel...`,
+                description: `Tu tienda: ${result.url_tienda || '/tienda?slug=...'} Redirigiendo al panel...`,
             });
 
-            // PASO 5: Recargar página
+            // PASO 5: Redirigir al panel
             setTimeout(() => {
-                window.location.reload();
-            }, 2000);
+                window.location.href = '/merchant';
+            }, 2500);
 
         } catch (error) {
             console.error('Error al registrar comercio:', error);
