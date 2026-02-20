@@ -1,8 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 
-/**
- * Genera un id_comercio único de 10 caracteres alfanuméricos
- */
 function generateIdComercio() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
@@ -10,6 +7,17 @@ function generateIdComercio() {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
+}
+
+function generateSlug(nombre) {
+    return nombre
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .substring(0, 40) + '-' + Math.random().toString(36).substring(2, 7);
 }
 
 export default async function (req) {
