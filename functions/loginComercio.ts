@@ -1,6 +1,6 @@
-import { createClientFromRequest } from "npm:@base44/sdk";
+import { createClientFromRequest } from "npm:@base44/sdk@0.8.6";
 
-export default async function (req) {
+Deno.serve(async (req) => {
     const client = createClientFromRequest(req);
     const { email, password } = await req.json();
 
@@ -40,6 +40,7 @@ export default async function (req) {
             comercio: {
                 id: comercio.id,
                 id_comercio: comercio.id_comercio,
+                slug: comercio.slug,
                 user_id: comercio.user_id,
                 nombre: comercio.nombre,
                 email_negocio: comercio.email_negocio
@@ -53,4 +54,4 @@ export default async function (req) {
             error: "Error interno del servidor"
         }, { status: 500 });
     }
-}
+});
