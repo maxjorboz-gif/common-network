@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ExternalLink, Copy, Check } from 'lucide-react';
 
 // Importación de sub-componentes administrativos
 import AdminProductos from '@/components/admin/AdminProductos.jsx';
