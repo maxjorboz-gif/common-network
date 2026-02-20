@@ -147,30 +147,38 @@ export default function AdminConfiguracion({ comercio }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Label>URL Pública de tu Comercio</Label>
-          <div className="flex gap-2 mt-2">
-            <Input
-              readOnly
-              value={`${window.location.origin}/tienda/${comercio.id_comercio}`}
-              className="bg-black/30 text-neutral-300 border-orange-900/30 font-mono"
-            />
-            <Button
-              variant="outline"
-              className="border-orange-600 text-orange-500 hover:bg-orange-600 hover:text-white"
-              onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/tienda/${comercio.id_comercio}`);
-                toast.success("URL copiada al portapapeles");
-              }}
-            >
-              Copiar
-            </Button>
-            <Button
-              className="bg-orange-600 hover:bg-orange-700"
-              onClick={() => window.open(`/tienda/${comercio.id_comercio}`, '_blank')}
-            >
-              Ver Tienda
-            </Button>
-          </div>
+          <Label>URL Pública de tu Tienda</Label>
+          {(() => {
+            const urlTienda = comercio.slug
+              ? `${window.location.origin}/tienda?slug=${comercio.slug}`
+              : `${window.location.origin}/tienda?slug=${comercio.id_comercio}`;
+            return (
+              <div className="flex gap-2 mt-2">
+                <Input
+                  readOnly
+                  value={urlTienda}
+                  className="bg-black/30 text-neutral-300 border-orange-900/30 font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  className="border-orange-600 text-orange-500 hover:bg-orange-600 hover:text-white whitespace-nowrap"
+                  onClick={() => {
+                    navigator.clipboard.writeText(urlTienda);
+                    toast.success("URL copiada al portapapeles");
+                  }}
+                >
+                  Copiar
+                </Button>
+                <Button
+                  className="bg-orange-600 hover:bg-orange-700 whitespace-nowrap"
+                  onClick={() => window.open(urlTienda, '_blank')}
+                >
+                  Ver Tienda
+                </Button>
+              </div>
+            );
+          })()}
+          <p className="text-xs text-gray-400 mt-2">Compartí este link con tus clientes para que vean tu catálogo.</p>
         </CardContent>
       </Card>
 
