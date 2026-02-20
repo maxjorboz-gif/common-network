@@ -37,14 +37,18 @@ export default async function (req) {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const password_hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
+        // Generar slug único para la URL de la tienda
+        const slug = generateSlug(nombre);
+
         // Crear Comercio con serviceRole
         const comercio = await client.asServiceRole.entities.Comercio.create({
             user_id,
             id_comercio,
+            slug,
             nombre,
             email_negocio,
             whatsapp_negocio,
-            password_hash,  // Guardamos hash, NO la contraseña
+            password_hash,
             estado_registro: 'completado',
             plan: 'bronce',
             activo: true
