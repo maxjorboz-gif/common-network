@@ -58,6 +58,7 @@ import MerchantRegister from './pages/MerchantRegister';
 import PoliticaDevolucion from './pages/PoliticaDevolucion';
 import Producto from './pages/Producto';
 import TerminosYCondiciones from './pages/TerminosYCondiciones';
+import Tienda from './pages/Tienda';
 import __Layout from './Layout.jsx';
 
 
@@ -73,6 +74,7 @@ export const PAGES = {
     "PoliticaDevolucion": PoliticaDevolucion,
     "Producto": Producto,
     "TerminosYCondiciones": TerminosYCondiciones,
+    "Tienda": Tienda,
 }
 
 export const pagesConfig = {
