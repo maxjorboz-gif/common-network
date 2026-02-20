@@ -76,9 +76,22 @@ export default function AdminPanel() {
             </div>
           </div>
 
-          <Button variant="ghost" className="text-red-600 hover:text-red-700 font-bold" onClick={logout}>
-            Salir
-          </Button>
+          <div className="flex items-center gap-2">
+            {urlTienda && (
+              <div className="hidden md:flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                <span className="text-xs text-blue-700 font-medium truncate max-w-[200px]">{urlTienda}</span>
+                <button onClick={copyUrl} className="text-blue-600 hover:text-blue-800">
+                  {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                </button>
+                <a href={urlTienda} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </div>
+            )}
+            <Button variant="ghost" className="text-red-600 hover:text-red-700 font-bold" onClick={logout}>
+              Salir
+            </Button>
+          </div>
         </div>
       </header>
 
