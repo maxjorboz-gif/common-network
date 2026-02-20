@@ -1,4 +1,4 @@
-import { createClientFromRequest } from "npm:@base44/sdk";
+import { createClientFromRequest } from "npm:@base44/sdk@0.8.6";
 
 function generateIdComercio() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -20,7 +20,7 @@ function generateSlug(nombre) {
         .substring(0, 40) + '-' + Math.random().toString(36).substring(2, 7);
 }
 
-export default async function (req) {
+Deno.serve(async (req) => {
     const client = createClientFromRequest(req);
     const payload = await req.json();
 
@@ -85,4 +85,4 @@ export default async function (req) {
             error: error.message || "Error al registrar comercio"
         }, { status: 500 });
     }
-}
+});
