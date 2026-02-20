@@ -18,6 +18,18 @@ import AdminSorteos from '@/components/admin/AdminSorteos.jsx';
 export default function AdminPanel() {
   const { commerce, isCommerceAuthenticated, isLoadingCommerce, logout } = useAuth();
   const [selectedTab, setSelectedTab] = useState('estadisticas');
+  const [copied, setCopied] = useState(false);
+
+  const urlTienda = commerce?.slug
+    ? `${window.location.origin}/tienda?slug=${commerce.slug}`
+    : null;
+
+  const copyUrl = () => {
+    if (!urlTienda) return;
+    navigator.clipboard.writeText(urlTienda);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // Protection Check
   useEffect(() => {
