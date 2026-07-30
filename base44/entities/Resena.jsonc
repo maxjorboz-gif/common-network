@@ -1,0 +1,58 @@
+{
+  "name": "Resena",
+  "type": "object",
+  "properties": {
+    "id_producto": {
+      "type": "string"
+    },
+    "id_cliente": {
+      "type": "string"
+    },
+    "id_orden": {
+      "type": "string",
+      "description": "Orden asociada a la rese\u00f1a (Garantiza compra verificada)"
+    },
+    "id_comercio": {
+      "type": "string"
+    },
+    "nombre_cliente": {
+      "type": "string"
+    },
+    "estrellas": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "titulo": {
+      "type": "string"
+    },
+    "texto": {
+      "type": "string"
+    },
+    "foto_url": {
+      "type": "string",
+      "description": "Foto de la rese\u00f1a (UGC - Vital para anuncios din\u00e1micos)"
+    },
+    "keywords_detectadas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Palabras clave detectadas por IA para segmentaci\u00f3n"
+    },
+    "destacada": {
+      "type": "boolean",
+      "default": false,
+      "description": "Mostrar en slider de Home"
+    },
+    "aprobada": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "id_producto",
+    "id_cliente",
+    "estrellas"
+  ]
+}

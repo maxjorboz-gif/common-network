@@ -1,0 +1,88 @@
+{
+  "name": "GastoPublicitario",
+  "type": "object",
+  "properties": {
+    "id_comercio": {
+      "type": "string",
+      "description": "Referencia al comercio"
+    },
+    "fecha": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha del gasto"
+    },
+    "monto": {
+      "type": "number",
+      "description": "Monto invertido en ARS"
+    },
+    "plataforma": {
+      "type": "string",
+      "enum": [
+        "meta_ads",
+        "google_ads",
+        "otro"
+      ],
+      "default": "meta_ads",
+      "description": "Plataforma publicitaria"
+    },
+    "notas": {
+      "type": "string",
+      "description": "Notas sobre la inversi\u00f3n (ej: Campa\u00f1a Liquidaci\u00f3n Invierno)"
+    }
+  },
+  "required": [
+    "id_comercio",
+    "fecha",
+    "monto"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "data.id_comercio": "{{user.data.managedCommerceId}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.id_comercio": "{{user.data.managedCommerceId}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.id_comercio": "{{user.data.managedCommerceId}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.id_comercio": "{{user.data.managedCommerceId}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
